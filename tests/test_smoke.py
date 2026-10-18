@@ -306,6 +306,61 @@ def test_work_product_tables():
         assert col["key"] not in {c["key"] for c in W.table(repo, cfg, "SYS2")["columns"]}
 
 
+def test_test_sessions_and_evidence():
+    from ecualm import testruns as T
+    from ecualm.stages import derive
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root); T.init(repo)
+        import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.docx", doc="CRS", rev="1.0", mode="crs")
+        derive(repo, cfg, "SYS1", "SYS2"); derive(repo, cfg, "SYS2", "SWE1"); derive(repo, cfg, "SWE1", "SWE6")
+        eng = {"username": "kim", "name": "김", "role": "engineer"}
+        pm = {"username": "pm", "name": "PM", "role": "manager"}
+        s = T.create_session(repo, cfg, {"name": "r1", "stage": "SWE6", "q": "MOT", "build": "0.1"}, eng)
+        tcs = [c["tc"] for c in s["cases"]]
+        assert s["counts"]["total"] == len(tcs) > 5 and s["status"] == "planned"
+        T.record(repo, cfg, s["id"], {"tc": tcs[0], "status": "PASS"}, eng)
+        assert repo.get(tcs[0])["attrs"]["result"]["status"] == "PASS"                   # pushed to the TC
+        assert T.session(repo, cfg, s["id"])["status"] == "in_progress"
+        try:
+            T.record(repo, cfg, s["id"], {"tc": tcs[1], "status": "FAIL"}, eng); assert False
+        except ValueError:
+            pass
+        T.record(repo, cfg, s["id"], {"tc": tcs[1], "status": "FAIL", "actual": "150ms", "defect": "J-1"}, eng)
+        T.record(repo, cfg, s["id"], {"tc": tcs[2], "status": "N_A"}, eng)
+        e = T.add_evidence(repo, s["id"], tcs[1], "wave.png", b"\x89PNG data", "scope", eng)
+        meta, data = T.get_evidence(repo, e["id"])
+        assert data == b"\x89PNG data" and meta["sha256"] == __import__("hashlib").sha256(data).hexdigest()
+        assert any(f["rule"] == "test_fail" and f["item"] == tcs[1] for f in run_audit(repo, cfg)["findings"])
+        d = T.dashboard(repo, cfg)
+        assert d["kpi"]["fail"] == 1 and d["open_failures"][0]["defect"] == "J-1"
+        cov = next(c for c in d["coverage"] if c["stage"] == "SWE6")
+        assert cov["failed"] >= 1 and cov["linked"] > 0
+        # retest session picks the failed TC only
+        r2 = T.candidates(repo, cfg, "SWE6", only="failed")
+        assert [c["id"] for c in r2] == [tcs[1]]
+        done = T.update_session(repo, cfg, s["id"], {"action": "complete"}, eng)
+        assert done["verdict"] == "FAIL" and done["status"] == "completed"
+        for bad in ({"tc": tcs[3], "status": "PASS"},):
+            try:
+                T.record(repo, cfg, s["id"], bad, eng); assert False
+            except ValueError:
+                pass
+        try:
+            T.delete_evidence(repo, e["id"], eng); assert False                  # completed -> locked
+        except ValueError:
+            pass
+        try:
+            T.update_session(repo, cfg, s["id"], {"action": "reopen"}, eng); assert False
+        except PermissionError:
+            pass
+        assert T.update_session(repo, cfg, s["id"], {"action": "reopen"}, pm)["status"] == "in_progress"
+        out = T.export_xlsx(repo, cfg, s["id"], root / "r.xlsx")
+        from openpyxl import load_workbook
+        wb = load_workbook(out)
+        assert wb.sheetnames == ["요약", "TC 결과", "증빙"] and wb["증빙"]["D2"].value == e["sha256"]
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -315,4 +370,5 @@ if __name__ == "__main__":
     test_config_merge_adds_new_stages()
     test_login_roles_and_plan()
     test_work_product_tables()
+    test_test_sessions_and_evidence()
     print("OK")

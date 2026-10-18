@@ -12,7 +12,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, ops, schedule, workproducts
+from . import arch, assistant, ops, schedule, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -48,6 +48,7 @@ def make_handler(root: Path):
     auth = Auth(repo, cfg0)
     schedule.init(repo)
     workproducts.init(repo)
+    testruns.init(repo)
     auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
@@ -164,6 +165,35 @@ def make_handler(root: Path):
                         return self._send(200, out.read_bytes(),
                                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                           {"Content-Disposition": "attachment; filename=project_plan_MAN3.xlsx"})
+                if path.startswith("/api/tests/") or path.startswith("/api/evidence/"):
+                    qs = urllib.parse.parse_qs(p.query)
+                    with LOCK:
+                        if path == "/api/tests/dashboard":
+                            return self._send(200, testruns.dashboard(repo, self.cfg))
+                        if path == "/api/tests/sessions":
+                            return self._send(200, {"sessions": testruns.sessions(repo, self.cfg)})
+                        if path == "/api/tests/candidates":
+                            g = lambda k, d="": qs.get(k, [d])[0]
+                            return self._send(200, {"candidates": testruns.candidates(repo, self.cfg, g("stage"), g("domain"), g("only", "all"), g("q"))})
+                        if path.startswith("/api/tests/session/"):
+                            sid = urllib.parse.unquote(path[len("/api/tests/session/"):])
+                            if sid.endswith("/xlsx"):
+                                sid = sid[:-5]
+                                with tempfile.TemporaryDirectory() as td:
+                                    out = testruns.export_xlsx(repo, self.cfg, sid, Path(td) / "r.xlsx")
+                                    return self._send(200, out.read_bytes(),
+                                                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                      {"Content-Disposition": f"attachment; filename={sid}_test_report.xlsx"})
+                            return self._send(200, testruns.session(repo, self.cfg, sid))
+                        if path.startswith("/api/evidence/"):
+                            meta, data = testruns.get_evidence(repo, int(path.rsplit("/", 1)[1]))
+                            inline = meta["mime"] in testruns.INLINE_MIME and "dl" not in qs
+                            fn = urllib.parse.quote(meta["filename"])
+                            ctype = meta["mime"] + ("; charset=utf-8" if meta["mime"].startswith("text/") else "")
+                            return self._send(200, data, ctype if inline else "application/octet-stream",
+                                              {"Content-Disposition": f"{'inline' if inline else 'attachment'}; filename*=UTF-8''{fn}",
+                                               "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox"})
+                    return self._send(404, {"error": "not found"})
                 if path.startswith("/api/table/"):
                     sid = path[len("/api/table/"):]
                     if sid.endswith("/xlsx"):
@@ -227,6 +257,10 @@ def make_handler(root: Path):
                                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                           {"Content-Disposition": "attachment; filename=alm_export.xlsx"})
                 return self._send(404, {"error": "not found"})
+            except KeyError as e:
+                return self._send(404, {"error": str(e).strip("'")})
+            except ValueError as e:
+                return self._send(400, {"error": str(e)})
             except Exception as e:
                 traceback.print_exc()
                 return self._send(500, {"error": str(e)})
@@ -270,6 +304,13 @@ def make_handler(root: Path):
                 if path == "/api/ai/settings":
                     return self._send(200, _save_ai_settings(root, self._json_body()))
                 with LOCK:
+                    if path == "/api/evidence":
+                        n = int(self.headers.get("Content-Length") or 0)
+                        if n > testruns.MAX_EVIDENCE:
+                            return self._send(413, {"error": "파일은 50MB 이하만 올릴 수 있습니다"})
+                        data = self.rfile.read(n)
+                        h = lambda k: urllib.parse.unquote(self.headers.get(k, ""))
+                        return self._send(200, testruns.add_evidence(repo, h("X-Session"), h("X-Case"), h("X-Filename"), data, h("X-Note"), who))
                     if path == "/api/import":
                         name = urllib.parse.unquote(self.headers.get("X-Filename", "upload.docx"))
                         n = int(self.headers.get("Content-Length") or 0)
@@ -309,6 +350,14 @@ def make_handler(root: Path):
                                                              float(b.get("min", 0.2)), int(b.get("top", 2))))
                     if path == "/api/derive":
                         return self._send(200, derive(repo, cfg, b["from"], b["to"], b.get("ids"), user))
+                    if path == "/api/tests/session":
+                        return self._send(200, testruns.create_session(repo, cfg, b, who))
+                    if path == "/api/tests/session/update":
+                        return self._send(200, testruns.update_session(repo, cfg, b["id"], b, who))
+                    if path == "/api/tests/record":
+                        return self._send(200, testruns.record(repo, cfg, b["session"], b, who))
+                    if path == "/api/evidence/delete":
+                        return self._send(200, testruns.delete_evidence(repo, int(b["id"]), who))
                     if path == "/api/table/cell":
                         return self._send(200, workproducts.set_cell(repo, cfg, b["id"], b["key"], b.get("value"), user))
                     if path == "/api/wpcol":

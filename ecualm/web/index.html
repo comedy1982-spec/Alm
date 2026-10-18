@@ -272,6 +272,54 @@ body.chatwin .ai{top:0;width:100%;border-left:0;box-shadow:none}
 body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,body.win #btnHist{display:none}
 
 
+
+/* ---------- test sessions / dashboard ---------- */
+.dgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:4px}
+.dgrid>.pnl{min-width:0}
+.dgrid .wide{grid-column:1/-1}
+@media (max-width:900px){.dgrid{grid-template-columns:1fr}}
+.pnl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.pnl h3{margin:0 0 2px;font-size:14px}
+.pnl .sub{font-size:12px;color:var(--muted);margin-bottom:10px}
+.sbar{display:flex;gap:2px;height:14px;border-radius:4px;overflow:hidden;background:var(--soft);flex:1;min-width:60px}
+.sbar i{display:block;height:100%}
+.sbar i.ps{background:var(--ok)}.sbar i.fl{background:var(--err)}.sbar i.bl{background:var(--warn)}.sbar i.nr{background:var(--line)}.sbar i.na{background:var(--soft)}
+.sbar i.pd{background:color-mix(in srgb,var(--accent) 45%,var(--panel))}
+.srow{display:grid;grid-template-columns:150px 1fr 190px;gap:10px;align-items:center;padding:5px 0;font-size:12.5px}
+.srow .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .v{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:right}
+@media (max-width:760px){.srow{grid-template-columns:96px 1fr}.srow .v{grid-column:1/-1;text-align:left}}
+.lgd{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin:8px 0 2px}
+.lgd span{display:inline-flex;align-items:center;gap:5px}
+.lgd i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.dtip{position:fixed;z-index:30;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 6px 18px rgba(10,20,30,.14);display:none;white-space:nowrap}
+table.lt{border-collapse:collapse;width:100%;font-size:12.5px}
+table.lt th{font-size:11px;color:var(--muted);font-weight:600;text-align:left;padding:6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.lt td{padding:6px;border-bottom:1px solid var(--soft);vertical-align:top}
+table.lt tr.click{cursor:pointer}
+table.lt tr.click:hover td{background:var(--soft2)}
+.rbtn{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.rbtn button{border:0;background:var(--panel);font-size:11.5px;padding:3px 8px;cursor:pointer;color:var(--muted);font-family:var(--mono)}
+.rbtn button+button{border-left:1px solid var(--line)}
+.rbtn button.on.PASS{background:var(--ok);color:#fff}.rbtn button.on.FAIL{background:var(--err);color:#fff}
+.rbtn button.on.BLOCKED{background:var(--warn);color:#fff}.rbtn button.on.N_A{background:var(--muted);color:#fff}
+.rbtn button:disabled{cursor:default;opacity:.7}
+.chip.PASS{background:var(--ok-soft);color:var(--ok)}.chip.FAIL{background:var(--err-soft);color:var(--err)}.chip.BLOCKED{background:var(--warn-soft);color:var(--warn)}.chip.NOT_RUN{background:var(--soft);color:var(--muted)}
+table.cases td input.ci{width:100%;min-width:120px;border:1px solid transparent;background:transparent;border-radius:5px;padding:3px 5px;font-size:12.5px}
+table.cases td input.ci:hover{border-color:var(--line)}table.cases td input.ci:focus{border-color:var(--accent);background:var(--panel);outline:none}
+table.cases tr.drop td{background:var(--accent-soft)}
+table.cases tr.det td{background:var(--soft2);font-size:12px}
+.evl{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.ev{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px;background:var(--panel);max-width:320px}
+.ev img{width:56px;height:40px;object-fit:cover;border-radius:4px;background:#fff}
+.ev a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px}
+.ev .h{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.ev button{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 2px}
+.dz{border:1.5px dashed var(--line);border-radius:10px;padding:12px;text-align:center;color:var(--muted);font-size:12.5px}
+.dz.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.fchips{display:flex;flex-wrap:wrap;gap:6px}
+.fchips button{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
+.fchips button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
 /* ---------- work-product table ---------- */
 .wph{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:10px}
 .wph .t{font-weight:600}
@@ -422,6 +470,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
     <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <small id="proj"></small></div>
     <span class="muted" style="font-size:12.5px" id="crumb"></span>
     <div class="spacer"></div>
+    <button class="btn" id="btnTests" title="테스트 세션 · 결과 · 증빙 · 시험 대시보드">시험</button>
     <button class="btn" id="btnPlan" title="ASPICE MAN.3 일정·공수 (WBS · 간트 · 공수 부하 · EVM)">일정·공수</button>
     <button class="btn" id="btnAi" title="AI 어시스턴트 (질문·요약·전개·링크 제안)" aria-expanded="false">AI</button>
     <button class="btn" id="btnWb" title="두 단계를 나란히 놓고 드래그로 추적 링크 연결">링크 작업대</button>
@@ -474,6 +523,19 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
   </form></div>
   <div class="sec" id="usTok" hidden><b>API 토큰 (한 번만 표시)</b><input id="usTokVal" readonly class="mono" style="width:100%"><div class="muted" style="font-size:12px;margin-top:4px">CI·스크립트에서 <span class="mono">Authorization: Bearer &lt;토큰&gt;</span> 헤더로 씁니다 (예: POST /api/results).</div></div>
   <div class="sec"><b>최근 로그인 기록</b><div id="usLog" style="max-height:180px;overflow:auto;font-size:12px"></div></div>
+</dialog>
+<dialog id="dlgTs" style="width:min(720px,96vw)">
+  <form id="tsForm" class="pf"><h3 style="margin:0 0 4px">새 테스트 세션</h3>
+  <div class="muted" style="font-size:12.5px">한 번의 시험 실행(빌드·샘플·시험 환경)을 묶습니다. 결과를 입력하면 각 TC 의 최근 결과와 감사(test_fail · result_stale)에도 반영됩니다.</div>
+  <label for="ts_name">세션 이름</label><input id="ts_name" required placeholder="예: SWE.6 HIL 회귀 — SW 0.4.0">
+  <div class="g2"><div><label for="ts_stage">검증 단계</label><select id="ts_stage"></select></div>
+    <div><label for="ts_only">TC 선택 조건</label><select id="ts_only"><option value="all">이 단계의 모든 TC</option><option value="not_passed">아직 합격 못 한 TC + 재시험 필요</option><option value="failed">FAIL·BLOCKED 만 (재시험)</option><option value="never_run">한 번도 실행 안 한 TC</option><option value="stale">대상 요구사항이 바뀐 TC (재시험 필요)</option></select></div></div>
+  <div class="g2"><div><label for="ts_domain">도메인</label><select id="ts_domain"><option value="">전체</option></select></div><div><label for="ts_q">검색 (ID·내용)</label><input id="ts_q" placeholder="예: MOT, 경계값"></div></div>
+  <div class="fields" id="ts_count" aria-live="polite">…</div>
+  <div class="g3"><div><label for="ts_build">빌드 / SW 버전</label><input id="ts_build" placeholder="예: SW 0.4.0 (a1b2c3)"></div><div><label for="ts_sample">HW 샘플</label><input id="ts_sample" placeholder="예: B 샘플 #12"></div><div><label for="ts_env">시험 환경</label><input id="ts_env" placeholder="예: dSPACE HIL #2"></div></div>
+  <div class="g3"><div><label for="ts_ps">계획 시작</label><input type="date" id="ts_ps"></div><div><label for="ts_pe">계획 종료</label><input type="date" id="ts_pe"></div><div><label for="ts_owner">담당</label><input id="ts_owner"></div></div>
+  <label for="ts_desc">설명 · 시험 목적</label><textarea id="ts_desc" placeholder="예: B 샘플 SW 0.4.0 SWE.6 회귀, CR-0012 반영 확인"></textarea>
+  <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="tsClose">취소</button><button class="btn primary" type="submit" id="tsGo">세션 만들기</button></div></form>
 </dialog>
 <dialog id="dlgForm" style="width:min(520px,96vw)">
   <form id="fmForm" class="pf"><h3 style="margin:0 0 4px" id="fmTitle"></h3><div class="muted" style="font-size:12.5px" id="fmDesc"></div>
@@ -604,15 +666,15 @@ function renderStrip(){
   const last=$('#strip').querySelectorAll('.st'); if(last.length) last[last.length-1].classList.add('last');
   $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>goStage(b.dataset.sid));
   $('#strip').querySelector('[data-home]').onclick=()=>{view={kind:'home'};render();};
-  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':'';
+  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':view.kind==='tests'?'시험 세션 · 결과 · 증빙':'';
 }
 function goStage(sid){view={kind:'stage',sid};stageTab=S.stageById[sid]?.canvas&&sid==='HWE2'?'canvas':'doc';render();}
 function render(){
   renderStrip();
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
-  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
-  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan})[view.kind]();
-  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';}
+  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||view.kind==='tests'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
+  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan,tests:viewTests})[view.kind]();
+  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';$('#btnTests').style.display='none';}
   else if(ME&&ME.role==='viewer'){$('#btnImport').style.display='none';}
   broadcastCtx();
 }
@@ -1457,6 +1519,201 @@ function formDlg({title,desc='',fields,ok='확인'}){
   });
 }
 
+// ---------------- test sessions · results · evidence · dashboard ----------------
+const TS={dash:null,cur:null,filter:'',q:'',open:new Set()};
+const RS={PASS:'PASS',FAIL:'FAIL',BLOCKED:'BLOCKED',NOT_RUN:'미실행',N_A:'해당 없음'};
+const SST={planned:'계획',in_progress:'진행',completed:'완료',aborted:'중단'};
+const fmtB=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+$('#btnTests').onclick=()=>{view={kind:'tests'};render();};
+function viewTests(){ if(view.sid) return viewSession(view.sid); return viewTestDash(); }
+// shared hover tooltip for dashboard marks
+let DTIP=null;
+function bindTips(root){
+  if(!DTIP){DTIP=document.createElement('div');DTIP.className='dtip';DTIP.setAttribute('role','tooltip');document.body.appendChild(DTIP);}
+  root.querySelectorAll('[data-tip]').forEach(e=>{ e.onmousemove=ev=>{DTIP.innerHTML=e.dataset.tip;DTIP.style.display='block';const w=DTIP.offsetWidth;DTIP.style.left=Math.min(ev.clientX+12,innerWidth-w-8)+'px';DTIP.style.top=(ev.clientY+14)+'px';}; e.onmouseleave=()=>DTIP.style.display='none'; });
+}
+function sbar(segs,total,label){ // segs: [[cls,count,name]]
+  const t=total||segs.reduce((a,s)=>a+s[1],0)||1;
+  return `<div class="sbar" role="img" aria-label="${esc(label+': '+segs.filter(s=>s[1]).map(s=>`${s[2]} ${s[1]}`).join(', '))}">${segs.filter(s=>s[1]).map(s=>`<i class="${s[0]}" style="width:${s[1]*100/t}%" data-tip="<b>${esc(label)}</b><br>${esc(s[2])} ${s[1]} (${Math.round(s[1]*100/t)}%)"></i>`).join('')}</div>`;
+}
+const LGD=[['ps','PASS','var(--ok)'],['fl','FAIL','var(--err)'],['bl','BLOCKED','var(--warn)'],['nr','미실행','var(--line)']];
+async function viewTestDash(){
+  const c=$('#content');
+  if(!TS.dash) c.innerHTML='<div class="empty">시험 현황을 불러오는 중…</div>';
+  try{ TS.dash=await api('/api/tests/dashboard'); }catch(e){ c.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const D=TS.dash, K=D.kpi, canRun=atLeast('engineer');
+  const kc=(v,cls,l,sub)=>`<div class="card ${cls}"><span class="lbl">${l}</span><b>${v}</b><small>${sub}</small></div>`;
+  c.innerHTML=`<div class="bar"><h1>시험 대시보드</h1><span class="sub">SWE.4~6 · HWE.3~4 · SYS.4~5 · 08-60 검증 수단 · 15-52 검증 결과</span><span class="spacer"></span>${canRun?'<button class="btn primary" id="tsNew">새 테스트 세션</button>':''}</div>
+   <div class="cards">${kc(K.tcs,'','TC','전체 검증 단계')}${kc(K.exec_rate+'%','','실행률',`${K.executed} / ${K.tcs} 실행`)}${kc(K.pass_rate==null?'—':K.pass_rate+'%',K.pass_rate==null?'':K.pass_rate<90?'warn':'ok','합격률',`실행 중 PASS ${K.pass}`)}
+     ${kc(K.fail,K.fail?'err':'','FAIL',K.fail?'결함 조치 필요':'없음')}${kc(K.blocked,K.blocked?'warn':'','BLOCKED','환경·전제 문제')}${kc(K.stale,K.stale?'warn':'','재시험 필요','대상이 시험 후 변경')}${kc(K.active_sessions,'','진행 세션','계획 + 진행')}${kc(K.evidence,'','증빙 파일','로그·파형·사진')}</div>
+   <div class="dgrid">
+    <div class="pnl"><h3>단계별 최근 결과</h3><div class="sub">TC 마다 가장 최근 실행 결과 기준</div>
+      ${D.by_stage.map(s=>`<div class="srow"><span class="n" title="${esc(s.name)}">${esc(s.name)}</span>${s.total?sbar([['ps',s.PASS,'PASS'],['fl',s.FAIL,'FAIL'],['bl',s.BLOCKED,'BLOCKED'],['nr',s.NOT_RUN,'미실행']],s.total,s.name):'<span class="muted" style="font-size:12px">TC 없음</span>'}<span class="v">${s.total?`P ${s.PASS} · F ${s.FAIL} · B ${s.BLOCKED} · 미 ${s.NOT_RUN}`:''}${s.stale?` · 재 ${s.stale}`:''}</span></div>`).join('')}
+      <div class="lgd">${LGD.map(l=>`<span><i style="background:${l[2]}"></i>${l[1]}</span>`).join('')}</div></div>
+    <div class="pnl"><h3>요구사항 검증 커버리지</h3><div class="sub">대상 산출물 항목 중 연결된 TC 가 모두 PASS(재시험 필요 없음)인 비율</div>
+      ${D.coverage.filter(x=>x.total).map(x=>`<div class="srow"><span class="n" title="${esc(x.target_name)} ← ${esc(x.stage)}">${esc(x.target_name)}</span>${sbar([['ps',x.passed,'검증 완료'],['fl',x.failed,'FAIL 포함'],['pd',x.linked-x.passed-x.failed,'TC 있음·미완료'],['nr',x.total-x.linked,'TC 없음']],x.total,x.target_name)}<span class="v">${Math.round(x.passed*100/x.total)}% 완료 · TC 연결 ${Math.round(x.linked*100/x.total)}%</span></div>`).join('')||'<div class="muted" style="font-size:12.5px">검증 대상 항목이 아직 없습니다</div>'}
+      <div class="lgd"><span><i style="background:var(--ok)"></i>검증 완료</span><span><i style="background:var(--err)"></i>FAIL 포함</span><span><i style="background:color-mix(in srgb,var(--accent) 45%,var(--panel))"></i>TC 있음·미완료</span><span><i style="background:var(--line)"></i>TC 없음</span></div></div>
+    <div class="pnl wide"><h3>실행 추이</h3><div class="sub">세션에서 입력한 결과의 누적 실행 수와 누적 PASS 수 (일별)</div><div id="tdTrend"></div></div>
+    <div class="pnl wide"><div class="row"><h3>테스트 세션</h3><span class="spacer"></span><span class="muted" style="font-size:12px">${D.sessions.length}개</span></div>
+      ${D.sessions.length?`<div style="overflow-x:auto"><table class="lt"><tr><th>ID</th><th>이름</th><th>단계</th><th>빌드 · 샘플</th><th>상태</th><th style="min-width:160px">진행</th><th>합격률</th><th>증빙</th><th>생성</th></tr>
+      ${D.sessions.map(x=>{const k=x.counts;return `<tr class="click" data-ts="${esc(x.id)}"><td class="mono">${esc(x.id)}</td><td>${esc(x.name)}</td><td class="mono">${esc(x.stage)}</td><td>${esc(x.build)}${x.sample?' · '+esc(x.sample):''}</td>
+        <td><span class="chip ${x.status==='completed'?'approved':x.status==='aborted'?'deleted':x.status==='in_progress'?'review':''}">${SST[x.status]}</span>${x.verdict?` <span class="chip ${x.verdict}">${esc(x.verdict)}</span>`:''}</td>
+        <td><div class="row" style="flex-wrap:nowrap">${sbar([['ps',k.PASS,'PASS'],['fl',k.FAIL,'FAIL'],['bl',k.BLOCKED,'BLOCKED'],['na',k.N_A,'해당 없음'],['nr',k.NOT_RUN,'미실행']],k.total,x.id)}<span class="mono muted" style="font-size:11px">${k.progress}%</span></div></td>
+        <td class="mono">${k.pass_rate==null?'—':k.pass_rate+'%'}</td><td class="mono">${x.evidence}</td><td class="muted" style="white-space:nowrap">${fmtT(x.created)}</td></tr>`;}).join('')}</table></div>`
+      :`<div class="empty" style="padding:24px"><b>아직 테스트 세션이 없습니다</b>${canRun?'“새 테스트 세션”으로 검증 단계와 TC 를 골라 시험 실행을 시작하세요.':'엔지니어가 세션을 만들면 여기에 보입니다.'}</div>`}</div>
+    <div class="pnl"><h3>열린 실패 (FAIL · BLOCKED)</h3><div class="sub">TC 의 최근 결과가 FAIL/BLOCKED 인 항목</div>
+      ${D.open_failures.length?`<div style="max-height:340px;overflow:auto"><table class="lt"><tr><th>TC</th><th>결과</th><th>결함</th><th>관찰 내용</th><th>대상</th></tr>${D.open_failures.map(f=>`<tr><td><span class="id" data-open="${esc(f.tc)}" style="--c:var(--tc);cursor:pointer">${esc(f.tc)}</span><div class="muted" style="font-size:11px">${esc(f.session||'')}</div></td><td><span class="chip ${f.status}">${f.status}</span></td><td class="mono">${esc(f.defect||'—')}</td><td>${esc(f.note||'')}</td><td>${f.verifies.map(v=>`<span class="id" data-open="${esc(v)}" style="cursor:pointer;--c:${tcolor(S.byId[v]?.type)}">${esc(v)}</span>`).join(' ')}</td></tr>`).join('')}</table></div>`:'<div class="muted" style="font-size:12.5px">열린 실패가 없습니다</div>'}</div>
+    <div class="pnl"><h3>도메인별 FAIL · 불안정 TC</h3><div class="sub">FAIL 이 몰린 기능 영역, 최근 결과가 PASS↔FAIL 로 반복해서 바뀐 TC</div>
+      ${D.fail_by_domain.length?(()=>{const m=Math.max(...D.fail_by_domain.map(x=>x[1]));return D.fail_by_domain.map(([d,n])=>`<div class="srow" style="grid-template-columns:150px 1fr 40px"><span class="n">${esc(D.domain_names[d]||d)}</span><div class="sbar" style="background:transparent"><i class="fl" style="width:${n*100/m}%;border-radius:0 4px 4px 0" data-tip="${esc(D.domain_names[d]||d)}: FAIL ${n}"></i></div><span class="v">${n}</span></div>`).join('');})():'<div class="muted" style="font-size:12.5px">FAIL 없음</div>'}
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">불안정(Flaky) TC</div>${D.flaky.length?D.flaky.map(f=>`<div class="lk"><span class="id" data-open="${esc(f.tc)}" style="--c:var(--tc);cursor:pointer">${esc(f.tc)}</span><span class="t">${esc(f.title)}</span><span class="mono" style="font-size:11px">${f.history.map(h=>h==='PASS'?'P':h==='FAIL'?'F':'·').join(' ')}</span></div>`).join(''):'<div class="muted" style="font-size:12.5px">없음</div>'}</div>
+   </div>`;
+  drawTrend(D.trend);
+  c.querySelectorAll('[data-ts]').forEach(r=>r.onclick=()=>{view={kind:'tests',sid:r.dataset.ts};render();});
+  bindOpen(c); bindTips(c);
+  if($('#tsNew')) $('#tsNew').onclick=openNewSession;
+}
+function drawTrend(T){
+  const el=$('#tdTrend');
+  if(!T.length){el.innerHTML='<div class="muted" style="font-size:12.5px;padding:10px 0">아직 입력된 결과가 없습니다</div>';return;}
+  const W=Math.max(320,el.clientWidth||700), H=180, P={l:44,r:84,t:10,b:26};
+  const ys=Math.max(1,...T.map(x=>x.cum_executed)), n=T.length;
+  const X=i=>P.l+(n===1?(W-P.l-P.r)/2:i*(W-P.l-P.r)/(n-1)), Y=v=>P.t+(H-P.t-P.b)*(1-v/ys);
+  const ticks=[0,.25,.5,.75,1].map(f=>Math.round(ys*f));
+  const line=(k,c)=>`<path d="${T.map((d,i)=>`${i?'L':'M'}${X(i)} ${Y(d[k])}`).join('')}" fill="none" stroke="${c}" stroke-width="2"/>`+T.map((d,i)=>n<=40?`<circle cx="${X(i)}" cy="${Y(d[k])}" r="3.5" fill="${c}" stroke="var(--panel)" stroke-width="2"/>`:'').join('');
+  const last=T[n-1];
+  el.innerHTML=`<div style="position:relative"><svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="누적 실행 ${last.cum_executed}, 누적 PASS ${last.cum_pass}">
+    ${[...new Set(ticks)].map(v=>`<line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--soft)"/><text x="${P.l-6}" y="${Y(v)+4}" text-anchor="end" font-size="10.5" fill="var(--muted)">${v}</text>`).join('')}
+    ${T.map((d,i)=>(n<=8||i%Math.ceil(n/8)===0||i===n-1)?`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${d.date.slice(5)}</text>`:'').join('')}
+    ${line('cum_executed','var(--w1)')}${line('cum_pass','var(--w3)')}
+    <text x="${X(n-1)+8}" y="${Y(last.cum_executed)+4}" font-size="11" fill="var(--ink)">실행 ${last.cum_executed}</text>
+    <text x="${X(n-1)+8}" y="${Y(last.cum_pass)+(Math.abs(Y(last.cum_pass)-Y(last.cum_executed))<14?16:4)}" font-size="11" fill="var(--ink)">PASS ${last.cum_pass}</text>
+    <line id="trX" y1="${P.t}" y2="${H-P.b}" stroke="var(--muted)" stroke-dasharray="3 3" visibility="hidden"/>
+    <rect x="${P.l}" y="${P.t}" width="${W-P.l-P.r}" height="${H-P.t-P.b}" fill="transparent" id="trHit"/></svg></div>
+    <div class="lgd"><span><i style="background:var(--w1)"></i>누적 실행</span><span><i style="background:var(--w3)"></i>누적 PASS</span></div>
+    <details style="margin-top:6px"><summary class="muted" style="font-size:12px;cursor:pointer">표로 보기</summary><table class="lt"><tr><th>날짜</th><th>실행</th><th>PASS</th><th>FAIL</th><th>누적 실행</th><th>누적 PASS</th></tr>${T.map(d=>`<tr><td class="mono">${d.date}</td><td>${d.executed}</td><td>${d.pass}</td><td>${d.fail}</td><td>${d.cum_executed}</td><td>${d.cum_pass}</td></tr>`).join('')}</table></details>`;
+  if(!DTIP) bindTips(el);
+  const svg=el.querySelector('svg'), hit=el.querySelector('#trHit'), xl=el.querySelector('#trX');
+  hit.onmousemove=ev=>{const r=svg.getBoundingClientRect(), x=(ev.clientX-r.left)*W/r.width; let i=n===1?0:Math.round((x-P.l)/((W-P.l-P.r)/(n-1))); i=Math.max(0,Math.min(n-1,i)); const d=T[i];
+    xl.setAttribute('x1',X(i));xl.setAttribute('x2',X(i));xl.setAttribute('visibility','visible');
+    DTIP.innerHTML=`<b>${d.date}</b><br>이날 실행 ${d.executed} (PASS ${d.pass}, FAIL ${d.fail})<br>누적 실행 ${d.cum_executed} · 누적 PASS ${d.cum_pass}`; DTIP.style.display='block'; DTIP.style.left=Math.min(ev.clientX+12,innerWidth-DTIP.offsetWidth-8)+'px'; DTIP.style.top=(ev.clientY+14)+'px';};
+  hit.onmouseleave=()=>{xl.setAttribute('visibility','hidden');DTIP.style.display='none';};
+}
+// ---- new session ----
+let tsTimer=null;
+async function openNewSession(){
+  const vs=S.stages.filter(s=>s.side==='verify');
+  $('#ts_stage').innerHTML=vs.map(s=>`<option value="${s.id}">${s.aspice} ${esc(s.name)} (${S.stage_counts[s.id]?.total||0})</option>`).join('');
+  const best=vs.slice().sort((a,b)=>(S.stage_counts[b.id]?.total||0)-(S.stage_counts[a.id]?.total||0))[0]; if(best) $('#ts_stage').value=best.id;
+  $('#ts_domain').innerHTML='<option value="">전체</option>'+Object.entries(S.domain_names||{}).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+  ['#ts_name','#ts_q','#ts_build','#ts_sample','#ts_env','#ts_desc','#ts_ps','#ts_pe'].forEach(k=>$(k).value=''); $('#ts_owner').value=ME?.username||''; $('#ts_only').value='all';
+  const upd=()=>{clearTimeout(tsTimer);tsTimer=setTimeout(async()=>{ try{ const r=await api(`/api/tests/candidates?stage=${$('#ts_stage').value}&only=${$('#ts_only').value}&domain=${$('#ts_domain').value}&q=${encodeURIComponent($('#ts_q').value)}`);
+      const c=r.candidates, last=c.reduce((a,x)=>(a[x.last]=(a[x.last]||0)+1,a),{});
+      $('#ts_count').innerHTML=`선택될 TC <b>${c.length}</b>건 — 최근 결과: ${Object.entries(last).map(([k,v])=>`${RS[k]||k} ${v}`).join(' · ')||'—'}${c.filter(x=>x.stale).length?` · 재시험 필요 ${c.filter(x=>x.stale).length}`:''}`; $('#tsGo').disabled=!c.length;
+    }catch(e){ $('#ts_count').textContent=e.message; } },200);};
+  ['#ts_stage','#ts_only','#ts_domain'].forEach(k=>$(k).onchange=upd); $('#ts_q').oninput=upd; upd();
+  $('#dlgTs').showModal(); setTimeout(()=>$('#ts_name').focus(),0);
+}
+$('#tsClose').onclick=()=>$('#dlgTs').close();
+$('#tsForm').onsubmit=async ev=>{ ev.preventDefault();
+  try{ const s=await api('/api/tests/session',{name:$('#ts_name').value,stage:$('#ts_stage').value,only:$('#ts_only').value,domain:$('#ts_domain').value,q:$('#ts_q').value,
+      build:$('#ts_build').value,sample:$('#ts_sample').value,environment:$('#ts_env').value,planned_start:$('#ts_ps').value,planned_end:$('#ts_pe').value,owner:$('#ts_owner').value,description:$('#ts_desc').value});
+    $('#dlgTs').close(); toast(`${s.id} 생성 — TC ${s.counts.total}건`); view={kind:'tests',sid:s.id}; TS.filter=''; render(); }catch(e){ toast(e.message); } };
+// ---- session detail ----
+async function viewSession(sid,keep){
+  const c=$('#content');
+  if(!keep) c.innerHTML='<div class="empty">세션을 불러오는 중…</div>';
+  let s; try{ s=await api('/api/tests/session/'+encodeURIComponent(sid)); }catch(e){ c.innerHTML=`<div class="empty">${esc(e.message)} <button class="btn sm" id="tsBack">대시보드로</button></div>`; $('#tsBack').onclick=()=>{view={kind:'tests'};render();}; return; }
+  TS.cur=s; drawSession(keep);
+}
+function drawSession(keep){
+  const s=TS.cur, k=s.counts, closed=s.status==='completed'||s.status==='aborted', canRun=atLeast('engineer')&&!closed, pm=atLeast('manager');
+  const sc=keep?[scrollX,scrollY]:null;
+  const q=TS.q.trim().toLowerCase();
+  const rows=s.cases.filter(r=>(!TS.filter||r.status===TS.filter)&&(!q||(r.tc+' '+r.title+' '+r.actual+' '+r.defect).toLowerCase().includes(q)));
+  const evHTML=e=>`<span class="ev">${e.mime.startsWith('image/')?`<a href="/api/evidence/${e.id}" target="_blank" rel="noopener"><img src="/api/evidence/${e.id}" alt="${esc(e.filename)}" loading="lazy"></a>`:''}<span style="min-width:0"><a href="/api/evidence/${e.id}${['application/pdf','text/plain','text/csv'].includes(e.mime)||e.mime.startsWith('image/')?'':'?dl=1'}" target="_blank" rel="noopener" title="${esc(e.filename)}">${esc(e.filename)}</a><br><span class="h" title="SHA-256 ${e.sha256}">${fmtB(e.size)} · ${e.sha256.slice(0,10)} · ${esc(e.by)}</span>${e.note?`<br><span class="muted">${esc(e.note)}</span>`:''}</span>${s.status!=='completed'&&(e.by===ME?.username||pm)?`<button data-evd="${e.id}" aria-label="${esc(e.filename)} 삭제" title="삭제">✕</button>`:''}</span>`;
+  $('#content').innerHTML=`<div class="bar"><div><h1>${esc(s.id)} ${esc(s.name)}</h1><div class="sub">${esc(s.stage_name)}${s.build?' · 빌드 '+esc(s.build):''}${s.sample?' · 샘플 '+esc(s.sample):''}${s.environment?' · '+esc(s.environment):''} · 담당 ${esc(s.owner||'—')}${s.planned_start?` · 계획 ${s.planned_start} ~ ${s.planned_end||''}`:''}</div></div><span class="spacer"></span>
+    <button class="btn" id="tsBack">← 대시보드</button>
+    ${s.status==='planned'&&canRun?'<button class="btn" data-act="start">시작</button>':''}
+    ${canRun?'<button class="btn" id="tsAdd">TC 추가</button><button class="btn" id="tsEdit">정보 수정</button><button class="btn" data-act="abort">중단</button><button class="btn primary" data-act="complete">완료 처리</button>':''}
+    ${closed&&pm?'<button class="btn" data-act="reopen">다시 열기</button>':''}${pm&&s.status!=='completed'?'<button class="btn" data-act="delete">삭제</button>':''}
+    <a class="btn" href="/api/tests/session/${encodeURIComponent(s.id)}/xlsx">결과 보고서 (Excel)</a></div>
+   <div class="cards"><div class="card"><span class="lbl">상태</span><b style="font-size:18px;padding:5px 0">${SST[s.status]}${s.verdict?` · ${esc(s.verdict)}`:''}</b><small>${s.closed?'종료 '+fmtT(s.closed)+' · '+esc(s.closed_by):s.started?'시작 '+fmtT(s.started):'아직 시작 전'}</small></div>
+     <div class="card" style="flex:1;min-width:260px"><span class="lbl">진행 ${k.progress}% · ${k.executed+k.N_A} / ${k.total}</span><div style="padding:10px 0 4px">${sbar([['ps',k.PASS,'PASS'],['fl',k.FAIL,'FAIL'],['bl',k.BLOCKED,'BLOCKED'],['na',k.N_A,'해당 없음'],['nr',k.NOT_RUN,'미실행']],k.total,s.id)}</div><small>PASS ${k.PASS} · FAIL ${k.FAIL} · BLOCKED ${k.BLOCKED} · 해당 없음 ${k.N_A} · 미실행 ${k.NOT_RUN}</small></div>
+     <div class="card ${k.pass_rate==null?'':k.pass_rate<90?'warn':'ok'}"><span class="lbl">합격률</span><b>${k.pass_rate==null?'—':k.pass_rate+'%'}</b><small>실행한 TC 기준</small></div></div>
+   ${s.description?`<p class="info" style="margin-top:-4px">${esc(s.description)}</p>`:''}
+   <div class="pnl" style="margin-bottom:12px"><div class="row"><h3>세션 증빙</h3><span class="muted" style="font-size:12px">시험 계획서, 환경 사진, 로그 묶음 등 세션 전체에 해당하는 파일 (50MB 이하)</span></div>
+     <div class="evl">${s.session_evidence.map(evHTML).join('')}</div>
+     ${s.status!=='aborted'&&atLeast('engineer')?`<div class="dz" id="tsDz" style="margin-top:8px">파일을 여기에 끌어 놓거나 <label style="color:var(--accent);cursor:pointer;display:inline"><input type="file" id="tsFile" multiple hidden>파일 선택</label></div>`:''}</div>
+   <div class="filters"><div class="fchips" role="group" aria-label="결과 필터">${[['','전체',k.total],['NOT_RUN','미실행',k.NOT_RUN],['PASS','PASS',k.PASS],['FAIL','FAIL',k.FAIL],['BLOCKED','BLOCKED',k.BLOCKED],['N_A','해당 없음',k.N_A]].map(([v,l,n])=>`<button data-f="${v}" class="${TS.filter===v?'on':''}" aria-pressed="${TS.filter===v}">${l} ${n}</button>`).join('')}</div>
+     <input id="tsQ" placeholder="검색 (TC, 관찰 내용, 결함)" value="${esc(TS.q)}" style="flex:1;min-width:160px"></div>
+   <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)"><table class="lt cases"><tr><th></th><th>TC</th><th>대상</th><th>결과</th><th style="min-width:200px">실제 결과 · 관찰</th><th>결함</th><th>증빙</th><th>실행</th></tr>
+   ${rows.map(r=>{const op=TS.open.has(r.tc);return `<tr data-c="${esc(r.tc)}"><td><button class="cr btn sm" data-tg="${esc(r.tc)}" aria-expanded="${op}" aria-label="상세">${op?'▾':'▸'}</button></td>
+     <td><span class="id" data-open="${esc(r.tc)}" style="--c:var(--tc);cursor:pointer">${esc(r.tc)}</span>${r.changed_since?' <span class="chip warn" title="실행 후 TC 가 바뀜">TC 변경</span>':''}<div style="font-size:12px">${esc(r.title)}</div></td>
+     <td>${r.verifies.map(v=>`<span class="id" data-open="${esc(v)}" style="cursor:pointer;font-size:11.5px;--c:${tcolor(S.byId[v]?.type)}">${esc(v)}</span>`).join('<br>')}</td>
+     <td><span class="rbtn" role="group" aria-label="${esc(r.tc)} 결과">${['PASS','FAIL','BLOCKED','N_A'].map(x=>`<button class="${x} ${r.status===x?'on':''}" data-st="${x}" aria-pressed="${r.status===x}" ${canRun?'':'disabled'}>${x==='N_A'?'N/A':x==='BLOCKED'?'BLK':x}</button>`).join('')}</span></td>
+     <td><input class="ci" data-fld="actual" value="${esc(r.actual)}" placeholder="${r.status==='FAIL'?'필수: 관찰한 실제 결과':'관찰 내용'}" ${canRun?'':'disabled'} aria-label="실제 결과"></td>
+     <td><input class="ci" data-fld="defect" value="${esc(r.defect)}" placeholder="예: JIRA-123" style="min-width:90px" ${canRun?'':'disabled'} aria-label="결함 번호"></td>
+     <td style="white-space:nowrap">${r.evidence.length?`<span class="chip">📎 ${r.evidence.length}</span>`:''}${s.status!=='aborted'&&atLeast('engineer')?` <label class="btn sm" style="cursor:pointer">올리기<input type="file" data-up="${esc(r.tc)}" multiple hidden></label>`:''}</td>
+     <td class="muted" style="font-size:11.5px;white-space:nowrap">${r.executed_at?esc(r.executed_by)+'<br>'+fmtT(r.executed_at):'—'}</td></tr>
+     ${op?`<tr class="det"><td></td><td colspan="7"><div class="kv" style="grid-template-columns:90px 1fr"><span>절차</span><span>${esc(r.text)}</span><span>사전 조건</span><span>${esc(r.pre_condition||'—')}</span><span>기대 결과</span><span>${esc(r.expected||'—')}</span><span>합격 기준</span><span>${esc(r.pass_criteria||'—')}</span><span>이력</span><span>${r.history.map(h=>`<span class="chip ${h.status}" title="${esc(h.by)} ${fmtT(h.at)}">${h.status}</span>`).join(' ')||'—'}</span></div><div class="evl">${r.evidence.map(evHTML).join('')}</div></td></tr>`:''}`;}).join('')||'<tr><td colspan="8" class="muted" style="padding:16px">해당하는 TC 가 없습니다</td></tr>'}</table></div>
+   <div class="muted" style="font-size:12px;margin-top:6px">${closed?'닫힌 세션은 결과를 바꿀 수 없습니다'+(pm?' (다시 열기 가능)':'')+'.':'결과 버튼을 누르면 바로 저장되고 TC 의 최근 결과에도 반영됩니다. FAIL 은 실제 결과를 적어야 합니다. 행에 파일을 끌어 놓으면 그 TC 의 증빙으로 올라갑니다.'}</div>`;
+  const C=$('#content');
+  $('#tsBack').onclick=()=>{view={kind:'tests'};render();};
+  C.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{TS.filter=b.dataset.f;drawSession();});
+  $('#tsQ').oninput=e=>{TS.q=e.target.value;clearTimeout(TS._t);TS._t=setTimeout(()=>{drawSession(true);const i=$('#tsQ');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250);};
+  C.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>{const t=b.dataset.tg;TS.open.has(t)?TS.open.delete(t):TS.open.add(t);drawSession(true);});
+  bindOpen(C); bindTips(C);
+  C.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>sessionAction(b.dataset.act));
+  if($('#tsEdit')) $('#tsEdit').onclick=editSession;
+  if($('#tsAdd')) $('#tsAdd').onclick=addCases;
+  // results
+  C.querySelectorAll('tr[data-c]').forEach(tr=>{ const tc=tr.dataset.c, r=s.cases.find(x=>x.tc===tc);
+    tr.querySelectorAll('[data-st]').forEach(b=>b.onclick=async()=>{ let st=b.dataset.st; if(st===r.status) st='NOT_RUN';
+      const body={session:s.id,tc,status:st}; const act=tr.querySelector('[data-fld=actual]').value.trim(), def=tr.querySelector('[data-fld=defect]').value.trim();
+      body.actual=act; body.defect=def;
+      if(st==='FAIL'&&!act){ const v=await formDlg({title:`${tc} FAIL`,desc:'관찰한 실제 결과를 적어야 FAIL 로 저장됩니다. 결함 번호(이슈 트래커·SUP.9 문제 기록)가 있으면 함께 적으세요.',ok:'FAIL 저장',fields:[{k:'actual',label:'실제 결과 · 관찰 내용',type:'textarea',value:'',req:true},{k:'defect',label:'결함 번호',value:def,ph:'예: JIRA-123'}]}); if(!v||!v.actual.trim()) return; body.actual=v.actual.trim(); body.defect=v.defect.trim(); }
+      try{ await api('/api/tests/record',body); await viewSession(s.id,true); }catch(e){ toast(e.message); } });
+    tr.querySelectorAll('[data-fld]').forEach(inp=>{ inp.onkeydown=e=>{if(e.key==='Enter')inp.blur();}; inp.onchange=async()=>{ try{ await api('/api/tests/record',{session:s.id,tc,[inp.dataset.fld]:inp.value}); toast(`${tc} 저장`); const x=s.cases.find(c=>c.tc===tc); x[inp.dataset.fld]=inp.value; }catch(e){ toast(e.message); } }; });
+    const up=tr.querySelector('[data-up]'); if(up) up.onchange=()=>uploadEvidence(s.id,tc,up.files);
+    if(atLeast('engineer')&&s.status!=='aborted'){ tr.ondragover=e=>{e.preventDefault();tr.classList.add('drop');}; tr.ondragleave=()=>tr.classList.remove('drop'); tr.ondrop=e=>{e.preventDefault();tr.classList.remove('drop');uploadEvidence(s.id,tc,e.dataTransfer.files);}; }
+  });
+  C.querySelectorAll('[data-evd]').forEach(b=>b.onclick=async()=>{ const v=await formDlg({title:'증빙 삭제',desc:'파일과 기록을 지웁니다. 완료된 세션의 증빙은 지울 수 없습니다.',ok:'삭제',fields:[]}); if(!v) return; try{ await api('/api/evidence/delete',{id:+b.dataset.evd}); viewSession(s.id,true); }catch(e){ toast(e.message); } });
+  const dz=$('#tsDz'); if(dz){ $('#tsFile').onchange=()=>uploadEvidence(s.id,'',$('#tsFile').files);
+    dz.ondragover=e=>{e.preventDefault();dz.classList.add('on');}; dz.ondragleave=()=>dz.classList.remove('on'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('on');uploadEvidence(s.id,'',e.dataTransfer.files);}; }
+  if(sc) scrollTo(sc[0],sc[1]);
+}
+async function uploadEvidence(sid,tc,files){
+  if(!files||!files.length) return;
+  let ok=0;
+  for(const f of files){
+    if(f.size>50*1024*1024){ toast(`${f.name}: 50MB 초과`); continue; }
+    try{ const r=await fetch('/api/evidence',{method:'POST',body:await f.arrayBuffer(),headers:{'X-ECUALM':'1','X-Session':encodeURIComponent(sid),'X-Case':encodeURIComponent(tc),'X-Filename':encodeURIComponent(f.name)}});
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); ok++; }catch(e){ toast(`${f.name}: ${e.message}`); }
+  }
+  if(ok) toast(`증빙 ${ok}개 올림${tc?' → '+tc:''}`);
+  if(tc) TS.open.add(tc);
+  viewSession(sid,true);
+}
+async function sessionAction(act){
+  const s=TS.cur, k=s.counts;
+  if(act==='complete'){ const v=await formDlg({title:`${s.id} 완료 처리`,desc:`PASS ${k.PASS} · FAIL ${k.FAIL} · BLOCKED ${k.BLOCKED} · 미실행 ${k.NOT_RUN}. 완료하면 결과와 증빙이 잠기고 판정(${k.FAIL?'FAIL':k.BLOCKED||k.NOT_RUN?'BLOCKED':'PASS'})이 기록됩니다.`,ok:'완료',fields:[]}); if(!v) return; }
+  if(act==='abort'){ const v=await formDlg({title:`${s.id} 중단`,desc:'시험을 중단 상태로 닫습니다. 입력한 결과는 남습니다.',ok:'중단',fields:[]}); if(!v) return; }
+  if(act==='delete'){ const v=await formDlg({title:`${s.id} 삭제`,desc:'증빙이 없고 완료되지 않은 세션만 지울 수 있습니다. TC 에 이미 반영된 최근 결과는 남습니다.',ok:'삭제',fields:[]}); if(!v) return; }
+  try{ const r=await api('/api/tests/session/update',{id:s.id,action:act}); if(act==='delete'){toast('삭제했습니다');view={kind:'tests'};render();return;} toast({start:'시작',complete:'완료 처리',abort:'중단',reopen:'다시 열었습니다'}[act]||'저장'); TS.cur=r; drawSession(); }catch(e){ toast(e.message); }
+}
+async function editSession(){
+  const s=TS.cur;
+  const v=await formDlg({title:`${s.id} 정보 수정`,ok:'저장',fields:[{k:'name',label:'이름',value:s.name,req:true},{k:'build',label:'빌드 / SW 버전',value:s.build},{k:'sample',label:'HW 샘플',value:s.sample},{k:'environment',label:'시험 환경',value:s.environment},{k:'owner',label:'담당',value:s.owner},{k:'planned_start',label:'계획 시작',type:'date',value:s.planned_start},{k:'planned_end',label:'계획 종료',type:'date',value:s.planned_end},{k:'description',label:'설명',type:'textarea',value:s.description}]});
+  if(!v) return; try{ TS.cur=await api('/api/tests/session/update',{id:s.id,action:'edit',...v}); drawSession(); toast('저장'); }catch(e){ toast(e.message); }
+}
+async function addCases(){
+  const s=TS.cur; const have=new Set(s.cases.map(c=>c.tc));
+  const v=await formDlg({title:'TC 추가',desc:'이 세션의 검증 단계에서 조건에 맞는 TC 중 아직 없는 것을 추가합니다.',ok:'추가',fields:[{k:'only',label:'조건',type:'select',value:'not_passed',options:[['all','모든 TC'],['not_passed','미합격 + 재시험 필요'],['failed','FAIL·BLOCKED'],['never_run','실행 이력 없음'],['stale','재시험 필요']]},{k:'q',label:'검색 (ID·내용)',value:''}]});
+  if(!v) return;
+  try{ const c=(await api(`/api/tests/candidates?stage=${s.stage}&only=${v.only}&q=${encodeURIComponent(v.q)}`)).candidates.map(x=>x.id).filter(x=>!have.has(x));
+    if(!c.length){toast('추가할 TC 가 없습니다');return;}
+    TS.cur=await api('/api/tests/session/update',{id:s.id,action:'add_cases',tcs:c}); drawSession(); toast(`TC ${c.length}건 추가`); }catch(e){ toast(e.message); }
+}
 // ---------------- work-product table view ----------------
 const WT={data:null,sid:null,q:'',status:'',onlyMiss:false,sort:null,hidden:{}};
 function wtHidden(sid){ if(!WT.hidden[sid]){ try{WT.hidden[sid]=new Set(JSON.parse(localStorage.getItem('ecualm-cols-'+sid)||'null')||['version','domain','source','section','native_id']);}catch(e){WT.hidden[sid]=new Set(['version','domain','source','section','native_id']);} } return WT.hidden[sid]; }
