@@ -350,7 +350,9 @@ def add_evidence(repo, sid: str, tc: str, filename: str, data: bytes, note: str,
     ext = Path(name).suffix.lower()[:10]
     store = repo.dir / "evidence" / sha[:2]
     store.mkdir(parents=True, exist_ok=True)
-    f = store / f"{sha}{ext if re.match(r'^\.[a-z0-9]+$', ext) else ''}"
+    if not re.match(r"^\.[a-z0-9]+$", ext):
+        ext = ""
+    f = store / f"{sha}{ext}"
     if not f.exists():
         f.write_bytes(data)
     mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
