@@ -37,6 +37,19 @@ def get_stage(cfg: dict, sid: str) -> dict:
     raise ValueError(f"알 수 없는 단계: {sid}")
 
 
+def _carry(a: dict) -> dict:
+    """ASIL and verification method from the customer requirement (own attrs or its table row fields)."""
+    f = {str(k).replace(" ", "").lower(): v for k, v in (a.get("fields") or {}).items()}
+    out = {}
+    asil = a.get("asil") or f.get("asil")
+    if asil:
+        out["asil"] = str(asil).replace("ASIL", "").strip() or str(asil)
+    vm = a.get("verification_method") or f.get("검증방법") or f.get("verification") or f.get("verificationmethod")
+    if vm:
+        out["verification_method"] = vm
+    return out
+
+
 def stage_counts(repo: Repo, cfg: dict) -> dict:
     items = repo.items()
     links = repo.links()
@@ -224,7 +237,8 @@ def derive(repo: Repo, cfg: dict, src_stage: str, dst_stage: str, ids: list[str]
             lvl, conf = an.level(s["text"], s["section"])
             it = _new(repo, cfg, "SYS2", s["text"], dom, s,
                       {"discipline": "SW" if lvl == "SWE1" else "HW/SYS", "level_confidence": conf,
-                       "verification_criteria": _verification_criteria(s["text"], dom), "native_id": s["attrs"].get("native_id", "")}, user=user)
+                       "verification_criteria": _verification_criteria(s["text"], dom), "native_id": s["attrs"].get("native_id", ""),
+                       **_carry(s["attrs"])}, user=user)
             repo.add_link(it["id"], "derives", s["id"]); created.append(it["id"]); linked.append((it["id"], s["id"]))
 
         elif pair == ("SYS2", "SWE1"):

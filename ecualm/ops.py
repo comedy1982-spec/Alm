@@ -41,7 +41,7 @@ def create_item(repo: Repo, cfg: dict, typ: str, text: str, domain: str | None =
 
 
 def edit_item(repo: Repo, cfg: dict, item_id: str, text: str | None = None, status: str | None = None,
-              custom: dict | None = None, user: str = "", attrs: dict | None = None) -> dict:
+              custom: dict | None = None, user: str = "", attrs: dict | None = None, suspect: bool | None = None) -> dict:
     cur = repo.get(item_id)
     if not cur:
         raise KeyError(item_id)
@@ -76,7 +76,7 @@ def edit_item(repo: Repo, cfg: dict, item_id: str, text: str | None = None, stat
     if not changes:
         return cur
     it = repo.update(item_id, changes, change="edited" if content_changed else f"status:{changes.get('status')}",
-                     by=user or "manual", mark_suspect=content_changed)
+                     by=user or "manual", mark_suspect=content_changed if suspect is None else suspect)
     repo.commit()
     return it
 

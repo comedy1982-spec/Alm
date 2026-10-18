@@ -263,6 +263,49 @@ def test_login_roles_and_plan():
         assert wb["일정·공수 계획"]["A6"].value == "1"
 
 
+def test_work_product_tables():
+    from ecualm import workproducts as W
+    from ecualm.stages import derive
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root)
+        import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.docx", doc="CRS", rev="1.0", mode="crs")
+        derive(repo, cfg, "SYS1", "SYS2"); derive(repo, cfg, "SYS2", "SWE1")
+        t = W.table(repo, cfg, "SYS2")
+        keys = {c["key"] for c in t["columns"] if c["required"]}
+        assert {"id", "text", "asil", "verification_criteria", "upstream", "tests", "status"} <= keys
+        assert len(t["rows"]) > 150 and t["missing_by_column"]["tests"] == len(t["rows"])   # no SYS.5 yet
+        carried = [r for r in t["rows"] if r["values"]["asil"]]
+        assert carried, "ASIL from the CRS table rows should reach SYS.2"
+        # custom column: add, fill (no Suspect downstream), required -> counted as missing
+        col = W.add_column(repo, cfg, "SYS2", "릴리스", "enum", ["A", "B"], required=True, user="t")
+        row = next(r for r in t["rows"] if r["values"]["downstream"])
+        W.set_cell(repo, cfg, row["id"], col["key"], "B", "t")
+        assert not any(l["suspect"] for l in repo.links() if l["dst"] == row["id"])
+        try:
+            W.set_cell(repo, cfg, row["id"], col["key"], "Z", "t"); assert False
+        except ValueError:
+            pass
+        t2 = W.table(repo, cfg, "SYS2")
+        assert t2["missing_by_column"][col["key"]] == len(t2["rows"]) - 1
+        # requirement content change marks downstream Suspect; nested attr path works for SWE.1 spec
+        W.set_cell(repo, cfg, row["id"], "asil", "C", "t")
+        assert any(l["suspect"] for l in repo.links() if l["dst"] == row["id"])
+        swe = W.table(repo, cfg, "SWE1")["rows"][0]
+        W.set_cell(repo, cfg, swe["id"], "timing", "10 ms", "t")
+        assert repo.get(swe["id"])["attrs"]["spec"]["timing"] == "10 ms"
+        assert repo.get(swe["id"])["attrs"]["spec"].get("output") is not None    # sibling keys kept
+        # audit: approved item with missing required columns -> warn
+        ops.edit_item(repo, cfg, row["id"], status="approved", user="t")
+        f = [x for x in run_audit(repo, cfg)["findings"] if x["rule"] == "wp_required" and x["item"] == row["id"]]
+        assert f and f[0]["sev"] == "warn"
+        out = W.export_xlsx(repo, cfg, "SYS2", root / "t.xlsx")
+        from openpyxl import load_workbook
+        assert load_workbook(out)["SYS2"]["A4"].value == "ID *"
+        W.delete_column(repo, "SYS2", col["key"])
+        assert col["key"] not in {c["key"] for c in W.table(repo, cfg, "SYS2")["columns"]}
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -271,4 +314,5 @@ if __name__ == "__main__":
     test_hwe_architecture_flow()
     test_config_merge_adds_new_stages()
     test_login_roles_and_plan()
+    test_work_product_tables()
     print("OK")

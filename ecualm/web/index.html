@@ -271,6 +271,42 @@ body.chatwin header,body.chatwin main,body.chatwin .drawer{display:none}
 body.chatwin .ai{top:0;width:100%;border-left:0;box-shadow:none}
 body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,body.win #btnHist{display:none}
 
+
+/* ---------- work-product table ---------- */
+.wph{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:10px}
+.wph .t{font-weight:600}
+.wpm{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.wpm .mbar{width:120px;height:8px;border-radius:4px;background:var(--soft);overflow:hidden;flex:none}
+.wpm .mbar i{display:block;height:100%;background:var(--ok);border-radius:4px}
+.wtw{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);max-height:calc(100vh - 330px);min-height:200px}
+table.wt{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
+table.wt th,table.wt td{border-bottom:1px solid var(--line);border-right:1px solid var(--soft);padding:6px 8px;vertical-align:top;text-align:left}
+table.wt thead th{position:sticky;top:0;z-index:2;background:var(--soft);font-size:11.5px;font-weight:600;white-space:nowrap;cursor:pointer;user-select:none}
+table.wt thead th.rq{color:var(--accent)}
+table.wt thead th .mc{font-weight:500;font-size:10.5px;color:var(--err);margin-left:4px}
+table.wt thead th .sd{color:var(--muted);margin-left:3px;font-size:10px}
+table.wt th:first-child,table.wt td:first-child{position:sticky;left:0;background:var(--panel);z-index:1;border-right:1px solid var(--line)}
+table.wt thead th:first-child{z-index:3;background:var(--soft)}
+table.wt tbody tr:hover td{background:var(--soft2)}
+table.wt td.long{min-width:260px;max-width:420px}
+table.wt td.long .v{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+table.wt td.ids{min-width:120px}
+table.wt td{min-width:96px}
+table.wt td:first-child{min-width:0;white-space:nowrap}
+table.wt td.ed{cursor:text}
+table.wt td.ed:hover{box-shadow:inset 0 0 0 1px var(--accent)}
+table.wt td.miss{background:var(--err-soft)!important}
+table.wt td.miss .ph{color:var(--err);font-size:11px}
+table.wt td .ph{color:var(--muted);font-size:11px}
+table.wt td.editing{padding:2px;box-shadow:inset 0 0 0 2px var(--accent)}
+table.wt td.editing input,table.wt td.editing select,table.wt td.editing textarea{width:100%;min-width:140px;border:0;background:var(--panel);padding:4px 6px;font-size:12.5px;outline:none}
+table.wt td.editing textarea{min-height:80px;min-width:260px;resize:vertical}
+table.wt .id.sus{text-decoration:underline wavy var(--err)}
+.colpick{position:absolute;z-index:9;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(10,20,30,.14);padding:10px 12px;width:min(340px,92vw);max-height:60vh;overflow:auto}
+.colpick label{display:flex;gap:7px;align-items:center;font-size:12.5px;padding:3px 0}
+.colpick input{height:auto!important;width:auto}
+.colpick .tag{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:0 5px;margin-left:auto}
+.colpick .acts{margin-left:6px;display:flex;gap:4px}
 /* ---------- login ---------- */
 .login{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
 .login[hidden]{display:none}
@@ -574,7 +610,7 @@ function goStage(sid){view={kind:'stage',sid};stageTab=S.stageById[sid]?.canvas&
 function render(){
   renderStrip();
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
-  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||(view.kind==='stage'&&stageTab==='canvas'))?'none':'';
+  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
   ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan})[view.kind]();
   if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';}
   else if(ME&&ME.role==='viewer'){$('#btnImport').style.display='none';}
@@ -664,7 +700,7 @@ function viewStage(){
   const st=S.stageById[view.sid]; const c=S.stage_counts[st.id]; const its=stageItems(st.id);
   const prev=S.stages.filter(s=>s.next.includes(st.id)||(st.verifies&&s.id===st.verifies));
   const nexts=[...st.next, ...S.stages.filter(s=>s.verifies===st.id).map(s=>s.id)];
-  const tabs=[['doc','라이브 문서'],...(st.canvas?[['canvas','블록도']]:[]),['board','리뷰 보드'],['trace','추적'],['quality','품질']];
+  const tabs=[['doc','라이브 문서'],['table','표'],...(st.canvas?[['canvas','블록도']]:[]),['board','리뷰 보드'],['trace','추적'],['quality','품질']];
   if(stageTab==='canvas'&&!st.canvas) stageTab='doc';
   $('#content').innerHTML=`<div class="bar"><div><h1>${esc(st.aspice)} ${esc(st.name)}</h1><div class="sub">${c.total}건 · 승인 ${c.status.approved||0} · 초안 ${c.status.draft||0}${c.suspect?` · <span style="color:var(--err)">Suspect ${c.suspect}</span>`:''}</div></div><span class="spacer"></span>
      ${STATIC?'':prev.map(p=>`<button class="btn" data-dv="${p.id}|${st.id}">← ${p.aspice}에서 전개</button>`).join('')}
@@ -674,7 +710,7 @@ function viewStage(){
   $('#content').querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{stageTab=b.dataset.tab;render();});
   $('#content').querySelectorAll('[data-dv]').forEach(b=>b.onclick=()=>{const [f,t]=b.dataset.dv.split('|');openDerive(f,[t]);});
   if($('#dvOpen')) $('#dvOpen').onclick=()=>openDerive(st.id,nexts);
-  ({doc:stageDoc,canvas:stageCanvas,board:stageBoard,trace:stageTrace,quality:stageQuality})[stageTab](st,its);
+  ({doc:stageDoc,table:stageTable,canvas:stageCanvas,board:stageBoard,trace:stageTrace,quality:stageQuality})[stageTab](st,its);
 }
 async function stageDoc(st,its){
   const body=$('#stageBody');
@@ -1410,6 +1446,7 @@ function formDlg({title,desc='',fields,ok='확인'}){
     $('#fmTitle').textContent=title; $('#fmDesc').textContent=desc; $('#fmOk').textContent=ok;
     $('#fmBody').innerHTML=fields.map(f=>{const id='fm_'+f.k;
       if(f.type==='textarea') return `<label for="${id}">${esc(f.label)}</label><textarea id="${id}" placeholder="${esc(f.ph||'')}">${esc(f.value||'')}</textarea>`;
+      if(f.type==='select') return `<label for="${id}">${esc(f.label)}</label><select id="${id}">${f.options.map(o=>`<option value="${esc(o[0])}" ${o[0]===f.value?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
       if(f.type==='check') return `<label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="${id}" style="width:auto" ${f.value?'checked':''}> ${esc(f.label)}</label>`;
       return `<label for="${id}">${esc(f.label)}</label><input id="${id}" type="${f.type||'text'}" value="${esc(f.value??'')}" placeholder="${esc(f.ph||'')}" ${f.req?'required':''}>`;}).join('');
     const d=$('#dlgForm'); let done=false;
@@ -1420,6 +1457,109 @@ function formDlg({title,desc='',fields,ok='확인'}){
   });
 }
 
+// ---------------- work-product table view ----------------
+const WT={data:null,sid:null,q:'',status:'',onlyMiss:false,sort:null,hidden:{}};
+function wtHidden(sid){ if(!WT.hidden[sid]){ try{WT.hidden[sid]=new Set(JSON.parse(localStorage.getItem('ecualm-cols-'+sid)||'null')||['version','domain','source','section','native_id']);}catch(e){WT.hidden[sid]=new Set(['version','domain','source','section','native_id']);} } return WT.hidden[sid]; }
+function wtSaveHidden(sid){ try{localStorage.setItem('ecualm-cols-'+sid,JSON.stringify([...WT.hidden[sid]]));}catch(e){} }
+async function stageTable(st){
+  $('#left').innerHTML='';
+  const body=$('#stageBody');
+  if(WT.sid!==st.id){WT.data=null;WT.sid=st.id;WT.sort=null;}
+  if(!WT.data) body.innerHTML='<div class="muted">표 구성 중…</div>';
+  try{ WT.data = STATIC ? null : await api('/api/table/'+st.id); }catch(e){ body.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  if(!WT.data){ body.innerHTML='<div class="empty">읽기 전용 스냅샷에서는 표 보기를 지원하지 않습니다.</div>'; return; }
+  drawTable(st);
+}
+function drawTable(st){
+  const T=WT.data, body=$('#stageBody'), hid=wtHidden(st.id), canEdit=atLeast('engineer'), canCol=atLeast('manager');
+  const reqN=T.columns.filter(c=>c.required).length;
+  body.innerHTML=`<div class="wph"><span class="t">${esc(T.work_product)}</span><span class="chip" title="PAM 4.0 정보 항목">${esc(T.info_items)}</span>
+     <span class="wpm" title="필수 컬럼 ${reqN}개 기준"><span class="mbar" role="img" aria-label="필수 충족률 ${T.completeness}%"><i style="width:${T.completeness}%"></i></span><b style="color:var(--ink)">${T.completeness}%</b> 필수 충족 · 누락 ${T.missing}칸 · 완료 ${T.complete_rows}/${T.rows.length}행</span></div>
+   <div class="filters"><input id="wtQ" placeholder="검색 (ID, 내용)" value="${esc(WT.q)}" style="flex:1;min-width:160px">
+     <select id="wtSt" aria-label="상태"><option value="">전체 상태</option>${['draft','review','approved'].map(x=>`<option ${WT.status===x?'selected':''}>${x}</option>`).join('')}</select>
+     <label class="row" style="font-size:12.5px;color:var(--muted);gap:5px"><input type="checkbox" id="wtMiss" ${WT.onlyMiss?'checked':''}> 필수 누락 행만</label>
+     <span class="spacer"></span><span style="position:relative"><button class="btn" id="wtCols" aria-haspopup="true">컬럼 (${T.columns.length-[...hid].filter(k=>T.columns.some(c=>c.key===k&&!c.required)).length}/${T.columns.length})</button></span>
+     ${canCol?'<button class="btn" id="wtAdd">컬럼 추가</button>':''}<a class="btn" href="/api/table/${st.id}/xlsx">Excel</a></div>
+   <div class="wtw" id="wtw"></div>
+   <div class="muted" style="font-size:12px;margin-top:6px"><b style="color:var(--accent)">*</b> 필수 컬럼 (빈 칸은 빨간 배경 + "필수"). ${canEdit?'칸을 눌러 바로 고칩니다 — Enter 저장 (긴 텍스트는 Ctrl+Enter), Esc 취소. 링크 컬럼은 추적 링크에서 자동으로 채워집니다.':'읽기 전용입니다.'}</div>`;
+  $('#wtQ').oninput=e=>{WT.q=e.target.value;drawRows(st);};
+  $('#wtSt').onchange=e=>{WT.status=e.target.value;drawRows(st);};
+  $('#wtMiss').onchange=e=>{WT.onlyMiss=e.target.checked;drawRows(st);};
+  $('#wtCols').onclick=e=>{e.stopPropagation();colPicker(st,e.currentTarget);};
+  if($('#wtAdd')) $('#wtAdd').onclick=()=>addColumn(st);
+  drawRows(st);
+}
+function cellView(c,v,missing){
+  if(c.type==='ids'){ const L=(v||[]).filter(x=>!x.proposed); return L.length?L.map(x=>`<span class="id ${x.suspect?'sus':''}" data-open="${esc(x.id)}" style="--c:${tcolor(S.byId[x.id]?.type)};cursor:pointer" title="${x.suspect?'Suspect — 상위가 바뀜':''}">${esc(x.id)}</span>`).join(' '):(missing?'<span class="ph">필수 · 링크 없음</span>':'<span class="ph">—</span>'); }
+  if(v==null||v===''||(typeof v==='string'&&/^\[.*\]$/.test(v.trim()))) return missing?`<span class="ph">필수${v?' · '+esc(v):''}</span>`:'';
+  if(c.key==='status') return `<span class="chip ${esc(v)}">${esc(v)}</span>`;
+  if(c.key==='result') return `<span class="chip ${v==='PASS'?'approved':v==='FAIL'?'err':'warn'}">${esc(v)}</span>`;
+  if(c.key==='id') return `<span class="id" style="--c:${tcolor(S.byId[v]?.type)}">${esc(v)}</span>`;
+  return `<div class="v">${esc(v)}</div>`;
+}
+function drawRows(st){
+  const T=WT.data, hid=wtHidden(st.id), cols=T.columns.filter(c=>c.required||!hid.has(c.key)), canEdit=atLeast('engineer');
+  const q=WT.q.trim().toLowerCase();
+  let rows=T.rows.filter(r=>(!WT.status||r.values.status===WT.status)&&(!WT.onlyMiss||r.missing.length)&&(!q||JSON.stringify(r.values).toLowerCase().includes(q)));
+  if(WT.sort){ const {k,d}=WT.sort, f=v=>Array.isArray(v)?v.length:v??''; rows=[...rows].sort((a,b)=>{const x=f(a.values[k]),y=f(b.values[k]);return (x>y?1:x<y?-1:0)*d;}); }
+  $('#wtw').innerHTML=`<table class="wt"><thead><tr>${cols.map(c=>`<th class="${c.required?'rq':''}" data-sort="${c.key}" title="${esc((c.required?'필수 컬럼. ':'')+(c.help||'')+(c.builtin?'':' (사용자 추가 컬럼)'))}" aria-sort="${WT.sort?.k===c.key?(WT.sort.d>0?'ascending':'descending'):'none'}">${esc(c.label)}${c.required?' *':''}${c.builtin?'':' <span class="sd">＋</span>'}${T.missing_by_column[c.key]?`<span class="mc">누락 ${T.missing_by_column[c.key]}</span>`:''}${WT.sort?.k===c.key?`<span class="sd">${WT.sort.d>0?'▲':'▼'}</span>`:''}</th>`).join('')}</tr></thead>
+   <tbody>${rows.map(r=>`<tr data-r="${esc(r.id)}">${cols.map(c=>{const m=r.missing.includes(c.key), ed=canEdit&&c.edit;return `<td class="${c.type==='long'?'long':''} ${c.type==='ids'?'ids':''} ${m?'miss':''} ${ed?'ed':''}" data-k="${c.key}" ${c.key==='id'?`data-open="${esc(r.id)}" style="cursor:pointer"`:''}>${cellView(c,r.values[c.key],m)}</td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="muted" style="padding:20px">해당하는 행이 없습니다</td></tr>`}</tbody></table>`;
+  const w=$('#wtw');
+  w.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;WT.sort=WT.sort?.k===k?(WT.sort.d>0?{k,d:-1}:null):{k,d:1};drawRows(st);});
+  w.querySelectorAll('[data-open]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.open);});
+  if(canEdit) w.querySelectorAll('td.ed').forEach(td=>td.onclick=()=>editCell(st,td));
+  if(WT.keep){ [w.scrollTop,w.scrollLeft]=WT.keep; WT.keep=null; }
+}
+function editCell(st,td){
+  if(td.classList.contains('editing')) return;
+  const id=td.parentElement.dataset.r, k=td.dataset.k, c=WT.data.columns.find(x=>x.key===k), row=WT.data.rows.find(r=>r.id===id);
+  let v=row.values[k]; if(v==null) v=''; if(typeof v==='string'&&/^\[.*\]$/.test(v.trim())) v='';
+  const old=td.innerHTML; td.classList.add('editing');
+  let el;
+  if(c.type==='enum') td.innerHTML=`<select>${['',...c.options].map(o=>`<option ${String(o)===String(v)?'selected':''} value="${esc(o)}">${o===''?'(비움)':esc(o)}</option>`).join('')}${v&&!c.options.includes(v)?`<option selected>${esc(v)}</option>`:''}</select>`;
+  else if(c.type==='long') td.innerHTML=`<textarea>${esc(v)}</textarea>`;
+  else td.innerHTML=`<input type="${c.type==='num'?'number':c.type==='date'?'date':'text'}" value="${esc(v)}" ${c.type==='user'?'list="wtUsers"':''}>`;
+  el=td.firstElementChild; el.focus(); if(el.select&&c.type!=='date') try{el.select();}catch(e){}
+  let done=false;
+  const cancel=()=>{ if(done) return; done=true; td.classList.remove('editing'); td.innerHTML=old; };
+  const save=async()=>{ if(done) return; done=true; const nv=el.value;
+    if(String(nv)===String(v)){ td.classList.remove('editing'); td.innerHTML=old; return; }
+    td.style.opacity=.5;
+    try{ await api('/api/table/cell',{id,key:k,value:nv}); const was=S.byId[id]?.status;
+      WT.keep=[$('#wtw').scrollTop,$('#wtw').scrollLeft]; await load();
+      toast(`${id} · ${c.label} 저장${k==='text'&&was==='approved'?' — 내용이 바뀌어 초안으로 돌아갔습니다':''}`);
+    }catch(e){ toast(e.message); td.style.opacity=1; td.classList.remove('editing'); td.innerHTML=old; }
+  };
+  el.onkeydown=e=>{ if(e.key==='Escape'){e.preventDefault();cancel();} else if(e.key==='Enter'&&(c.type!=='long'||e.ctrlKey||e.metaKey)){e.preventDefault();save();} };
+  el.onblur=()=>setTimeout(save,0);
+  if(c.type==='enum') el.onchange=()=>el.blur();
+}
+function colPicker(st,btn){
+  document.querySelector('.colpick')?.remove();
+  const T=WT.data, hid=wtHidden(st.id), canCol=atLeast('manager');
+  const box=document.createElement('div'); box.className='colpick'; box.setAttribute('role','dialog'); box.setAttribute('aria-label','컬럼 선택');
+  box.innerHTML=`<div class="muted" style="font-size:12px;margin-bottom:6px">필수 컬럼은 항상 보입니다. 선택 컬럼은 이 브라우저에 기억됩니다.</div>`+T.columns.map(c=>`<label><input type="checkbox" data-c="${c.key}" ${c.required||!hid.has(c.key)?'checked':''} ${c.required?'disabled':''}> ${esc(c.label)}${c.required?' *':''}<span class="tag">${c.builtin?(c.required?'필수':'기본'):'추가'}${c.builtin?'':' · '+esc(WT.data.types[c.type]||c.type)}</span>${!c.builtin&&canCol?`<span class="acts"><button class="btn sm" data-ce="${c.key}">수정</button><button class="btn sm" data-cd="${c.key}">삭제</button></span>`:''}</label>`).join('');
+  btn.parentElement.appendChild(box); box.style.right='0'; box.style.top='38px';
+  box.querySelectorAll('[data-c]').forEach(ch=>ch.onchange=()=>{ ch.checked?hid.delete(ch.dataset.c):hid.add(ch.dataset.c); wtSaveHidden(st.id); drawRows(st); $('#wtCols').textContent=`컬럼 (${T.columns.filter(c=>c.required||!hid.has(c.key)).length}/${T.columns.length})`; });
+  box.querySelectorAll('[data-cd]').forEach(b=>b.onclick=async e=>{e.preventDefault();box.remove();const c=T.columns.find(x=>x.key===b.dataset.cd);
+    const v=await formDlg({title:`컬럼 “${c.label}” 삭제`,desc:'표에서 컬럼을 없앱니다. 이미 입력한 값은 아이템에 남아 있어, 같은 이름으로 다시 만들지 않아도 이력에서 볼 수 있습니다.',ok:'삭제',fields:[]});
+    if(v){try{await api('/api/wpcol/delete',{stage:st.id,key:c.key});toast('컬럼 삭제');stageTable(st);}catch(x){toast(x.message);}}});
+  box.querySelectorAll('[data-ce]').forEach(b=>b.onclick=async e=>{e.preventDefault();box.remove();const c=T.columns.find(x=>x.key===b.dataset.ce);
+    const v=await formDlg({title:`컬럼 “${c.label}” 수정`,ok:'저장',fields:[{k:'label',label:'이름',value:c.label,req:true},...(c.type==='enum'?[{k:'options',label:'선택 항목 (한 줄에 하나)',type:'textarea',value:c.options.join('\n')}]:[]),{k:'help',label:'설명 (머리글 툴팁)',value:c.help||''},{k:'required',label:'필수 컬럼 (비면 누락으로 표시·감사)',type:'check',value:c.required}]});
+    if(v){try{await api('/api/wpcol/update',{stage:st.id,key:c.key,label:v.label,required:v.required,help:v.help,...(v.options!=null?{options:v.options.split('\n')}:{})});toast('컬럼 수정');stageTable(st);}catch(x){toast(x.message);}}});
+  setTimeout(()=>{const off=e=>{if(!box.contains(e.target)){box.remove();document.removeEventListener('click',off);}};document.addEventListener('click',off);},0);
+}
+async function addColumn(st){
+  const v=await formDlg({title:`${st.aspice} ${st.name} — 컬럼 추가`,desc:`${WT.data.work_product}에 프로젝트 고유 컬럼을 추가합니다. 값은 각 아이템에 저장되고 이력·Excel 내보내기에 포함됩니다.`,ok:'추가',
+    fields:[{k:'label',label:'컬럼 이름',value:'',req:true,ph:'예: 고객 승인일, 릴리스, 담당자, 리뷰 ID'},
+      {k:'type',label:'유형',type:'select',value:'text',options:Object.entries(WT.data.types)},
+      {k:'options',label:'선택 항목 (선택 목록일 때, 한 줄에 하나)',type:'textarea',value:'',ph:'A 샘플\nB 샘플\nC 샘플'},
+      {k:'help',label:'설명 (머리글 툴팁)',value:''},
+      {k:'required',label:'필수 컬럼 (비면 누락으로 표시하고, 검토·승인 아이템은 감사에서 경고)',type:'check',value:false}]});
+  if(!v) return;
+  try{ const c=await api('/api/wpcol',{stage:st.id,label:v.label,type:v.type,options:v.options.split('\n'),required:v.required,help:v.help});
+    wtHidden(st.id).delete(c.key); wtSaveHidden(st.id); toast(`컬럼 “${c.label}” 추가`); stageTable(st); }catch(e){ toast(e.message); }
+}
 // ---------------- MAN.3 project plan: WBS · Gantt · effort ----------------
 const PL={data:null,zoom:'month',fam:'',owner:'',q:'',base:true,deps:true,collapsed:new Set(),sel:null};
 try{const z=localStorage.getItem('ecualm-plan-zoom'); if(z) PL.zoom=z;}catch(e){}

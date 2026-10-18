@@ -12,7 +12,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, ops, schedule
+from . import arch, assistant, ops, schedule, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -30,7 +30,8 @@ POST_ROLE = {"/api/chat": "viewer", "/api/auth/logout": "viewer", "/api/auth/pas
              "/api/plan/task": "viewer", "/api/plan/task/delete": "viewer", "/api/plan/baseline": "viewer",
              "/api/plan/template": "viewer", "/api/plan/meta": "manager", "/api/baseline": "manager",
              "/api/ai/settings": "admin", "/api/users": "admin", "/api/users/update": "admin", "/api/users/reset": "admin",
-             "/api/users/token": "admin"}
+             "/api/users/token": "admin", "/api/wpcol": "manager", "/api/wpcol/update": "manager",
+             "/api/wpcol/delete": "manager"}
 PUBLIC_POST = {"/api/auth/login", "/api/auth/setup"}
 
 
@@ -46,6 +47,7 @@ def make_handler(root: Path):
     cfg0 = load_config(root)
     auth = Auth(repo, cfg0)
     schedule.init(repo)
+    workproducts.init(repo)
     auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
@@ -162,6 +164,17 @@ def make_handler(root: Path):
                         return self._send(200, out.read_bytes(),
                                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                           {"Content-Disposition": "attachment; filename=project_plan_MAN3.xlsx"})
+                if path.startswith("/api/table/"):
+                    sid = path[len("/api/table/"):]
+                    if sid.endswith("/xlsx"):
+                        sid = sid[:-5]
+                        with LOCK, tempfile.TemporaryDirectory() as td:
+                            out = workproducts.export_xlsx(repo, self.cfg, sid, Path(td) / f"{sid}.xlsx")
+                            return self._send(200, out.read_bytes(),
+                                              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                              {"Content-Disposition": f"attachment; filename={sid}_table.xlsx"})
+                    with LOCK:
+                        return self._send(200, workproducts.table(repo, self.cfg, sid))
                 if path.startswith("/assets/"):
                     f = (repo.assets / Path(path[8:]).name)
                     if f.exists():
@@ -296,6 +309,16 @@ def make_handler(root: Path):
                                                              float(b.get("min", 0.2)), int(b.get("top", 2))))
                     if path == "/api/derive":
                         return self._send(200, derive(repo, cfg, b["from"], b["to"], b.get("ids"), user))
+                    if path == "/api/table/cell":
+                        return self._send(200, workproducts.set_cell(repo, cfg, b["id"], b["key"], b.get("value"), user))
+                    if path == "/api/wpcol":
+                        return self._send(200, workproducts.add_column(repo, cfg, b["stage"], b.get("label", ""), b.get("type", "text"),
+                                                                       b.get("options"), b.get("required", False), b.get("help", ""), user))
+                    if path == "/api/wpcol/update":
+                        return self._send(200, workproducts.update_column(repo, b["stage"], b["key"], b.get("label"), b.get("required"),
+                                                                          b.get("options"), b.get("help")))
+                    if path == "/api/wpcol/delete":
+                        return self._send(200, workproducts.delete_column(repo, b["stage"], b["key"]))
                     if path == "/api/layout":
                         return self._send(200, {"moved": arch.set_layout(repo, b["positions"])})
                     if path == "/api/block":

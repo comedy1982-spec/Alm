@@ -136,6 +136,11 @@ def run_audit(repo: Repo, cfg: dict) -> dict:
                 add("warn", "result_stale", i["id"],
                     f"{dst} 가 시험 후 변경됨 (v{ver} → v{d['version']}) → 재시험 필요", [dst])
 
+    from .workproducts import audit_findings
+    for f in audit_findings(repo, cfg):     # required work-product columns (warn once reviewed/approved)
+        st = active.get(f["item"], {}).get("status")
+        add("warn" if st in ("review", "approved") else "info", f["rule"], f["item"], f["msg"])
+
     status_count = defaultdict(lambda: defaultdict(int))
     for i in active.values():
         status_count[i["type"]][i["status"]] += 1
