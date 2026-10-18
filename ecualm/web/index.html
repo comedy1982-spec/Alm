@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECU ALM</title>
+<!--STATIC-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --bg:#F4F6F9; --panel:#FFFFFF; --ink:#16202C; --muted:#5A6878; --line:#DCE2EA; --soft:#EEF1F5; --soft2:#F8FAFC;
+  --accent:#1F5FBF; --accent-soft:#E8EFFA; --ok:#1E7A3A; --ok-soft:#E3F4E7; --warn:#8A5A00; --warn-soft:#FFF3DC; --err:#B3261E; --err-soft:#FDF3F2;
+  --spec:#3442A0; --verify:#1E7A50;
+  --crs:#6B4BB5; --sys2:#0F6E7C; --swe1:#1F5FBF; --hsi:#8A5A00; --tc:#1E7A50; --arch:#7B3F9E;
+  --mono:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --sans:'IBM Plex Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F141A; --panel:#171E27; --ink:#E4E9F0; --muted:#97A3B3; --line:#2A3440; --soft:#212A35; --soft2:#1C242E;
+  --accent:#6EA4F5; --accent-soft:#1F2D44; --ok:#5CC27A; --ok-soft:#183223; --warn:#E0A54A; --warn-soft:#3A2E17; --err:#F07A72; --err-soft:#3A1F1D;
+  --spec:#8E9AF0; --verify:#5CC27A; --crs:#A98BE8; --sys2:#5BB3CF; --swe1:#6EA4F5; --hsi:#D6A649; --tc:#62C28C; --arch:#C18EE0; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0F141A; --panel:#171E27; --ink:#E4E9F0; --muted:#97A3B3; --line:#2A3440; --soft:#212A35; --soft2:#1C242E;
+  --accent:#6EA4F5; --accent-soft:#1F2D44; --ok:#5CC27A; --ok-soft:#183223; --warn:#E0A54A; --warn-soft:#3A2E17; --err:#F07A72; --err-soft:#3A1F1D;
+  --spec:#8E9AF0; --verify:#5CC27A; --crs:#A98BE8; --sys2:#5BB3CF; --swe1:#6EA4F5; --hsi:#D6A649; --tc:#62C28C; --arch:#C18EE0; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans)}
+button,select,input,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.mono{font-family:var(--mono)}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.hrow{display:flex;align-items:center;gap:12px;padding:8px 16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;white-space:nowrap}
+.brand i{width:26px;height:26px;border-radius:6px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center}
+.brand small{font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:12px}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel);padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;height:34px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{height:28px;padding:2px 9px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+.strip{display:flex;align-items:stretch;gap:0;padding:0 16px 8px;overflow-x:auto}
+.strip .st{border:1px solid var(--line);background:var(--panel);min-width:104px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:1px;position:relative;text-align:left}
+.strip .st+.st{margin-left:-1px}
+.strip .st:first-child{border-radius:8px 0 0 8px}.strip .st.last{border-radius:0 8px 8px 0}
+.strip .st.on{background:var(--accent-soft);border-color:var(--accent);z-index:1;color:var(--accent)}
+.strip .st .a{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.strip .st.on .a{color:var(--accent)}
+.strip .st .n{font-weight:600;font-size:12.5px;white-space:nowrap}
+.strip .st .c{font-size:11px;color:var(--muted);display:flex;gap:6px}
+.strip .st .c b{color:var(--ink)}
+.strip .st.verify{background:var(--soft2)}
+.strip .st .sus{position:absolute;top:4px;right:6px;background:var(--err);color:#fff;font-size:10px;padding:0 5px;border-radius:8px;font-weight:700}
+.strip .gap{width:14px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.strip .home{min-width:auto;border-radius:8px;margin-right:10px;align-items:center;justify-content:center;padding:6px 12px}
+main{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 104px)}
+main.full{grid-template-columns:1fr}
+main.full aside.left{display:none}
+aside.left{border-right:1px solid var(--line);background:var(--panel);padding:14px 12px;position:sticky;top:104px;height:calc(100vh - 104px);overflow:auto}
+.left h4{margin:12px 4px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.toc a{display:block;color:var(--muted);text-decoration:none;font-size:12.5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:4px}
+.toc a:hover{color:var(--accent);background:var(--soft)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:3px 10px;font-size:12.5px}
+.kv span:nth-child(odd){color:var(--muted)}
+.content{padding:20px 28px 60px;max-width:1180px;width:100%;min-width:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.bar h1{margin:0;font-size:22px;font-weight:700}
+.bar .sub{color:var(--muted);font-size:12.5px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:8px 12px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.filters input,.filters select,.bar select{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:5px 8px;height:34px}
+.doc h2,.doc h3,.doc h4{margin:24px 0 8px;scroll-margin-top:120px;text-wrap:balance}
+.doc h2{font-size:19px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.doc h3{font-size:16px}.doc h4{font-size:14px}
+.info{color:var(--muted);margin:6px 0 6px 2px}
+.info.li{padding-left:14px}
+.req{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:8px;padding:10px 12px;margin:8px 0;cursor:pointer}
+.req:hover{border-color:var(--accent)}
+.req.sel{outline:2px solid var(--accent)}
+.req .top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.id{font-family:var(--mono);font-weight:600;font-size:12.5px;color:var(--c,var(--accent))}
+.chip{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.chip.draft{background:var(--warn-soft);color:var(--warn)}.chip.review{background:var(--accent-soft);color:var(--accent)}.chip.approved{background:var(--ok-soft);color:var(--ok)}
+.chip.deleted,.chip.rejected{background:var(--err-soft);color:var(--err)}
+.chip.warn{background:transparent;color:var(--warn);border:1px solid var(--warn)}
+.chip.err{background:transparent;color:var(--err);border:1px solid var(--err)}
+.chip.link{background:transparent;border:1px solid var(--line)}
+.chip.sus{background:var(--err);color:#fff;font-weight:700}
+.chip.new{background:var(--ok-soft);color:var(--ok)}
+.fields{margin-top:6px;font-size:12px;color:var(--muted)}
+.fields b{color:var(--ink);font-weight:600}
+.spec{display:grid;grid-template-columns:110px 1fr;gap:2px 10px;font-size:12.5px;margin-top:8px;padding:8px 10px;background:var(--soft2);border-radius:6px}
+.spec span:nth-child(odd){color:var(--muted);font-family:var(--mono);font-size:11px;padding-top:2px}
+.tblwrap{overflow-x:auto;margin:10px 0;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.tblcap{font-size:12.5px;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+table.g{border-collapse:collapse;width:100%;font-size:12.5px}
+table.g td{border:1px solid var(--line);padding:5px 8px;vertical-align:top;white-space:pre-wrap}
+table.g tr:first-child td{background:var(--soft);font-weight:600}
+figure{margin:12px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
+figure img{max-width:100%;max-height:480px;background:#fff;border-radius:4px}
+figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
+pre.code{text-align:left;background:var(--soft);padding:8px;border-radius:6px;font:12px/1.4 var(--mono);overflow:auto;white-space:pre}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.10);overflow:auto;padding:18px 20px;transform:translateX(100%);transition:transform .18s;z-index:7}
+.drawer.open{transform:none}
+.drawer h3{margin:4px 0 2px;font-family:var(--mono)}
+.sec{margin-top:16px}
+.sec>b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.drawer textarea,dialog textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(--soft2);border-radius:6px;padding:8px;resize:vertical}
+.lk{display:flex;gap:6px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px;flex-wrap:wrap}
+.lk .id{cursor:pointer}.lk.prop .id{border-bottom:1px dashed}
+.lk .t{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:80px}
+.hist{font-size:12.5px;border-left:2px solid var(--line);padding:2px 0 8px 10px;margin-left:4px}
+ins{background:var(--ok-soft);color:var(--ok);text-decoration:none}del{background:var(--err-soft);color:var(--err)}
+.lint{font-size:12.5px;padding:3px 0}
+.lint.warn{color:var(--warn)}.lint.error{color:var(--err)}.lint.info{color:var(--muted)}
+table.list{border-collapse:collapse;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12.5px}
+table.list th{background:var(--soft);text-align:left;padding:7px 8px;font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+table.list td{border-top:1px solid var(--line);padding:7px 8px;vertical-align:top}
+table.list tr[data-id]:hover td,table.list tr[data-open]:hover td{background:var(--accent-soft);cursor:pointer}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:120px}
+.card b{display:block;font-size:24px;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.card.err b{color:var(--err)}.card.warn b{color:var(--warn)}.card.ok b{color:var(--ok)}
+.meter{height:8px;background:var(--soft);border-radius:4px;width:160px;overflow:hidden;display:inline-block;vertical-align:middle}
+.meter i{display:block;height:100%;background:var(--ok)}.meter i.part{background:var(--warn)}
+.empty{color:var(--muted);padding:40px 20px;text-align:center;border:1px dashed var(--line);border-radius:10px;background:var(--panel)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);width:min(760px,96vw);padding:20px;max-height:92vh;overflow:auto}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog label{display:block;margin:10px 0 4px;font-size:12.5px;color:var(--muted)}
+dialog input,dialog select{width:100%;border:1px solid var(--line);background:var(--soft2);border-radius:6px;padding:6px 8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+/* V-model */
+.vm{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 18px;display:flex;flex-direction:column;gap:10px;overflow-x:auto}
+.vrow{display:flex;gap:14px;align-items:center;min-width:720px}
+.vbox{flex:0 0 280px;padding:10px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;color:#fff;border:0;text-align:left;font:inherit}
+.vbox.spec{background:var(--spec)}.vbox.verify{background:var(--verify)}
+.vbox.empty0{background:transparent;border:2px dashed var(--line);color:var(--muted)}
+.vbox .a{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.85)}.vbox.empty0 .a{color:var(--muted)}.vbox .n{font-weight:600}.vbox .cnt{font-family:var(--mono);font-size:20px;font-weight:600}
+.vbox:hover{outline:2px solid var(--accent);outline-offset:2px}
+.vline{flex:1;display:flex;align-items:center;gap:8px;min-width:80px;font-family:var(--mono);font-size:12px}
+.vline i{flex:1;border-top:2px solid var(--verify)}.vline i.miss{border-top:2px dashed var(--err)}
+.vline span{color:var(--verify);font-weight:600}.vline span.miss{color:var(--err)}
+/* kanban */
+.kan{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;align-items:start}
+.col{background:var(--soft);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.col.sus{background:var(--err-soft)}.col.ok{background:var(--ok-soft)}
+.col h3{margin:0;font-size:14px;display:flex;justify-content:space-between;padding:2px 4px}
+.kcard{background:var(--panel);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px;cursor:pointer;border:1px solid transparent}
+.kcard:hover{border-color:var(--accent)}
+.kcard .note{font-size:12px;color:var(--muted);background:var(--soft2);border-radius:6px;padding:5px 8px}
+/* import preview */
+.diffrow{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 0;border-bottom:1px solid var(--line)}
+.diffrow .l{flex:0 0 190px;display:flex;flex-direction:column;gap:4px}
+.diffrow .l .id{font-size:13px}
+.diffrow .c{flex:1 1 220px;min-width:0;font-size:13px}
+.diffrow .c small{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-bottom:2px}
+.tag{font-size:11px;padding:1px 6px;border-radius:3px;font-weight:700}
+.tag.modified{background:#FFE08A;color:#4A3600}.tag.new{background:var(--ok);color:#fff}.tag.deleted{background:var(--err);color:#fff}.tag.restored{background:var(--accent);color:#fff}
+.term{background:#0B1016;color:#B7C4D2;border-radius:8px;font:12.5px/1.7 var(--mono);padding:12px 14px;overflow-x:auto;white-space:pre}
+.term .e{color:#F07A72}.term .w{color:#F0A35A}
+/* link workbench */
+.wb{display:grid;gap:12px;align-items:start}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-width:0;max-height:calc(100vh - 190px)}
+.pane.win{max-height:calc(100vh - 120px)}
+.pane .ph{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);border-radius:10px 10px 0 0;z-index:1}
+.pane .ph select,.pane .ph input{border:1px solid var(--line);background:var(--soft2);border-radius:6px;padding:4px 6px;height:30px;font-size:12.5px;min-width:0}
+.pane .ph input{flex:1 1 90px}
+.pane .ph label{white-space:nowrap;display:flex;gap:4px;align-items:center;font-size:12px}
+.pane .pb{overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.dc{border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:7px;padding:7px 9px;background:var(--panel);cursor:grab;font-size:12.5px;display:flex;flex-direction:column;gap:3px;user-select:none}
+.dc:active{cursor:grabbing}
+.dc .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dc .links{display:flex;flex-wrap:wrap;gap:4px}
+.dc .links span{font-family:var(--mono);font-size:10.5px;padding:0 5px;border-radius:8px;background:var(--soft);color:var(--muted)}
+.dc .links span.sus{background:var(--err);color:#fff}
+.dc.can{outline:2px dashed var(--ok);background:var(--ok-soft)}
+.dc.no{outline:2px dashed var(--err);opacity:.6}
+.dc.rel{background:var(--accent-soft);border-color:var(--accent)}
+.dc.src{outline:2px solid var(--accent)}
+.dc.dragging{opacity:.4}
+.dc .top{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.dc .top button{margin-left:auto}
+.wbbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.wbhint{font-size:12.5px;color:var(--muted)}
+body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,body.win #btnHist{display:none}
+@media (max-width: 760px){ main{grid-template-columns:1fr} aside.left{display:none} .content{padding:14px 16px 60px} .hrow{gap:8px} .brand small{display:none} #btnXlsx{display:none} .strip .st{min-width:88px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <small id="proj"></small></div>
+    <span class="muted" style="font-size:12.5px" id="crumb"></span>
+    <div class="spacer"></div>
+    <button class="btn" id="btnWb" title="두 단계를 나란히 놓고 드래그로 추적 링크 연결">링크 작업대</button>
+    <button class="btn" id="btnAudit">감사 콘솔</button>
+    <button class="btn" id="btnHist">이력·베이스라인</button>
+    <button class="btn" id="btnXlsx">Excel</button>
+    <button class="btn primary" id="btnImport">요구사항 가져오기</button>
+  </div>
+  <nav class="strip" id="strip" aria-label="ASPICE 단계"></nav>
+</header>
+<main id="main"><aside class="left" id="left"></aside><section class="content" id="content"></section></main>
+<div class="drawer" id="drawer"></div>
+<div class="toast" id="toast"></div>
+
+<dialog id="dlgImport">
+  <div id="impStep1">
+    <h3 style="margin:0 0 4px">요구사항 가져오기</h3>
+    <div class="muted" style="font-size:12.5px">DOCX · PDF · DOC · RTF · ODT · MD. 가져온 문서는 선택한 단계의 라이브 문서가 되고, 표는 행 단위 아이템으로, 그림은 이미지로 변환됩니다. 같은 문서명으로 다시 가져오면 개정본으로 비교합니다.</div>
+    <label for="impFile">파일</label><input type="file" id="impFile" accept=".docx,.pdf,.doc,.rtf,.odt,.md,.txt">
+    <div class="row" style="gap:12px">
+      <div style="flex:1 1 200px"><label for="impDoc">문서명 (비우면 파일명)</label><input id="impDoc" list="docNames"><datalist id="docNames"></datalist></div>
+      <div style="flex:0 1 140px"><label for="impRev">개정</label><input id="impRev" placeholder="예: B, v1.2"></div>
+    </div>
+    <label for="impMode">어느 단계의 문서입니까?</label>
+    <select id="impMode">
+      <option value="crs">SYS.1 고객 요구사항 (CRS / ES 규격) → 가져온 뒤 SYS.2 SRS로 전개</option>
+      <option value="srs">통합 SRS → SYS.2 / SWE.1 자동 분리</option>
+      <option value="sys2">SYS.2 시스템 요구사항 (타입 고정)</option>
+      <option value="swe1">SWE.1 SW 요구사항 (타입 고정)</option>
+      <option value="info">참고 문서 (요구사항 추출 안 함)</option>
+    </select>
+    <label class="row" style="color:var(--ink);margin-top:12px"><input type="checkbox" id="impDerive" checked style="width:auto"> 가져온 뒤 바로 다음 단계로 전개 (CRS → SYS.2 SRS 초안 생성)</label>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn" id="impClose1">닫기</button>
+      <button class="btn primary" id="impPreview">변경 미리보기</button>
+    </div>
+  </div>
+  <div id="impStep2" hidden>
+    <div class="row"><h3 style="margin:0" id="pvTitle">변경 미리보기</h3><span class="chip warn" style="margin-left:auto">아직 저장되지 않음</span></div>
+    <div class="cards" id="pvCards" style="margin-top:12px"></div>
+    <div id="pvList" style="max-height:46vh;overflow:auto"></div>
+    <div class="row" style="margin-top:14px"><span class="muted" style="font-size:12.5px" id="pvNote"></span><span class="spacer"></span>
+      <button class="btn" id="impBack">뒤로</button><button class="btn primary" id="impGo">가져오기</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgDerive">
+  <h3 style="margin:0 0 4px" id="dvTitle">다음 단계로 전개</h3>
+  <div class="muted" style="font-size:12.5px" id="dvDesc"></div>
+  <label for="dvTo">대상 단계</label><select id="dvTo"></select>
+  <div class="muted" style="font-size:12.5px;margin-top:8px" id="dvRule"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="dvClose">닫기</button><button class="btn primary" id="dvGo">전개 실행</button></div>
+</dialog>
+
+<script>
+const STATIC = window.__STATIC__ || null;
+let S=null, view={kind:'home'}, selected=null, stageTab='doc', docMode='pam', tracePair=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const TYPE_COLOR={CRS:'--crs',SYS2:'--sys2',SWE1:'--swe1',HSI:'--hsi',SYS3:'--arch',SWE2:'--arch',SWE3:'--arch'};
+const tcolor=t=>`var(${TYPE_COLOR[t]||(String(t).endsWith('_TC')?'--tc':'--accent')})`;
+const REQ=t=>!['HDG','INFO','TBL','FIG'].includes(t);
+const RULES={'SYS1>SYS2':'CRS 문장마다 SYS.2 초안을 만들고 derives 링크를 겁니다. HW/SW 분야(Discipline)와 검증 기준 초안이 붙습니다.',
+ 'SYS2>SWE1':'SW가 관여하는 SYS.2만 SWE.1로 구체화합니다. [Pre-Condition]→[Trigger]→[Timing]→[Output] 템플릿을 채우고 refines 링크, 관련 HSI에는 uses 링크(제안)를 겁니다. 순수 HW/환경/기구 항목은 건너뜁니다.',
+ 'SYS2>SYS3':'도메인별 할당표(alm.json sys3_allocation)에 따라 시스템 요소(MCU, 게이트 드라이버, PMIC…)를 만들고 satisfies 링크를 겁니다. 핀맵 HSI 항목은 신호명이 맞으면 제안 링크로 연결합니다.',
+ 'SYS2>SYS5':'SYS.2마다 정상 TC + 수치별 경계값 TC(+고장주입)를 만들고 verifies 링크를 겁니다.',
+ 'SYS3>SWE1':'HSI 항목을 사용하는 SWE.1 요구사항 후보를 만듭니다.','SYS3>SYS4':'HSI 핀/신호마다 오실로스코프·HIL 측정 TC를 만듭니다.',
+ 'SWE1>SWE2':'도메인별 AUTOSAR 컴포넌트(SWC/CDD/BSW)에 1:N 할당하고 allocates 링크를 겁니다.',
+ 'SWE1>SWE6':'SWE.1마다 정상 1 + 경계값/고장주입 TC를 만들고 verifies 링크를 겁니다 (PAM 4.0: SWE.6이 SWE.1을 100% 검증).',
+ 'SWE2>SWE3':'컴포넌트마다 Init / MainFunction 유닛 설계 스텁(C 시그니처)을 만듭니다.','SWE2>SWE5':'컴포넌트 인터페이스·시퀀스 통합 TC를 만듭니다 (SWE.5는 SWE.2만 검증).',
+ 'SWE3>SWE4':'유닛마다 단위 테스트 TC를 만듭니다.'};
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),3000);}
+async function api(path, body){
+  if(STATIC) throw new Error('읽기 전용 스냅샷입니다');
+  const r=await fetch(path, body===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j;
+}
+async function load(){
+  S = STATIC ? STATIC.state : await api('/api/state');
+  S.byId=Object.fromEntries(S.items.map(i=>[i.id,i])); S.up={}; S.down={};
+  for(const l of S.links){(S.up[l.src]||=[]).push(l);(S.down[l.dst]||=[]).push(l);}
+  S.stageById=Object.fromEntries(S.stages.map(s=>[s.id,s]));
+  S.stageOfType={}; for(const s of S.stages) for(const t of s.types) S.stageOfType[t]=s.id;
+  $('#proj').textContent=S.project;
+  $('#docNames').innerHTML=S.docs.map(d=>`<option value="${esc(d.doc)}">`).join('');
+  render();
+}
+const asset=f=>STATIC?(STATIC.assets[f]||''):'/assets/'+encodeURIComponent(f);
+const stageItems=sid=>S.items.filter(i=>S.stageById[sid].types.includes(i.type)&&i.status!=='deleted');
+
+// ---------------- header strip ----------------
+function renderStrip(){
+  const spec=S.stages.filter(s=>s.side==='spec'), ver=S.stages.filter(s=>s.side==='verify');
+  const box=s=>{const c=S.stage_counts[s.id]||{total:0,status:{}};const on=view.kind==='stage'&&view.sid===s.id;
+    return `<button class="st ${s.side} ${on?'on':''}" data-sid="${s.id}"><span class="a">${s.aspice}</span><span class="n">${esc(s.name)}</span><span class="c"><b>${c.total}</b>${c.status.approved?`<span>승인 ${c.status.approved}</span>`:''}${c.lint?`<span style="color:var(--warn)">⚠${c.lint}</span>`:''}</span>${c.suspect?`<span class="sus">SUS ${c.suspect}</span>`:''}</button>`;};
+  $('#strip').innerHTML=`<button class="st home ${view.kind==='home'?'on':''}" data-home><span class="n">V-모델</span></button>${spec.map(box).join('')}<span class="gap">⇄</span>${ver.map(box).join('').replace(/class="st verify /g,'class="st verify ')}`;
+  const last=$('#strip').querySelectorAll('.st'); if(last.length) last[last.length-1].classList.add('last');
+  $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{view={kind:'stage',sid:b.dataset.sid};stageTab='doc';render();});
+  $('#strip').querySelector('[data-home]').onclick=()=>{view={kind:'home'};render();};
+  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':'';
+}
+function render(){
+  renderStrip();
+  $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
+  $('#content').style.maxWidth=view.kind==='wb'?'none':'';
+  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench})[view.kind]();
+  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';}
+}
+
+// ---------------- chips / item rendering ----------------
+function chipsFor(it){
+  const lint=it.lint||[], e=lint.filter(x=>x.sev==='error').length, w=lint.filter(x=>x.sev==='warn').length;
+  const ups=S.up[it.id]||[], downs=S.down[it.id]||[], sus=ups.some(l=>l.suspect);
+  return `<span class="id" style="--c:${tcolor(it.type)}">${esc(it.id)}</span><span class="chip">${esc(it.type)}</span>${it.domain!==it.type&&it.domain!=='GEN'?`<span class="chip">${esc(it.domain)}</span>`:''}
+   <span class="chip ${it.status}">${esc(it.status)}</span>${it.version>1?`<span class="chip">v${it.version}</span>`:''}
+   ${it.attrs.native_id?`<span class="chip" title="원문 ID">${esc(it.attrs.native_id)}</span>`:''}${it.attrs.asil?`<span class="chip" style="border:1px solid var(--line);background:transparent">ASIL ${esc(it.attrs.asil)}</span>`:''}${it.attrs.derived_from?`<span class="chip" title="전개 원천">← ${esc(it.attrs.derived_from)}</span>`:''}
+   ${e?`<span class="chip err">오류 ${e}</span>`:''}${w?`<span class="chip warn">경고 ${w}</span>`:''}${ups.length?`<span class="chip link">↑${ups.length}</span>`:''}${downs.length?`<span class="chip link">↓${downs.length}</span>`:''}${sus?`<span class="chip sus">SUSPECT</span>`:''}`;
+}
+function tableHTML(grid){return '<table class="g">'+grid.map(r=>'<tr>'+r.map(c=>c.skip?'':`<td${(c.rs||1)>1?` rowspan="${c.rs}"`:''}${(c.cs||1)>1?` colspan="${c.cs}"`:''}>${esc(c.t)}</td>`).join('')+'</tr>').join('')+'</table>';}
+function specHTML(a){
+  if(a.spec) return `<div class="spec"><span>PRE</span><span>${esc(a.spec.pre_condition)}</span><span>TRIGGER</span><span>${esc(a.spec.trigger||'—')}</span><span>TIMING</span><span>${esc(a.spec.timing||a.task_cycle||'—')}</span><span>OUTPUT</span><span>${esc(a.spec.output)}</span></div>`;
+  if(a.kind) return `<div class="spec"><span>KIND</span><span>${esc(a.kind)}${a.tool?' · '+esc(a.tool):''}</span>${a.boundary?`<span>BVA</span><span>${esc(a.boundary.join(' → '))}</span>`:''}${a.pass_criteria?`<span>PASS</span><span>${esc(a.pass_criteria)}</span>`:''}</div>`;
+  if(a.autosar_layer) return `<div class="spec"><span>LAYER</span><span>${esc(a.autosar_layer)}</span><span>CYCLE</span><span>${esc(a.runnable_cycle||'—')}</span></div>`;
+  if(a.function_signature) return `<div class="spec"><span>FILE</span><span>${esc(a.c_file)}</span><span>SIGNATURE</span><span class="mono">${esc(a.function_signature)}</span></div>`;
+  return '';
+}
+function itemHTML(it){
+  const sel=selected===it.id?' sel':'';
+  if(it.type==='HDG'){const l=Math.min(4,(it.attrs.level||1)+1);return `<h${l} id="h-${esc(it.id)}">${esc(it.text)}</h${l}>`;}
+  if(it.type==='INFO') return `<p class="info${it.attrs.list_level>=0?' li':''}">${it.attrs.list_level>=0?'• ':''}${esc(it.text)}</p>`;
+  if(it.type==='TBL') return `<div class="tblwrap" data-id="${esc(it.id)}"><div class="tblcap"><span class="id">${esc(it.id)}</span>${esc(it.attrs.caption||'')}<span class="chip">${esc(it.attrs.table_kind||'')}</span></div>${tableHTML(it.attrs.grid||[])}</div>`;
+  if(it.type==='FIG') return `<figure data-id="${esc(it.id)}">${it.attrs.file?`<img loading="lazy" src="${asset(it.attrs.file)}" alt="${esc(it.attrs.caption||it.id)}">`:`<div class="empty" style="padding:16px">이미지 없음 — 라벨: ${esc(it.attrs.labels||'')}</div>`}<figcaption><span class="id">${esc(it.id)}</span> ${esc(it.attrs.caption||'')}${it.attrs.converted?` <span class="chip">${esc(it.attrs.orig_ext)}→png</span>`:''}</figcaption>${it.attrs.diagram_code?`<pre class="code">${esc(it.attrs.diagram_code)}</pre>`:''}</figure>`;
+  const f=it.attrs.fields?Object.entries(it.attrs.fields).map(([k,v])=>`<b>${esc(k)}</b> ${esc(v)}`).join(' · '):'';
+  const vc=(it.attrs.verification_criteria||it.attrs.verification_method||it.attrs.rationale)?`<div class="fields">${it.attrs.verification_method?`<b>검증</b> ${esc(it.attrs.verification_method)} · `:''}${it.attrs.rationale?`<b>근거</b> ${esc(it.attrs.rationale)} · `:''}${it.attrs.verification_criteria?`<b>검증 기준</b> ${esc(it.attrs.verification_criteria)}`:''}</div>`.replace(/ · <\/div>$/,'</div>'):'';
+  return `<div class="req${sel}" style="--c:${tcolor(it.type)}" data-id="${esc(it.id)}"><div class="top">${chipsFor(it)}</div><div>${esc(it.text)}</div>${specHTML(it.attrs)}${f?`<div class="fields">${f}</div>`:''}${vc}</div>`;
+}
+function bindOpen(root){root.querySelectorAll('[data-id]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.id);});root.querySelectorAll('[data-open]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.open);});}
+
+// ---------------- HOME: V-model (concept C) ----------------
+function cov(up,dn,role){
+  const ups=stageItems(up), dns=stageItems(dn);
+  const covered=ups.filter(u=>(S.down[u.id]||[]).some(l=>l.role===role&&l.state==='confirmed'&&S.stageOfType[S.byId[l.src]?.type]===dn)).length;
+  return {covered,total:ups.length,dn:dns.length};
+}
+function viewHome(){
+  const pairs=[['SYS2','SYS5'],['SYS3','SYS4'],['SWE1','SWE6'],['SWE2','SWE5'],['SWE3','SWE4']];
+  const crs=S.stageById.SYS1, c1=S.stage_counts.SYS1;
+  const vb=(s,extra='')=>{const c=S.stage_counts[s.id];const cls=c.total?s.side:'empty0';return `<button class="vbox ${cls}" data-sid="${s.id}"><span><span class="a">${s.aspice}${extra}</span><br><span class="n">${esc(s.name)}</span></span><span class="cnt">${c.total}</span></button>`;};
+  const upPct=(sid,role,upStage)=>{const its=stageItems(sid);if(!its.length)return '';const n=its.filter(i=>(S.up[i.id]||[]).some(l=>l.role===role&&l.state==='confirmed'&&S.stageOfType[S.byId[l.dst]?.type]===upStage)).length;return ` · ↑${role} ${Math.round(100*n/its.length)}%`;};
+  const row=(l,r,role,indent)=>{const c=cov(l,r,'verifies');const miss=c.covered<c.total||!c.total;
+    return `<div class="vrow"><div style="width:${indent}px;flex:none"></div>${vb(S.stageById[l],role)}<div class="vline"><i class="${c.covered?'':'miss'}"></i><span class="${miss?'miss':''}">${c.covered} / ${c.total}</span><i class="${miss?'miss':''}"></i></div>${vb(S.stageById[r])}<div style="width:${indent}px;flex:none"></div></div>`;};
+  const total=S.items.filter(i=>REQ(i.type)&&i.status!=='deleted').length, appr=S.items.filter(i=>REQ(i.type)&&i.status==='approved').length, sus=S.links.filter(l=>l.suspect).length, prop=S.links.filter(l=>l.state==='proposed').length;
+  $('#content').innerHTML=`<div class="bar"><div><h1>${esc(S.project)} — V-모델 현황</h1><div class="sub">왼쪽은 명세, 오른쪽은 검증입니다. 가로줄은 같은 레벨의 verifies 커버리지, 상자 안의 ↑는 상위 단계 연결률입니다. 상자를 누르면 그 단계의 라이브 문서가 열립니다.</div></div></div>
+   <div class="cards"><div class="card"><b>${total}</b>요구사항·설계·TC</div><div class="card ok"><b>${appr}</b>승인</div><div class="card ${sus?'err':''}"><b>${sus}</b>Suspect 링크</div><div class="card ${prop?'warn':''}"><b>${prop}</b>미확정 제안 링크</div><div class="card"><b>${S.docs.length}</b>원천 문서</div></div>
+   <div class="vm">
+     <div class="vrow">${vb(crs)}<div class="vline" style="min-width:0"></div><div class="vbox" style="visibility:hidden"></div></div>
+     ${row('SYS2','SYS5',upPct('SYS2','derives','SYS1'),24)}
+     ${row('SYS3','SYS4',upPct('SYS3','satisfies','SYS2'),72)}
+     ${row('SWE1','SWE6',upPct('SWE1','refines','SYS2'),120)}
+     ${row('SWE2','SWE5',upPct('SWE2','allocates','SWE1'),168)}
+     ${row('SWE3','SWE4',upPct('SWE3','refines','SWE2'),216)}
+   </div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:18px">
+     <div class="card"><div style="font-weight:600;margin-bottom:6px">다음에 할 일</div>${nextSteps().map(s=>`<div style="font-size:13px;padding:4px 0;border-top:1px solid var(--line)">${s}</div>`).join('')||'<div class="muted">모든 단계가 전개되었습니다.</div>'}</div>
+     <div class="card"><div style="font-weight:600;margin-bottom:6px">원천 문서</div>${S.docs.map(d=>`<div style="font-size:13px;padding:4px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between"><span>${esc(d.doc)}</span><span class="muted">rev ${esc(d.rev)} · ${d.n}</span></div>`).join('')||'<div class="muted">아직 없음 — 오른쪽 위 “요구사항 가져오기”</div>'}</div>
+   </div>`;
+  $('#content').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{view={kind:'stage',sid:b.dataset.sid};stageTab='doc';render();});
+}
+function nextSteps(){
+  const out=[];const c=S.stage_counts;
+  if(!c.SYS1.total&&!c.SYS2.total) out.push('고객 요구사항(CRS) 또는 SRS 문서를 가져오세요.');
+  if(c.SYS1.total&&!c.SYS2.total) out.push('SYS.1 → SYS.2 전개로 PAM 4.0 SRS 초안을 만드세요.');
+  if(c.SYS2.total){ if(!c.SWE1.total) out.push('SYS.2 → SWE.1 전개로 SW 요구사항을 구체화하세요.'); if(!c.SYS3.total) out.push('SYS.2 → SYS.3 전개로 시스템 요소·HSI를 할당하세요.'); if(!c.SYS5.total) out.push('SYS.2 → SYS.5 시스템 검증 TC를 만드세요.'); if((c.SYS2.status.draft||0)>0) out.push(`SYS.2 초안 ${c.SYS2.status.draft}건을 검토·승인하세요.`);}
+  if(c.SWE1.total){ if(!c.SWE2.total) out.push('SWE.1 → SWE.2 AUTOSAR 컴포넌트 할당을 전개하세요.'); if(!c.SWE6.total) out.push('SWE.1 → SWE.6 검증 TC를 만드세요.');}
+  if(c.SWE2.total&&!c.SWE3.total) out.push('SWE.2 → SWE.3 유닛 설계를 전개하세요.');
+  const sus=S.links.filter(l=>l.suspect).length; if(sus) out.push(`Suspect 링크 ${sus}건을 재검토하세요 (감사 콘솔).`);
+  return out.slice(0,6);
+}
+
+// ---------------- STAGE view ----------------
+function viewStage(){
+  const st=S.stageById[view.sid]; const c=S.stage_counts[st.id]; const its=stageItems(st.id);
+  const prev=S.stages.filter(s=>s.next.includes(st.id)||(st.verifies&&s.id===st.verifies));
+  const nexts=[...st.next, ...S.stages.filter(s=>s.verifies===st.id).map(s=>s.id)];
+  const tabs=[['doc','라이브 문서'],['board','리뷰 보드'],['trace','추적'],['quality','품질']];
+  $('#content').innerHTML=`<div class="bar"><div><h1>${esc(st.aspice)} ${esc(st.name)}</h1><div class="sub">${c.total}건 · 승인 ${c.status.approved||0} · 초안 ${c.status.draft||0}${c.suspect?` · <span style="color:var(--err)">Suspect ${c.suspect}</span>`:''}</div></div><span class="spacer"></span>
+     ${STATIC?'':prev.map(p=>`<button class="btn" data-dv="${p.id}|${st.id}">← ${p.aspice}에서 전개</button>`).join('')}
+     ${STATIC||!nexts.length?'':`<button class="btn primary" id="dvOpen">다음 단계로 전개 →</button>`}
+     ${STATIC?'':`<a class="btn" href="/api/export/docx/${st.id}?mode=${docMode}">Word</a>`}</div>
+   <div class="tabs">${tabs.map(([k,n])=>`<button class="${stageTab===k?'on':''}" data-tab="${k}">${n}</button>`).join('')}</div><div id="stageBody"></div>`;
+  $('#content').querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{stageTab=b.dataset.tab;render();});
+  $('#content').querySelectorAll('[data-dv]').forEach(b=>b.onclick=()=>{const [f,t]=b.dataset.dv.split('|');openDerive(f,[t]);});
+  if($('#dvOpen')) $('#dvOpen').onclick=()=>openDerive(st.id,nexts);
+  ({doc:stageDoc,board:stageBoard,trace:stageTrace,quality:stageQuality})[stageTab](st,its);
+}
+async function stageDoc(st,its){
+  const body=$('#stageBody');
+  if(!its.length){ $('#left').innerHTML=''; body.innerHTML=`<div class="empty"><b>${esc(st.aspice)} ${esc(st.name)} 문서가 아직 비어 있습니다</b>${st.id==='SYS1'?'고객 요구사항 문서를 가져오세요.':st.id==='SYS2'?'SRS를 직접 가져오거나, SYS.1 고객 요구사항에서 전개하세요.':'상위 단계에서 “전개”하거나 문서를 가져오세요.'}</div>`; return; }
+  body.innerHTML='<div class="muted">문서 구성 중…</div>';
+  let sd;
+  try{ sd = STATIC ? STATIC.stagedocs[st.id][docMode] : await api(`/api/stagedoc/${st.id}?mode=${docMode}`); }catch(e){ body.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const toc=[]; let html=`<div class="filters"><select id="dm"><option value="pam" ${docMode==='pam'?'selected':''}>PAM 4.0 구조</option><option value="source" ${docMode==='source'?'selected':''}>원문 구조 (표·그림 포함)</option></select><input id="fq" placeholder="검색 (ID, 내용)" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">${Object.entries(sd.stats.domains).map(([k,v])=>`${S.domain_names[k]||k} ${v}`).join(' · ')}</span></div><div class="doc" id="docbody">`;
+  for(const sec of sd.sections){
+    const hid='s-'+sec.number.replace(/\./g,'-')+'-'+Math.random().toString(36).slice(2,6);
+    if(sec.kind==='source'){ toc.push([0,hid,sec.title]); html+=`<h2 id="${hid}">${esc(sec.title)}</h2>`+sec.items.map(i=>{if(i.type==='HDG') toc.push([i.attrs.level||1,'h-'+i.id,i.text]);return itemHTML(i);}).join(''); continue; }
+    toc.push([0,hid,`${sec.number} ${sec.title}`]); html+=`<h2 id="${hid}">${esc(sec.number)} ${esc(sec.title)}</h2>`;
+    if(sec.kind==='text') html+=sec.text.map(t=>`<p class="info">${esc(t)}</p>`).join('');
+    else if(sec.kind==='group') for(const sub of sec.sub){const sid='s-'+sub.number.replace(/\./g,'-');toc.push([1,sid,`${sub.number} ${sub.title}`]);html+=`<h3 id="${sid}">${esc(sub.number)} ${esc(sub.title)} <span class="chip">${sub.items.length}</span></h3>`+sub.items.map(itemHTML).join('');}
+    else if(sec.kind==='verification') html+=`<div class="tblwrap"><table class="g"><tr><td>ID</td><td>검증 기준</td><td>방법</td><td>TC</td></tr>${sec.rows.map(r=>`<tr><td class="id" data-open="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</td><td>${esc(r.criteria)}</td><td>${esc(r.method)}</td><td>${r.tc.map(t=>`<span class="id" data-open="${esc(t)}" style="--c:var(--tc);cursor:pointer">${esc(t)}</span>`).join(' ')||'<span class="chip err">없음</span>'}</td></tr>`).join('')}</table></div>`;
+    else if(sec.kind==='trace') html+=`<div class="tblwrap"><table class="g"><tr><td>ID</td><td>상위 (Upstream)</td><td>하위 (Downstream)</td></tr>${sec.rows.map(r=>`<tr><td class="id" data-open="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</td><td>${r.up.map(esc).join('<br>')||'<span class="chip err">없음</span>'}</td><td>${r.down.map(esc).join('<br>')||'—'}</td></tr>`).join('')}</table></div>`;
+  }
+  body.innerHTML=html+'</div>';
+  $('#left').innerHTML=`<h4>${esc(st.aspice)} 문서 구조</h4><div class="toc">${toc.map(([l,id,t])=>`<a href="#${id}" style="padding-left:${l*12+6}px">${esc(t)}</a>`).join('')}</div><h4>원천</h4><div class="muted" style="font-size:12px;padding:0 6px">${sd.docs.map(esc).join('<br>')||'전개로 생성됨'}</div>`;
+  $('#dm').onchange=()=>{docMode=$('#dm').value;render();};
+  $('#fq').oninput=()=>{const q=$('#fq').value.trim().toLowerCase();body.querySelectorAll('.req').forEach(e=>{e.style.display=!q||e.textContent.toLowerCase().includes(q)?'':'none';});};
+  bindOpen(body);
+}
+function stageBoard(st,its){
+  const cols=[['sus','재검토 필요','sus'],['draft','초안',''],['review','검토중',''],['approved','승인','ok']];
+  const susIds=new Set(S.links.filter(l=>l.suspect).map(l=>l.src));
+  const by={sus:its.filter(i=>susIds.has(i.id)),draft:its.filter(i=>i.status==='draft'&&!susIds.has(i.id)),review:its.filter(i=>i.status==='review'&&!susIds.has(i.id)),approved:its.filter(i=>i.status==='approved')};
+  const pct=its.length?Math.round(100*by.approved.length/its.length):0;
+  const card=(i,col)=>{const sus=(S.up[i.id]||[]).find(l=>l.suspect);const tbd=i.lint.some(l=>l.rule==='tbd');
+    return `<div class="kcard" data-id="${esc(i.id)}"><div class="row" style="gap:6px"><span class="id" style="--c:${tcolor(i.type)}">${esc(i.id)}</span>${i.version>1?`<span class="chip">v${i.version}</span>`:''}${sus?'<span class="chip sus">SUSPECT</span>':''}${tbd?'<span class="chip err">TBD</span>':''}</div><div>${esc(i.text.slice(0,160))}</div>
+     ${sus?`<div class="note">상위 ${esc(sus.dst)} 변경됨 → 영향 검토 필요</div>`:''}${i.attrs.prev_text&&col==='draft'?`<div class="note">개정에서 변경됨 (이전 승인 취소)</div>`:''}
+     ${STATIC?'':`<div class="row" style="gap:6px">${col==='sus'?`<button class="btn sm" data-clr="${esc(i.id)}">영향 없음 (검토 완료)</button>`:col==='draft'?(tbd?'<span class="muted" style="font-size:12px">TBD 해소 후 검토 요청 가능</span>':`<button class="btn sm" data-st="${esc(i.id)}|review">검토 요청</button>`):col==='review'?`<button class="btn sm primary" data-st="${esc(i.id)}|approved">승인</button><button class="btn sm" data-st="${esc(i.id)}|draft">반려</button>`:''}</div>`}</div>`;};
+  $('#stageBody').innerHTML=`<div class="card" style="margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;align-items:center"><div><div style="font-weight:600">베이스라인 준비도</div><div class="muted" style="font-size:12.5px">승인 ${by.approved.length} / ${its.length} · Suspect ${by.sus.length}</div></div><span class="meter" style="width:min(320px,60vw)"><i class="${pct<100?'part':''}" style="width:${pct}%"></i></span><b class="mono">${pct}%</b>${STATIC?'':`<button class="btn" id="apAll" ${by.review.length?'':'disabled'}>검토중 ${by.review.length}건 일괄 승인</button>`}</div>
+   <div class="kan">${cols.map(([k,n,cls])=>`<section class="col ${cls}"><h3><span>${n}</span><span class="mono">${by[k].length}</span></h3>${by[k].slice(0,40).map(i=>card(i,k)).join('')||'<div class="muted" style="font-size:12.5px;padding:6px">없음</div>'}</section>`).join('')}</div>`;
+  bindOpen($('#stageBody'));
+  const act=async(fn,m)=>{try{await fn();await load();toast(m);}catch(e){toast(e.message);}};
+  $('#stageBody').querySelectorAll('[data-st]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const [id,s]=b.dataset.st.split('|');act(()=>api('/api/item/'+encodeURIComponent(id),{status:s}),`${id} → ${s}`);});
+  $('#stageBody').querySelectorAll('[data-clr]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();act(()=>api('/api/link/clear-suspect',{src:b.dataset.clr}),'Suspect 해제');});
+  if($('#apAll')) $('#apAll').onclick=()=>act(async()=>{for(const i of by.review) await api('/api/item/'+encodeURIComponent(i.id),{status:'approved'});},'일괄 승인');
+}
+function stageTrace(st,its){
+  const pairs=[];
+  for(const r of S.link_rules) for(const d of r.dst) if(r.src!=='*'&&(st.types.includes(r.src)||st.types.includes(d))) pairs.push([d,r.src,r.role]);
+  if(!pairs.length){$('#stageBody').innerHTML='<div class="empty">이 단계에는 링크 규칙이 없습니다.</div>';return;}
+  const cur=tracePair&&pairs.some(p=>p.join('|')===tracePair)?tracePair:pairs[0].join('|');
+  $('#stageBody').innerHTML=`<div class="filters"><select id="pair">${pairs.map(p=>`<option value="${p.join('|')}" ${p.join('|')===cur?'selected':''}>${p[0]} ← ${p[2]} ← ${p[1]}</option>`).join('')}</select>${STATIC?'':'<button class="btn" id="sug">자동 링크 제안</button>'}<span class="muted" style="font-size:12px">점선 = 제안(proposed) · ✓ 확정 · ✕ 거절</span></div><div id="tr"></div>`;
+  const draw=()=>{const [up,dn,role]=$('#pair').value.split('|');tracePair=$('#pair').value;
+    const ups=S.items.filter(i=>i.type===up&&i.status!=='deleted'), dns=S.items.filter(i=>i.type===dn&&i.status!=='deleted');
+    const covered=ups.filter(u=>(S.down[u.id]||[]).some(l=>l.role===role&&l.state==='confirmed'&&S.byId[l.src]?.type===dn)).length;
+    const orphans=dns.filter(d=>!(S.up[d.id]||[]).some(l=>l.role===role&&l.state==='confirmed'&&S.byId[l.dst]?.type===up));
+    $('#tr').innerHTML=`<div class="cards"><div class="card"><b>${covered}/${ups.length}</b>${up} 하위 연결</div><div class="card ${orphans.length?'warn':''}"><b>${orphans.length}</b>${dn} 상위 미연결</div></div>
+     <table class="list"><tr><th style="width:40%">${up}</th><th>${dn} (${role})</th></tr>${ups.map(u=>{const ls=(S.down[u.id]||[]).filter(l=>l.role===role&&S.byId[l.src]?.type===dn);
+       return `<tr><td data-open="${esc(u.id)}"><span class="id" style="--c:${tcolor(up)}">${esc(u.id)}</span><div class="muted">${esc(u.text.slice(0,140))}</div></td><td>${ls.map(l=>`<div class="lk ${l.state==='proposed'?'prop':''}"><span class="id" data-open="${esc(l.src)}" style="--c:${tcolor(dn)}">${esc(l.src)}</span>${l.suspect?'<span class="chip sus">SUSPECT</span>':''}<span class="t">${esc(S.byId[l.src]?.text||'')}</span>${l.state==='proposed'&&!STATIC?`<button class="btn sm" data-ok="${esc(l.src)}|${role}|${esc(u.id)}">✓</button><button class="btn sm" data-no="${esc(l.src)}|${role}|${esc(u.id)}">✕</button>`:''}</div>`).join('')||'<span class="chip err">미연결</span>'}</td></tr>`;}).join('')}</table>
+     ${orphans.length?`<h3 style="margin:18px 0 8px">상위 미연결 ${dn} (${orphans.length})</h3><table class="list">${orphans.map(o=>`<tr data-open="${esc(o.id)}"><td style="width:170px"><span class="id" style="--c:${tcolor(dn)}">${esc(o.id)}</span></td><td>${esc(o.text.slice(0,200))}</td></tr>`).join('')}</table>`:''}`;
+    bindOpen($('#tr'));
+    $('#tr').querySelectorAll('[data-ok]').forEach(b=>b.onclick=async ev=>{ev.stopPropagation();const [s,r,d]=b.dataset.ok.split('|');try{await api('/api/link',{src:s,role:r,dst:d});await load();toast('확정');}catch(e){toast(e.message)}});
+    $('#tr').querySelectorAll('[data-no]').forEach(b=>b.onclick=async ev=>{ev.stopPropagation();const [s,r,d]=b.dataset.no.split('|');await api('/api/link/delete',{src:s,role:r,dst:d});await load();});};
+  $('#pair').onchange=draw; draw();
+  if($('#sug')) $('#sug').onclick=async()=>{const [up,dn]=$('#pair').value.split('|');try{const r=await api('/api/suggest',{src_type:dn,dst_type:up});await load();toast(`제안 ${r.length}건`);}catch(e){toast(e.message)}};
+}
+function stageQuality(st,its){
+  const rows=its.map(i=>({i,e:i.lint.filter(l=>l.sev==='error').length,w:i.lint.filter(l=>l.sev==='warn').length,sus:(S.up[i.id]||[]).some(l=>l.suspect),up:(S.up[i.id]||[]).filter(l=>l.state==='confirmed'&&l.role!=='relates').length,dn:(S.down[i.id]||[]).length}));
+  const bad=rows.filter(r=>r.e||r.w||r.sus||!r.up);
+  $('#stageBody').innerHTML=`<div class="cards"><div class="card"><b>${its.length}</b>아이템</div><div class="card err"><b>${rows.filter(r=>r.e).length}</b>오류 있음</div><div class="card warn"><b>${rows.filter(r=>r.w).length}</b>경고 있음</div><div class="card ${rows.filter(r=>!r.up).length?'err':'ok'}"><b>${rows.filter(r=>!r.up).length}</b>상위 미연결</div><div class="card ${rows.filter(r=>r.sus).length?'err':''}"><b>${rows.filter(r=>r.sus).length}</b>Suspect</div></div>
+   <div class="filters"><label class="row muted"><input type="checkbox" id="onlyBad" checked> 문제 있는 항목만</label></div>
+   <div style="overflow-x:auto"><table class="list" id="qt"></table></div>`;
+  const draw=()=>{const list=$('#onlyBad').checked?bad:rows;$('#qt').innerHTML=`<tr><th></th><th>ID</th><th>상태</th><th>내용</th><th>추적</th><th>품질</th></tr>${list.map(r=>`<tr data-id="${esc(r.i.id)}"><td><span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:${r.e||!r.up?'var(--err)':r.w||r.sus?'var(--warn)':'var(--ok)'}"></span></td><td><span class="id" style="--c:${tcolor(r.i.type)}">${esc(r.i.id)}</span></td><td><span class="chip ${r.i.status}">${r.i.status}</span></td><td>${esc(r.i.text.slice(0,170))}</td><td class="mono" style="white-space:nowrap">↑${r.up} ↓${r.dn}${r.sus?' <span style="color:var(--err)">SUS</span>':''}</td><td style="font-size:12px">${r.i.lint.map(l=>`<div class="lint ${l.sev}">${esc(l.msg)}</div>`).join('')}${!r.up?'<div class="lint error">상위 링크 없음 (고아)</div>':''}</td></tr>`).join('')||'<tr><td colspan=6 class="muted">문제 없음</td></tr>'}`;bindOpen($('#qt'));};
+  $('#onlyBad').onchange=draw; draw();
+}
+
+// ---------------- AUDIT console (concept B) ----------------
+async function viewAudit(){
+  $('#content').innerHTML='<div class="muted">감사 실행 중…</div>';
+  let A; try{A=STATIC?STATIC.audit:await api('/api/audit');}catch(e){$('#content').innerHTML=`<div class="empty">${esc(e.message)}</div>`;return;}
+  const s=A.summary; const rules=[...new Set(A.findings.map(f=>f.rule))].sort();
+  const term=`$ ecualm audit --report audit.html --fail-on error\n아이템 ${s.items} / 링크 ${s.links} → <span class="e">Error ${s.errors}</span>, <span class="w">Warning ${s.warnings}</span>, Info ${s.infos}\n`+Object.entries(A.coverage).map(([k,v])=>`  ${k.padEnd(44)} ${v.covered}/${v.total} (${v.pct}%)`).join('\n')+(s.errors?'\n<span class="e">exit 2</span>':'\nexit 0');
+  $('#content').innerHTML=`<div class="bar"><div><h1>감사 콘솔 — 추적성 · 일관성 (SUP.1)</h1><div class="sub">베이스라인(SUP.8) 전에 PAM 4.0 기준 위배 항목을 확인합니다. 같은 검사가 CI에서 <span class="mono">ecualm audit --fail-on error</span> 로 돌아갑니다.</div></div><span class="spacer"></span>${STATIC?'':'<a class="btn" href="/api/export/xlsx">Excel 리포트</a>'}</div>
+   <div class="cards"><div class="card"><b>${s.items}</b>아이템</div><div class="card"><b>${s.links}</b>링크</div><div class="card err"><b>${s.errors}</b>Error</div><div class="card warn"><b>${s.warnings}</b>Warning</div><div class="card"><b>${s.infos}</b>Info</div></div>
+   <h3 style="margin:8px 0">커버리지</h3><table class="list" style="margin-bottom:18px"><tr><th>규칙</th><th>충족</th><th></th></tr>${Object.entries(A.coverage).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="mono">${v.covered}/${v.total} (${v.pct}%)</td><td><span class="meter"><i class="${v.pct<100?'part':''}" style="width:${v.pct}%"></i></span></td></tr>`).join('')||'<tr><td colspan=3 class="muted">해당 규칙 없음</td></tr>'}</table>
+   <div class="filters"><select id="sev"><option value="">모든 심각도</option><option value="error">error</option><option value="warn">warn</option><option value="info">info</option></select><select id="rule"><option value="">모든 규칙</option>${rules.map(r=>`<option>${esc(r)}</option>`).join('')}</select></div><div id="fl"></div>
+   <h3 style="margin:22px 0 8px">터미널</h3><div class="term">${term}</div>`;
+  const draw=()=>{const sv=$('#sev').value,ru=$('#rule').value;const fs=A.findings.filter(f=>(!sv||f.sev===sv)&&(!ru||f.rule===ru));
+    $('#fl').innerHTML=`<table class="list"><tr><th>심각도</th><th>규칙</th><th>아이템</th><th>내용</th></tr>${fs.slice(0,2000).map(f=>`<tr data-id="${esc(f.item)}"><td class="lint ${f.sev}" style="font-family:var(--mono);font-size:11px">${f.sev.toUpperCase()}</td><td>${esc(f.rule)}</td><td><span class="id" style="--c:${tcolor(S.byId[f.item]?.type)}">${esc(f.item)}</span></td><td>${esc(f.msg)}</td></tr>`).join('')}</table>`;bindOpen($('#fl'));};
+  $('#sev').onchange=draw;$('#rule').onchange=draw;draw();
+}
+function viewHistory(){
+  const fmt=t=>new Date(t*1000).toLocaleString();
+  $('#content').innerHTML=`<div class="bar"><h1>이력 · 베이스라인 (SUP.8 / SUP.10)</h1></div><h3>임포트 이력</h3><table class="list"><tr><th>시각</th><th>문서</th><th>개정</th><th>파일</th><th>신규</th><th>변경</th><th>동일</th><th>삭제</th></tr>${S.imports.slice().reverse().map(i=>`<tr><td>${fmt(i.at)}</td><td>${esc(i.doc)}</td><td>${esc(i.rev)}</td><td class="muted">${esc(i.summary.file)}</td><td>${i.summary.new}</td><td>${i.summary.modified}</td><td>${i.summary.unchanged}</td><td>${i.summary.deleted}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">없음</td></tr>'}</table>
+   <h3 style="margin-top:22px">베이스라인</h3>${STATIC?'':'<div class="row" style="margin-bottom:8px"><input id="blname" class="btn" placeholder="BL_v1.0"><button class="btn" id="blgo">베이스라인 생성</button></div>'}
+   <table class="list"><tr><th>이름</th><th>시각</th><th>메모</th></tr>${S.baselines.map(b=>`<tr><td>${esc(b.name)}</td><td>${fmt(b.at)}</td><td>${esc(b.note)}</td></tr>`).join('')||'<tr><td colspan=3 class="muted">없음</td></tr>'}</table>`;
+  if($('#blgo')) $('#blgo').onclick=async()=>{const n=$('#blname').value.trim();if(!n)return;try{await api('/api/baseline',{name:n});await load();toast('베이스라인 생성');}catch(e){toast(e.message)}};
+}
+
+// ---------------- drawer ----------------
+function wordDiff(a,b){const A=a.split(/(\s+)/),B=b.split(/(\s+)/);if(A.length*B.length>250000)return esc(b);const n=A.length,m=B.length,dp=Array.from({length:n+1},()=>new Int32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=A[i]===B[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);let i=0,j=0,o='';while(i<n&&j<m){if(A[i]===B[j]){o+=esc(A[i]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){o+=`<del>${esc(A[i])}</del>`;i++;}else{o+=`<ins>${esc(B[j])}</ins>`;j++;}}while(i<n)o+=`<del>${esc(A[i++])}</del>`;while(j<m)o+=`<ins>${esc(B[j++])}</ins>`;return o;}
+async function openItem(id){
+  selected=id; document.querySelectorAll('.req.sel').forEach(e=>e.classList.remove('sel')); document.querySelector(`.req[data-id="${CSS.escape(id)}"]`)?.classList.add('sel');
+  let it=S.byId[id], hist=it?.history||[];
+  if(!STATIC){try{const r=await api('/api/item/'+encodeURIComponent(id));it=r.item;hist=r.history;}catch(e){toast(e.message);return;}}
+  if(!it) return;
+  const t=S.types[it.type]||{}; const ups=S.up[id]||[], downs=S.down[id]||[]; const ro=STATIC;
+  const roleOpts=[...new Set(S.link_rules.filter(r=>r.src===it.type||r.src==='*').map(r=>r.role))];
+  const linkRow=(l,other,dir)=>`<div class="lk ${l.state==='proposed'?'prop':''}"><span class="muted" style="width:72px">${dir} ${esc(l.role)}</span><span class="id" data-open="${esc(other)}" style="--c:${tcolor(S.byId[other]?.type||'')}">${esc(other)}</span>${l.suspect?'<span class="chip sus">SUSPECT</span>':''}${l.state==='proposed'?'<span class="chip">제안</span>':''}<span class="t">${esc(S.byId[other]?.text||'')}</span>${ro?'':`${l.state==='proposed'?`<button class="btn sm" data-ok="${esc(l.src)}|${esc(l.role)}|${esc(l.dst)}">✓</button>`:''}${l.suspect?`<button class="btn sm" data-clr="${esc(l.src)}|${esc(l.dst)}">검토완료</button>`:''}<button class="btn sm" data-del="${esc(l.src)}|${esc(l.role)}|${esc(l.dst)}">✕</button>`}</div>`;
+  const a=it.attrs; const hide=['grid','quantities','prev_text','prev_file','fields','labels','file','sha','orig_ext','converted','render','level','number','list_level','level_confidence','table_row','table_caption','caption','native_id','spec','custom','derived_from','plantuml','rte_ports'];
+  const extra=Object.entries(a).filter(([k])=>!hide.includes(k));
+  $('#drawer').innerHTML=`<div class="row"><h3 style="--c:${tcolor(it.type)};color:var(--c)">${esc(it.id)}</h3><span class="spacer"></span><button class="btn sm" id="cls">닫기</button></div>
+   <div class="row" style="margin:4px 0 8px"><span class="chip">${esc(it.type)} · ${esc(t.aspice||'')} · ${esc(t.polarion||'')}</span><span class="chip">${esc(it.domain)}</span><span class="chip ${it.status}">${esc(it.status)}</span><span class="chip">v${it.version}</span>${a.derived_from?`<span class="chip" data-open="${esc(a.derived_from)}" style="cursor:pointer">← ${esc(a.derived_from)} 에서 전개</span>`:''}</div>
+   ${ro?`<div>${esc(it.text)}</div>`:`<textarea id="etext">${esc(it.text)}</textarea><div class="row" style="margin-top:6px"><button class="btn primary" id="save">저장 (버전+1, 하위 Suspect)</button><select id="stat" class="btn">${['draft','review','approved','rejected'].map(s=>`<option ${s===it.status?'selected':''}>${s}</option>`).join('')}</select><button class="btn" id="setStat">상태 변경</button></div>`}
+   ${a.spec?`<div class="sec"><b>SWE.1 템플릿</b>${specHTML(a)}</div>`:a.kind||a.autosar_layer||a.function_signature?`<div class="sec"><b>설계·검증 속성</b>${specHTML(a)}</div>`:''}
+   ${!ro&&REQ(it.type)&&!String(it.type).endsWith('_TC')?`<div class="sec"><b>검증 기준</b><textarea id="vc" style="min-height:56px">${esc(a.verification_criteria||'')}</textarea><button class="btn sm" id="saveVc" style="margin-top:6px">검증 기준 저장</button></div>`:a.verification_criteria?`<div class="sec"><b>검증 기준</b><div style="font-size:13px">${esc(a.verification_criteria)}</div></div>`:''}
+   ${it.lint.length?`<div class="sec"><b>품질 점검</b>${it.lint.map(f=>`<div class="lint ${f.sev}">● ${esc(f.msg)}</div>`).join('')}</div>`:''}
+   ${a.prev_text&&it.type!=='FIG'?`<div class="sec"><b>직전 개정 대비 변경</b><div style="font-size:13px">${wordDiff(a.prev_text,it.text)}</div></div>`:''}
+   ${a.prev_file?`<div class="sec"><b>이전 개정 그림</b><img src="${asset(a.prev_file)}" style="max-width:100%;background:#fff;opacity:.85"></div>`:''}
+   <div class="sec"><b>속성</b><div class="kv"><span>문서</span><span>${esc(it.doc)} rev ${esc(it.doc_rev)}</span><span>원문 위치</span><span>${esc(it.source_loc)}</span><span>섹션</span><span>${esc(it.section)}</span>${a.native_id?`<span>원문 ID</span><span>${esc(a.native_id)}</span>`:''}${a.level_confidence!==undefined?`<span>분류 신뢰도</span><span>${a.level_confidence}</span>`:''}${(a.quantities||[]).length?`<span>수치</span><span>${a.quantities.map(q=>esc(q.raw)).join(', ')}</span>`:''}${Object.entries(a.fields||{}).map(([k,v])=>`<span>${esc(k)}</span><span>${esc(v)}</span>`).join('')}${extra.map(([k,v])=>`<span>${esc(k)}</span><span>${esc(typeof v==='object'?JSON.stringify(v):v)}</span>`).join('')}</div></div>
+   ${a.plantuml?`<div class="sec"><b>PlantUML</b><pre class="code">${esc(a.plantuml)}</pre></div>`:''}
+   ${it.type==='TBL'?`<div class="sec"><b>표</b><div class="tblwrap">${tableHTML(a.grid||[])}</div></div>`:''}${it.type==='FIG'&&a.file?`<div class="sec"><b>그림</b><img src="${asset(a.file)}" style="max-width:100%;background:#fff"></div>`:''}
+   <div class="sec"><b>추적 링크</b>${ups.map(l=>linkRow(l,l.dst,'↑')).join('')}${downs.map(l=>linkRow(l,l.src,'↓')).join('')||(ups.length?'':'<div class="muted">링크 없음</div>')}
+   ${ro?'':`<div class="row" style="margin-top:8px"><select id="lrole" class="btn">${roleOpts.map(r=>`<option>${r}</option>`).join('')}</select><input id="ldst" class="btn" list="allIds" placeholder="상위 아이템 ID" style="flex:1;min-width:120px"><button class="btn" id="ladd">링크 추가</button></div><datalist id="allIds">${S.items.filter(i=>REQ(i.type)&&i.status!=='deleted'&&i.id!==id).slice(0,3000).map(i=>`<option value="${esc(i.id)}">${esc(i.text.slice(0,60))}</option>`).join('')}</datalist>`}</div>
+   ${ro||!REQ(it.type)?'':`<div class="sec"><b>재분류</b><div class="row"><select id="rtype" class="btn">${Object.keys(S.types).filter(REQ).map(k=>`<option ${k===it.type?'selected':''}>${k}</option>`).join('')}</select><button class="btn" id="rgo">타입 변경 (새 ID 발급)</button></div></div>`}
+   <div class="sec"><b>이력</b>${hist.slice().reverse().map((h,k,arr)=>`<div class="hist"><b>v${h.version}</b> ${esc(h.change)} <span class="muted">${new Date(h.at*1000).toLocaleString()} · ${esc(h.by)}</span>${arr[k+1]&&arr[k+1].text!==h.text?`<div>${wordDiff(arr[k+1].text,h.text)}</div>`:''}</div>`).join('')}</div>`;
+  $('#drawer').classList.add('open');
+  $('#cls').onclick=()=>{$('#drawer').classList.remove('open');selected=null;document.querySelectorAll('.req.sel').forEach(e=>e.classList.remove('sel'));};
+  $('#drawer').querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>openItem(e.dataset.open));
+  if(ro) return;
+  const act=async(fn,msg)=>{try{await fn();await load();notifyOthers();openItem(id);toast(msg);}catch(e){toast(e.message);}};
+  $('#save')&&($('#save').onclick=()=>act(()=>api('/api/item/'+encodeURIComponent(id),{text:$('#etext').value}),'저장됨'));
+  $('#setStat')&&($('#setStat').onclick=()=>act(()=>api('/api/item/'+encodeURIComponent(id),{status:$('#stat').value}),'상태 변경'));
+  $('#saveVc')&&($('#saveVc').onclick=()=>act(()=>api('/api/item/'+encodeURIComponent(id),{attrs:{verification_criteria:$('#vc').value}}),'검증 기준 저장'));
+  $('#ladd')&&($('#ladd').onclick=()=>act(()=>api('/api/link',{src:id,role:$('#lrole').value,dst:$('#ldst').value.trim()}),'링크 추가'));
+  $('#drawer').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const [s,r,d]=b.dataset.del.split('|');act(()=>api('/api/link/delete',{src:s,role:r,dst:d}),'링크 삭제');});
+  $('#drawer').querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>{const [s,r,d]=b.dataset.ok.split('|');act(()=>api('/api/link',{src:s,role:r,dst:d}),'링크 확정');});
+  $('#drawer').querySelectorAll('[data-clr]').forEach(b=>b.onclick=()=>{const [s,d]=b.dataset.clr.split('|');act(()=>api('/api/link/clear-suspect',{src:s,dst:d}),'Suspect 해제');});
+  $('#rgo')&&($('#rgo').onclick=async()=>{const nt=$('#rtype').value;if(nt===it.type)return;try{const n=await api('/api/item/'+encodeURIComponent(id)+'/reclassify',{type:nt});await load();openItem(n.id);toast(`${id} → ${n.id}`);}catch(e){toast(e.message)}});
+}
+
+// ---------------- LINK WORKBENCH: tiled panes / new window, drag & drop ----------------
+let WB={panes:[],src:null};
+const BC=('BroadcastChannel' in window)?new BroadcastChannel('ecualm'):null;
+if(BC) BC.onmessage=async(ev)=>{ if(ev.data?.type==='reload'&&!STATIC){ await load(); } };
+function notifyOthers(){ try{BC&&BC.postMessage({type:'reload'});}catch(e){} }
+function rolesBetween(srcType,dstType){ return [...new Set(S.link_rules.filter(r=>(r.src===srcType||r.src==='*')&&(r.dst.includes(dstType)||r.dst.includes('*'))).map(r=>r.role))]; }
+function linkPlan(aId,bId){
+  // dragging A onto B: prefer A as downstream (A -role-> B), else B as downstream, else relates
+  const a=S.byId[aId], b=S.byId[bId]; if(!a||!b||aId===bId) return null;
+  const r1=rolesBetween(a.type,b.type).filter(r=>r!=='relates'); if(r1.length) return {src:aId,role:r1[0],dst:bId,alts:r1};
+  const r2=rolesBetween(b.type,a.type).filter(r=>r!=='relates'); if(r2.length) return {src:bId,role:r2[0],dst:aId,alts:r2};
+  return {src:aId,role:'relates',dst:bId,alts:['relates'],weak:true};
+}
+function viewWorkbench(){
+  if(!WB.panes.length) WB.panes=[{sid:'SYS2',q:'',dom:'',only:false},{sid:'SWE1',q:'',dom:'',only:false}];
+  const win=document.body.classList.contains('win');
+  const cols=Math.min(4,WB.panes.length);
+  $('#content').innerHTML=`<div class="wbbar">${win?'':`<h1 style="margin:0;font-size:20px">링크 작업대</h1>`}<span class="wbhint">카드를 다른 창의 카드 위로 끌어다 놓으면 링크 규칙에 맞는 역할(refines·verifies·allocates…)로 연결됩니다. 카드 위에 마우스를 올리면 연결된 상대가 파랗게 표시됩니다.</span><span class="spacer"></span>
+     ${STATIC?'':`<button class="btn" id="wbAdd" ${WB.panes.length>=4?'disabled':''}>+ 창 추가</button><button class="btn" id="wbRemove" ${WB.panes.length<=1?'disabled':''}>− 창 닫기</button>${win?'':'<button class="btn" id="wbWin">새 창으로 열기 ↗</button>'}`}</div>
+     <div class="wb" id="wbGrid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))"></div>`;
+  $('#content').style.maxWidth='none';
+  const grid=$('#wbGrid');
+  WB.panes.forEach((p,pi)=>{
+    const st=S.stageById[p.sid]; const all=stageItems(p.sid);
+    const doms=[...new Set(all.map(i=>i.domain))].sort();
+    const list=all.filter(i=>(!p.dom||i.domain===p.dom)&&(!p.q||(i.id+' '+i.text).toLowerCase().includes(p.q.toLowerCase()))&&(!p.only||!(S.up[i.id]||[]).some(l=>l.state==='confirmed'&&l.role!=='relates')));
+    const pane=document.createElement('section'); pane.className='pane'+(win?' win':''); pane.dataset.pi=pi;
+    pane.innerHTML=`<div class="ph"><select data-k="sid">${S.stages.map(s=>`<option value="${s.id}" ${s.id===p.sid?'selected':''}>${s.aspice} ${esc(s.name)} (${S.stage_counts[s.id].total})</option>`).join('')}</select>
+      <select data-k="dom"><option value="">모든 도메인</option>${doms.map(d=>`<option value="${d}" ${d===p.dom?'selected':''}>${esc(S.domain_names[d]||d)}</option>`).join('')}</select>
+      <input data-k="q" placeholder="검색" value="${esc(p.q)}"><label class="row muted" style="font-size:12px"><input type="checkbox" data-k="only" ${p.only?'checked':''}> 상위 미연결만</label><span class="chip">${list.length}</span></div>
+      <div class="pb">${list.slice(0,400).map(i=>{const ups=S.up[i.id]||[],dn=S.down[i.id]||[];
+        return `<div class="dc" draggable="${STATIC?'false':'true'}" data-id="${esc(i.id)}" style="--c:${tcolor(i.type)}"><div class="top"><span class="id" style="--c:${tcolor(i.type)}">${esc(i.id)}</span><span class="chip ${i.status}">${i.status}</span>${i.lint.length?`<span class="chip warn">⚠${i.lint.length}</span>`:''}${STATIC?'':`<button class="btn sm" data-pick="${esc(i.id)}" title="키보드/클릭으로 연결: 먼저 원천을 고르고 대상에서 '여기로'">${WB.src===i.id?'선택됨':WB.src?'여기로 연결':'연결 시작'}</button>`}</div><div class="t">${esc(i.text)}</div>
+          <div class="links">${ups.map(l=>`<span class="${l.suspect?'sus':''}" title="${l.role}">↑${esc(l.dst)}</span>`).join('')}${dn.slice(0,6).map(l=>`<span title="${l.role}">↓${esc(l.src)}</span>`).join('')}${dn.length>6?`<span>+${dn.length-6}</span>`:''}</div></div>`;}).join('')||'<div class="muted" style="padding:10px;font-size:12.5px">항목 없음</div>'}</div>`;
+    grid.appendChild(pane);
+    pane.querySelectorAll('[data-k]').forEach(el=>el.onchange=el.oninput=()=>{const k=el.dataset.k;p[k]=el.type==='checkbox'?el.checked:el.value;if(k!=='q'||el.type!=='text') render(); else {clearTimeout(p._t);p._t=setTimeout(render,250);}});
+  });
+  bindDnD(grid);
+  if($('#wbAdd')) $('#wbAdd').onclick=()=>{WB.panes.push({sid:'SWE6',q:'',dom:'',only:false});render();};
+  if($('#wbRemove')) $('#wbRemove').onclick=()=>{WB.panes.pop();render();};
+  if($('#wbWin')) $('#wbWin').onclick=()=>{const last=WB.panes[WB.panes.length-1]; window.open(location.pathname+'#wb='+(last?last.sid:'SWE1'),'_blank','width=560,height=900'); toast('새 창을 띄웠습니다. 창 사이로 카드를 끌어다 놓을 수 있습니다.');};
+}
+function bindDnD(grid){
+  grid.querySelectorAll('.dc').forEach(card=>{
+    const id=card.dataset.id;
+    card.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='link';card.classList.add('dragging');WB.dragId=id;});
+    card.addEventListener('dragend',()=>{card.classList.remove('dragging');WB.dragId=null;grid.querySelectorAll('.dc.can,.dc.no').forEach(c=>c.classList.remove('can','no'));});
+    card.addEventListener('dragover',e=>{e.preventDefault();const src=WB.dragId||e.dataTransfer.getData('text/plain');if(!src||src===id)return;const plan=linkPlan(src,id);card.classList.toggle('can',!!plan&&!plan.weak);card.classList.toggle('no',!plan||plan.weak);e.dataTransfer.dropEffect='link';});
+    card.addEventListener('dragleave',()=>card.classList.remove('can','no'));
+    card.addEventListener('drop',async e=>{e.preventDefault();card.classList.remove('can','no');const src=e.dataTransfer.getData('text/plain')||WB.dragId;if(!src||src===id)return;await doLink(src,id);});
+    card.addEventListener('mouseenter',()=>{const rel=new Set([...(S.up[id]||[]).map(l=>l.dst),...(S.down[id]||[]).map(l=>l.src)]);grid.querySelectorAll('.dc').forEach(c=>c.classList.toggle('rel',rel.has(c.dataset.id)));});
+    card.addEventListener('mouseleave',()=>grid.querySelectorAll('.dc.rel').forEach(c=>c.classList.remove('rel')));
+    card.querySelector('.id').onclick=ev=>{ev.stopPropagation();openItem(id);};
+    const pick=card.querySelector('[data-pick]');
+    if(pick) pick.onclick=async ev=>{ev.stopPropagation(); if(!WB.src){WB.src=id;render();toast(`${id} 선택 — 대상 카드에서 '여기로 연결'`);} else if(WB.src===id){WB.src=null;render();} else {const s=WB.src;WB.src=null;await doLink(s,id);}};
+    if(WB.src===id) card.classList.add('src');
+  });
+}
+async function doLink(a,b){
+  const plan=linkPlan(a,b); if(!plan){toast('연결할 수 없는 조합입니다');return;}
+  try{ await api('/api/link',{src:plan.src,role:plan.role,dst:plan.dst}); await load(); notifyOthers();
+    toast(`${plan.src} —${plan.role}→ ${plan.dst}${plan.weak?' (규칙 외: relates로 연결)':''}`); }
+  catch(e){ toast(e.message); }
+}
+$('#btnWb').onclick=()=>{view={kind:'wb'};render();};
+(function initFromHash(){ const m=location.hash.match(/^#wb=?([A-Z0-9,]*)/i); if(m){ document.body.classList.add('win'); WB.panes=(m[1]?m[1].split(','):['SWE1']).map(sid=>({sid,q:'',dom:'',only:false})); view={kind:'wb'}; } else { const s=location.hash.match(/^#stage=([A-Z0-9]+)/); if(s) view={kind:'stage',sid:s[1]}; } })();
+
+// ---------------- import with preview (concept E) ----------------
+let pendingImport=null;
+$('#btnImport').onclick=()=>{$('#impStep1').hidden=false;$('#impStep2').hidden=true;$('#dlgImport').showModal();};
+$('#impClose1').onclick=()=>$('#dlgImport').close();
+$('#impBack').onclick=()=>{$('#impStep1').hidden=false;$('#impStep2').hidden=true;};
+async function runImport(dry){
+  const f=$('#impFile').files[0]; if(!f){toast('파일을 선택하세요');return null;}
+  const r=await fetch('/api/import',{method:'POST',body:await f.arrayBuffer(),headers:{'X-Filename':encodeURIComponent(f.name),'X-Doc':encodeURIComponent($('#impDoc').value.trim()),'X-Rev':encodeURIComponent($('#impRev').value.trim()),'X-Mode':$('#impMode').value,'X-Dry-Run':dry?'1':'0'}});
+  const s=await r.json(); if(!r.ok) throw new Error(s.error); return s;
+}
+$('#impPreview').onclick=async()=>{
+  $('#impPreview').disabled=true;
+  try{const s=await runImport(true); pendingImport=s;
+    $('#pvTitle').textContent=`${s.doc} rev ${s.rev} — 변경 미리보기`;
+    $('#pvCards').innerHTML=`<div class="card ok"><b>${s.new.length}</b>신규</div><div class="card warn"><b>${s.modified.length}</b>변경</div><div class="card err"><b>${s.deleted.length}</b>삭제</div><div class="card"><b>${s.unchanged}</b>동일</div><div class="card"><b>${Object.entries(s.by_type).filter(([k])=>REQ(k)).reduce((a,[,v])=>a+v,0)}</b>요구사항·HSI</div>`;
+    const det=s.details.filter(d=>d.change!=='new'||REQ(d.type)); const isFirst=!s.modified.length&&!s.deleted.length&&!s.unchanged;
+    $('#pvList').innerHTML=isFirst?`<div class="muted" style="font-size:13px;padding:8px 0">첫 임포트: ${Object.entries(s.by_type).map(([k,v])=>`${k} ${v}`).join(' · ')}</div>`+det.slice(0,60).map(d=>`<div class="diffrow"><div class="l"><span class="id" style="--c:${tcolor(d.type)}">${esc(d.id)}</span><span class="muted" style="font-size:11px">${esc(d.section)}</span></div><div class="c">${esc(d.text)}</div></div>`).join('')
+      :det.map(d=>`<div class="diffrow"><div class="l"><span class="id" style="--c:${tcolor(d.type)}">${esc(d.id)}</span><span><span class="tag ${d.change}">${{modified:'변경',new:'신규',deleted:'삭제',restored:'복원'}[d.change]}</span></span>${d.was_approved?'<span class="muted" style="font-size:11px">승인 → 초안으로 되돌림</span>':''}${d.dependents?.length?`<span class="muted" style="font-size:11px">하위 ${d.dependents.length}건 Suspect 예정</span>`:''}</div>
+         <div class="c"><small>이전</small>${d.prev_text?esc(d.prev_text):'<span class="muted">없음</span>'}</div><div class="c"><small>새 개정</small>${d.text?(d.prev_text?wordDiff(d.prev_text,d.text):esc(d.text)):'<span class="muted">rev에서 찾지 못함 → ID 폐기</span>'}</div></div>`).join('')||'<div class="muted">변경 없음</div>';
+    $('#pvNote').textContent=$('#impMode').value==='crs'&&$('#impDerive').checked?'가져온 뒤 SYS.1 → SYS.2 전개를 실행해 SRS 초안을 만듭니다.':'';
+    $('#impStep1').hidden=true;$('#impStep2').hidden=false;
+  }catch(e){toast('실패: '+e.message);} $('#impPreview').disabled=false;
+};
+$('#impGo').onclick=async()=>{
+  $('#impGo').disabled=true;
+  try{const s=await runImport(false); let msg=`${s.doc} rev ${s.rev}: 신규 ${s.new.length} · 변경 ${s.modified.length} · 삭제 ${s.deleted.length}`;
+    const mode=$('#impMode').value; let target={crs:'SYS1',sys2:'SYS2',swe1:'SWE1',srs:'SYS2',info:null}[mode];
+    if(mode==='crs'&&$('#impDerive').checked){const d=await api('/api/derive',{from:'SYS1',to:'SYS2'});msg+=` → SYS.2 SRS 초안 ${d.created.length}건 생성`;target='SYS2';}
+    $('#dlgImport').close(); await load(); if(target){view={kind:'stage',sid:target};stageTab='doc';render();} toast(msg);
+  }catch(e){toast('실패: '+e.message);} $('#impGo').disabled=false;
+};
+// ---------------- derive dialog ----------------
+function openDerive(from,tos){
+  const f=S.stageById[from];
+  $('#dvTitle').textContent=`${f.aspice} ${f.name} → 다음 단계로 전개`;
+  $('#dvDesc').textContent=`${f.aspice}의 ${S.stage_counts[from].total}건을 원천으로 초안(draft) 아이템과 추적 링크를 만듭니다. 이미 전개된 항목은 건너뜁니다.`;
+  $('#dvTo').innerHTML=tos.map(t=>`<option value="${t}">${S.stageById[t].aspice} ${S.stageById[t].name}</option>`).join('');
+  const rule=()=>{$('#dvRule').textContent=RULES[`${from}>${$('#dvTo').value}`]||'';}; $('#dvTo').onchange=rule; rule();
+  $('#dvGo').onclick=async()=>{$('#dvGo').disabled=true;try{const r=await api('/api/derive',{from,to:$('#dvTo').value});$('#dlgDerive').close();await load();view={kind:'stage',sid:r.to};stageTab='doc';render();toast(`${r.from} → ${r.to}: 신규 ${r.created.length}건, 링크 ${r.links}건, 건너뜀 ${r.skipped.length}건`);}catch(e){toast(e.message);}$('#dvGo').disabled=false;};
+  $('#dlgDerive').showModal();
+}
+$('#dvClose').onclick=()=>$('#dlgDerive').close();
+$('#btnAudit').onclick=()=>{view={kind:'audit'};render();};
+$('#btnHist').onclick=()=>{view={kind:'history'};render();};
+$('#btnXlsx').onclick=()=>{location.href='/api/export/xlsx';};
+load().catch(e=>{$('#content').innerHTML=`<div class="empty">로드 실패: ${esc(e.message)}</div>`;});
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# ECU-ALM runtime data
+alm.json
+assets/
+*.db
+
+# Large generated files (keep sample docx, skip PDFs and full SRS)
+samples/*.pdf
+samples/SRS_BLDC_Full_*.docx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
