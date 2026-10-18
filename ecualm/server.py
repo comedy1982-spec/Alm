@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import sys
 import tempfile
 import threading
 import traceback
@@ -179,8 +180,17 @@ def make_handler(root: Path):
     return H
 
 
+class _Server(ThreadingHTTPServer):
+    # On Windows SO_REUSEADDR lets a second process bind the same port silently, so an old server
+    # keeps answering after a "restart". Refuse instead, so a stale server is noticed.
+    allow_reuse_address = sys.platform != "win32"
+
+
 def serve(root: Path, host: str = "127.0.0.1", port: int = 8765):
-    httpd = ThreadingHTTPServer((host, port), make_handler(Path(root)))
+    try:
+        httpd = _Server((host, port), make_handler(Path(root)))
+    except OSError as e:
+        raise SystemExit(f"포트 {port} 를 열 수 없습니다 ({e}). 이미 ECU-ALM 서버가 떠 있으면 그 창을 닫거나 --port 로 다른 포트를 쓰세요.")
     print(f"ECU-ALM web UI: http://{host}:{port}  (Ctrl+C 로 종료)")
     try:
         httpd.serve_forever()
