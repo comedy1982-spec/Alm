@@ -5,6 +5,7 @@ to adapt types, prefixes, keywords and rules to your project. Values in alm.json
 override the defaults below key by key.
 """
 from __future__ import annotations
+from __future__ import annotations
 
 import copy
 import json

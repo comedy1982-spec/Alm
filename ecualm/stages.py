@@ -8,6 +8,7 @@ Everything derived is rule-based and lands in 'draft' with a `derived_from` attr
 reviews it before it counts. The optional AI step can refine the same items afterwards.
 """
 from __future__ import annotations
+from __future__ import annotations
 
 import re
 from collections import defaultdict

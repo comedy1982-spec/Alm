@@ -15,10 +15,10 @@ echo ""
 
 # ── Python 확인 ──────────────────────────────────────
 PYTHON=""
-for candidate in python3.12 python3.11 python3.10 python3 python; do
+for candidate in python3.13 python3.12 python3.11 python3.10 python3.9 python3 python; do
     if command -v "$candidate" &>/dev/null; then
         VER=$("$candidate" -c "import sys; print(sys.version_info[:2])")
-        if "$candidate" -c "import sys; exit(0 if sys.version_info >= (3,10) else 1)" 2>/dev/null; then
+        if "$candidate" -c "import sys; exit(0 if sys.version_info >= (3,9) else 1)" 2>/dev/null; then
             PYTHON="$candidate"
             break
         fi
@@ -26,7 +26,7 @@ for candidate in python3.12 python3.11 python3.10 python3 python; do
 done
 
 if [ -z "$PYTHON" ]; then
-    echo "❌  Python 3.10+ 가 필요합니다."
+    echo "❌  Python 3.9+ 가 필요합니다."
     echo ""
     echo "   설치 방법:"
     echo "     brew install python@3.12"

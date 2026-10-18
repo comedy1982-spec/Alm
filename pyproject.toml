@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ecualm"
 version = "0.1.0"
 description = "ASPICE PAM 4.0 requirements management (DOCX/PDF import, stable IDs, traceability audit)"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = ["python-docx>=1.1", "pdfplumber>=0.11", "pymupdf>=1.24", "openpyxl>=3.1", "pillow>=10"]
 
 [project.scripts]
