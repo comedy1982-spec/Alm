@@ -85,7 +85,7 @@ def fig_autosar():
 
 
 def fig_swc():
-    fig, ax = plt.subplots(figsize=(7.6, 3.6)); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    fig, ax = plt.subplots(figsize=(7.6, 3.0)); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0.02, 0.86)
     pos = {"Com": (0.02, 0.42), "Coord": (0.24, 0.42), "LockTq": (0.46, 0.66), "Safety": (0.46, 0.14), "Clutch": (0.68, 0.42), "Motor": (0.86, 0.42), "Therm": (0.46, 0.40)}
     lab = {"Com": "BSW Com\n(Rx/Tx 신호)", "Coord": "SWC_LsdCoord\n모드·요청 조정", "LockTq": "SWC_LockTqCalc\n목표 잠금 토크", "Safety": "SWC_SafetyMon\n독립 감시",
            "Clutch": "SWC_ClutchCtrl\n토크→위치", "Motor": "CDD_MotorCtrl\n위치/전류", "Therm": "SWC_ThermWear\n열·마모 모델"}
@@ -97,8 +97,7 @@ def fig_swc():
     _arrow(ax, (0.59, 0.48), (0.68, 0.48), "TqLimTherm", INK, lfs=6)
     _arrow(ax, (0.81, 0.50), (0.86, 0.50), "PosReq", ORANGE, lfs=6)
     _arrow(ax, (0.68, 0.44), (0.59, 0.22), "TqLockAct", GREEN, lfs=6)
-    _arrow(ax, (0.52, 0.30), (0.52, 0.40), "", RED)
-    ax.text(0.30, 0.06, "SWC_SafetyMon 은 Core0 ASIL 파티션에서 실행되며 TqLockReq·TqLockAct 를 독립 검증하고 SafeState 모드를 요청한다.", fontsize=7, color=INK)
+    ax.text(0.02, 0.05, "SWC_SafetyMon 은 Core0 ASIL 파티션에서 실행되며 TqLockReq·TqLockAct 를 독립 검증하고 SafeState 모드를 요청한다.", fontsize=7, color=INK)
     return _png(fig)
 
 
@@ -510,11 +509,11 @@ def build(rev: str = "1.0") -> Path:
         ("eLSD 소프트웨어는 AUTOSAR Classic Platform R20-11 이상 규격을 따르는 BSW와 RTE를 사용해야 한다.", "QM", "설계 리뷰 (BSW 버전 목록)"),
         ("BSW와 RTE 생성 도구는 ISO 26262 도구 신뢰 수준(TCL)을 평가하고 ASIL C 이상 사용 근거를 제출해야 한다.", "C", "도구 적격성 보고서"),
         ("MCAL은 MCU 공급사가 제공하는 ASIL 인증 MCAL을 사용해야 하며 버전과 안전 매뉴얼 준수 내역을 제출해야 한다.", "C", "설계 리뷰"),
-        ("SW는 그림 7의 계층 구조를 따라야 하며 ASW는 MCAL·하드웨어 레지스터에 직접 접근하지 않아야 한다.", "QM", "정적 분석 + 아키텍처 리뷰"),
+        ("SW는 그림 10의 계층 구조를 따라야 하며 ASW는 MCAL·하드웨어 레지스터에 직접 접근하지 않아야 한다.", "QM", "정적 분석 + 아키텍처 리뷰"),
         ("하드웨어 직접 접근이 필요한 모터 제어와 위치 센서 처리는 CDD(CDD_MotorCtrl, CDD_PosSens)로 구현하고 인터페이스를 ARXML로 기술해야 한다.", "C", "설계 리뷰")])
     D.fig("l_autosar", "eLSD SW 계층 구조 (AUTOSAR Classic)")
     D.h("9.2 소프트웨어 컴포넌트", 2)
-    D.p("그림 8은 주요 SWC와 포트 연결이다. 공급사는 SWC 분할을 변경할 수 있으나 ASIL 할당과 감시 구조(제어 경로와 감시 경로 분리)는 유지해야 한다.")
+    D.p("그림 11은 주요 SWC와 포트 연결이다. 공급사는 SWC 분할을 변경할 수 있으나 ASIL 할당과 감시 구조(제어 경로와 감시 경로 분리)는 유지해야 한다.")
     D.fig("l_swc", "주요 SWC 구성 및 데이터 흐름")
     D.table("SWC 목록", [["SWC", "ASIL", "주요 Runnable", "주기", "역할"], ["SWC_LsdCoord", "C", "LsdCoord_Run", "5 ms", "모드·ESC 상한·요청 조정"], ["SWC_LockTqCalc", "C", "LockTq_Run", "5 ms", "목표 잠금 토크 산출"],
                        ["SWC_ClutchCtrl", "C", "ClutchCtrl_Run", "1 ms", "토크→위치 변환, 위치 지령"], ["SWC_ThermWear", "QM", "Therm_Run / Wear_Run", "10 / 100 ms", "열·마모 모델"],
