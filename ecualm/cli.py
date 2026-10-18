@@ -372,6 +372,62 @@ def cmd_stats(args):
         print(f"  {row['type']:<8} {row['status']:<9} {row['n']}")
 
 
+def cmd_user(args):
+    import getpass
+    from .auth import Auth, AuthError
+    repo, cfg = _ctx(args)
+    a = Auth(repo, cfg)
+
+    def pw(prompt="비밀번호: "):
+        if args.password:
+            return args.password
+        p1 = getpass.getpass(prompt)
+        if getpass.getpass("한 번 더: ") != p1:
+            raise ValueError("두 비밀번호가 다릅니다")
+        return p1
+    try:
+        if args.action == "list":
+            for u in a.users():
+                print(f"{u['username']:<16} {u['role']:<9} {'(비활성) ' if u['disabled'] else ''}{u['name']}")
+        elif args.action == "add":
+            u = a.create_user(args.username, pw(), args.name or "", args.role or "engineer")
+            print(f"추가: {u['username']} ({u['role']})")
+        elif args.action == "passwd":
+            a.set_password(args.username, pw("새 비밀번호: ")); print("비밀번호를 바꿨습니다")
+        elif args.action == "role":
+            print(a.update_user(args.username, role=args.role, actor="cli")["role"])
+        elif args.action in ("disable", "enable"):
+            a.update_user(args.username, disabled=args.action == "disable", actor="cli"); print("완료")
+        elif args.action == "token":
+            print(a.create_token(args.username, args.name or "cli"))
+            print("  ↑ CI 등에서 'Authorization: Bearer <토큰>' 헤더로 씁니다. 다시 볼 수 없으니 지금 보관하세요.", file=sys.stderr)
+    except AuthError as e:
+        raise ValueError(str(e))
+
+
+def cmd_plan(args):
+    from . import schedule
+    from .stages import stage_counts
+    repo, cfg = _ctx(args)
+    schedule.init(repo)
+    admin = {"username": args.user, "name": args.user, "role": "admin"}
+    if args.action == "template":
+        r = schedule.template(repo, args.arg or __import__("datetime").date.today().isoformat(), admin, args.replace)
+        print(f"표준 ASPICE WBS {r['created']}개 작업 생성 (시작 {r['start']})")
+    elif args.action == "list":
+        d = schedule.computed(repo, cfg, stage_counts(repo, cfg))
+        for t in d["tasks"]:
+            print(f"{t['wbs']:<6} {t['name'][:34]:<34} {t['process']:<7} {t['start']:<10} ~ {t['finish']:<10} "
+                  f"{t['effort_plan']:>6.1f}MD {t['progress']:>5.1f}% {' '.join(t['flags'])}")
+        m = d["metrics"]
+        print(f"BAC {m['bac']} · PV {m['pv']} · EV {m['ev']} · AC {m['ac']} · SPI {m['spi']} · CPI {m['cpi']}")
+    elif args.action == "export":
+        out = schedule.export_xlsx(repo, cfg, Path(args.arg or "project_plan_MAN3.xlsx"), stage_counts(repo, cfg))
+        print(out)
+    elif args.action == "baseline":
+        print(schedule.set_baseline(repo, args.arg or "", "", admin))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="ecualm", description="ECU ALM — ASPICE PAM 4.0 요구사항 관리 도구",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
@@ -427,6 +483,13 @@ def main(argv=None):
     p = sub.add_parser("serve"); p.add_argument("--host", default="127.0.0.1"); p.add_argument("--port", type=int, default=8765)
     p.set_defaults(fn=cmd_serve)
     p = sub.add_parser("stats"); p.set_defaults(fn=cmd_stats)
+    p = sub.add_parser("user", help="웹 로그인 계정: list | add | passwd | role | disable | enable | token")
+    p.add_argument("action", choices=["list", "add", "passwd", "role", "disable", "enable", "token"])
+    p.add_argument("username", nargs="?"); p.add_argument("--name"); p.add_argument("--role", choices=["viewer", "engineer", "manager", "admin"])
+    p.add_argument("--password", help="(비권장) 프롬프트 대신 인자로 전달"); p.set_defaults(fn=cmd_user)
+    p = sub.add_parser("plan", help="MAN.3 일정·공수: template [시작일] | list | export [파일] | baseline <이름>")
+    p.add_argument("action", choices=["template", "list", "export", "baseline"]); p.add_argument("arg", nargs="?")
+    p.add_argument("--replace", action="store_true", help="template: 기존 작업 지우고 다시 생성"); p.set_defaults(fn=cmd_plan)
 
     args = ap.parse_args(argv)
     try:

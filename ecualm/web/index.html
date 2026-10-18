@@ -270,21 +270,130 @@ dialog input,dialog select{width:100%;border:1px solid var(--line);background:va
 body.chatwin header,body.chatwin main,body.chatwin .drawer{display:none}
 body.chatwin .ai{top:0;width:100%;border-left:0;box-shadow:none}
 body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,body.win #btnHist{display:none}
-@media (max-width: 760px){ main{grid-template-columns:1fr} aside.left{display:none} .content{padding:14px 16px 60px} .hrow{gap:8px} .brand small{display:none} #btnXlsx{display:none} .strip .st{min-width:88px}}
+
+/* ---------- login ---------- */
+.login{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
+.login[hidden]{display:none}
+.login .box{width:min(400px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 26px 22px;box-shadow:0 10px 40px rgba(10,20,30,.08)}
+.login h2{margin:10px 0 2px;font-size:20px}
+.login label{display:block;margin:12px 0 4px;font-size:12.5px;color:var(--muted)}
+.login input{width:100%;border:1px solid var(--line);background:var(--soft2);border-radius:8px;padding:9px 10px;height:40px}
+.login input:focus,dialog input:focus,dialog select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.login .btn.primary{width:100%;justify-content:center;height:40px;margin-top:18px}
+.login .err{color:var(--err);font-size:12.5px;min-height:18px;margin-top:8px}
+.login .note{font-size:12px;color:var(--muted);margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+body.locked header,body.locked main{visibility:hidden}
+.me{max-width:200px}
+.me span{overflow:hidden;text-overflow:ellipsis}
+.me .r{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:0 6px}
+table.ut{border-collapse:collapse;width:100%;font-size:12.5px}
+table.ut th,table.ut td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:middle}
+table.ut th{font-size:11px;color:var(--muted);font-weight:600}
+table.ut select{height:28px;padding:2px 6px;width:auto}
+.addu{display:grid;grid-template-columns:1fr 1fr 110px 1fr auto;gap:6px;align-items:end;margin-top:10px}
+.addu input,.addu select{height:32px}
+@media (max-width:760px){.addu{grid-template-columns:1fr 1fr}}
+/* ---------- plan / gantt ---------- */
+.pctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
+.pctl select,.pctl input[type=search]{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:4px 8px;height:32px}
+.pctl label{display:flex;gap:5px;align-items:center;font-size:12.5px;color:var(--muted);cursor:pointer}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:4px 10px;height:30px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.card small{display:block;font-size:11.5px;color:var(--muted)}
+.card .lbl{font-size:12px;color:var(--muted)}
+.gw{position:relative;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);max-height:calc(100vh - 300px);min-height:240px}
+.gin{position:relative}
+.ghd{position:sticky;top:0;z-index:4;display:flex;background:var(--panel);border-bottom:1px solid var(--line)}
+.ghd .gl{z-index:5}
+.gl{position:sticky;left:0;z-index:3;display:flex;background:var(--panel);border-right:1px solid var(--line);flex:none}
+.gl .c{padding:0 6px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;flex:none}
+.gl .c.n{justify-content:flex-end;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.gl .c.d{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.ghd .gl .c{font-size:11px;color:var(--muted);font-weight:600;height:44px}
+.gsc{position:relative;height:44px;flex:none}
+.gsc .m{position:absolute;top:0;height:22px;border-left:1px solid var(--line);font-size:11px;color:var(--muted);padding:3px 5px;white-space:nowrap;overflow:hidden}
+.gsc .w{position:absolute;top:22px;height:22px;border-left:1px solid var(--line);font-size:10.5px;color:var(--muted);padding:4px 3px;font-family:var(--mono);overflow:hidden}
+.gr{display:flex;height:30px}
+.gr>.gl,.gr>.gt{box-shadow:inset 0 -1px 0 var(--soft)}
+.gr.sel>.gl{box-shadow:inset 3px 0 0 var(--accent),inset 0 -1px 0 var(--soft)}
+.gr:hover .gl,.gr.sel .gl{background:var(--soft2)}
+.gr.sum .gl .nm{font-weight:600}
+.gl .nm{gap:5px}
+.gl .nm .t{overflow:hidden;text-overflow:ellipsis}
+.gl .cr{border:0;background:none;padding:0;width:14px;cursor:pointer;color:var(--muted);flex:none}
+.gl .fl{font-size:10.5px;border-radius:8px;padding:0 5px;border:1px solid var(--err);color:var(--err);flex:none}
+.gl .fl.w{border-color:var(--warn);color:var(--warn)}
+.gl .alm{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:0 5px;flex:none;font-family:var(--mono)}
+.gt{position:relative;flex:none;cursor:default}
+.gb{position:absolute;top:8px;height:14px;border-radius:4px;background:color-mix(in srgb,var(--c) 28%,var(--panel));border:1px solid var(--c);touch-action:none}
+.gb.can{cursor:grab}.gb.drag{cursor:grabbing;opacity:.85}
+.gb i{display:block;height:100%;background:var(--c);border-radius:3px 0 0 3px;pointer-events:none}
+.gb .h{position:absolute;right:-4px;top:-3px;width:9px;height:18px;cursor:ew-resize}
+.gb.late{box-shadow:0 0 0 2px var(--panel),0 0 0 3.5px var(--err)}
+.gpc{position:absolute;top:8px;font-size:10.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap;pointer-events:none}
+.gs{position:absolute;top:11px;height:7px;background:var(--ink);border-radius:1px}
+.gs::before,.gs::after{content:"";position:absolute;top:7px;border:4px solid transparent;border-top-color:var(--ink)}
+.gs::before{left:0;border-left-color:var(--ink)}.gs::after{right:0;border-right-color:var(--ink)}
+.gm{position:absolute;top:9px;width:12px;height:12px;background:var(--ink);transform:rotate(45deg);border-radius:2px;box-shadow:0 0 0 2px var(--panel)}
+.gml{position:absolute;top:7px;font-size:11px;color:var(--ink);white-space:nowrap;pointer-events:none}
+.gbl{position:absolute;top:24px;height:3px;border-radius:2px;background:var(--muted);opacity:.55}
+.gtoday{position:absolute;top:44px;bottom:0;width:0;border-left:1.5px dashed var(--err);z-index:1;pointer-events:none}
+.gtoday b{position:absolute;top:2px;left:0;white-space:nowrap;display:inline-block;transform:translateX(-50%);background:var(--err);color:#fff;font-size:10px;padding:0 5px;border-radius:6px;font-weight:600}
+svg.gdep{position:absolute;pointer-events:none;overflow:visible;z-index:0}
+.gtip{position:absolute;z-index:8;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;box-shadow:0 6px 18px rgba(10,20,30,.14);display:none;max-width:320px}
+.gtip b{display:block;font-size:12.5px}
+.gtip .k{color:var(--muted)}
+.hmw{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table.hm{border-collapse:separate;border-spacing:2px;font-size:11px;font-family:var(--mono)}
+table.hm th{font-weight:500;color:var(--muted);padding:2px 3px;white-space:nowrap;font-size:10.5px}
+table.hm th.o{position:sticky;left:0;background:var(--panel);text-align:left;font-family:var(--sans);font-size:12px;color:var(--ink);padding-right:10px;z-index:1}
+table.hm td{min-width:36px;height:24px;text-align:center;border-radius:4px;color:var(--ink);font-variant-numeric:tabular-nums}
+table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weight:700}
+.plan-side{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-top:16px}
+.plan-side>div{min-width:0}
+.plan-side h3{font-size:14px;margin:0 0 8px}
+@media (max-width:900px){.plan-side{grid-template-columns:1fr}}
+.pf label{display:block;margin:10px 0 3px;font-size:12px;color:var(--muted)}
+.pf input,.pf select,.pf textarea{width:100%;border:1px solid var(--line);background:var(--soft2);border-radius:6px;padding:6px 8px}
+.pf input:disabled,.pf select:disabled,.pf textarea:disabled{opacity:.6}
+.pf .g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.pf .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px}
+.pf textarea{min-height:60px}
+@media (max-width: 760px){ .gw{max-height:none} main{grid-template-columns:1fr} aside.left{display:none} .content{padding:14px 16px 60px} .hrow{gap:8px} .brand small{display:none} #btnXlsx{display:none} .strip .st{min-width:88px}}
 </style>
 </head>
 <body>
+<div class="login" id="login" hidden>
+  <form class="box" id="loginForm" autocomplete="on">
+    <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM</div>
+    <h2 id="lgTitle">로그인</h2>
+    <div class="muted" style="font-size:12.5px" id="lgDesc">ASPICE 요구사항·추적·일정 관리</div>
+    <div id="lgSetup" hidden>
+      <label for="lgName">이름</label><input id="lgName" autocomplete="name" placeholder="예: 이앤디">
+    </div>
+    <label for="lgUser">아이디</label><input id="lgUser" autocomplete="username" required autocapitalize="off" spellcheck="false">
+    <label for="lgPw">비밀번호</label><input id="lgPw" type="password" autocomplete="current-password" required>
+    <div id="lgSetup2" hidden><label for="lgPw2">비밀번호 확인</label><input id="lgPw2" type="password" autocomplete="new-password"></div>
+    <div class="err" id="lgErr" role="alert"></div>
+    <button class="btn primary" id="lgGo" type="submit">로그인</button>
+    <div class="note" id="lgNote">계정이 없으면 관리자에게 요청하세요. 비밀번호를 잊었으면 관리자가 초기화할 수 있습니다.</div>
+  </form>
+</div>
 <header>
   <div class="hrow">
     <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <small id="proj"></small></div>
     <span class="muted" style="font-size:12.5px" id="crumb"></span>
     <div class="spacer"></div>
+    <button class="btn" id="btnPlan" title="ASPICE MAN.3 일정·공수 (WBS · 간트 · 공수 부하 · EVM)">일정·공수</button>
     <button class="btn" id="btnAi" title="AI 어시스턴트 (질문·요약·전개·링크 제안)" aria-expanded="false">AI</button>
     <button class="btn" id="btnWb" title="두 단계를 나란히 놓고 드래그로 추적 링크 연결">링크 작업대</button>
     <button class="btn" id="btnAudit">감사 콘솔</button>
     <button class="btn" id="btnHist">이력·베이스라인</button>
     <button class="btn" id="btnXlsx">Excel</button>
     <button class="btn primary" id="btnImport">요구사항 가져오기</button>
+    <button class="btn me" id="btnMe" hidden aria-haspopup="dialog"><span id="meName"></span><span class="r" id="meRole"></span></button>
   </div>
   <nav class="strip" id="strip" aria-label="ASPICE 단계"></nav>
 </header>
@@ -300,6 +409,41 @@ body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,
 </aside>
 <div class="toast" id="toast"></div>
 
+<dialog id="dlgMe" style="width:min(380px,96vw)">
+  <div class="row"><h3 style="margin:0" id="dmName"></h3><span class="spacer"></span><button class="btn sm" id="dmClose">닫기</button></div>
+  <div class="kv" style="margin-top:10px"><span>아이디</span><span class="mono" id="dmUser"></span><span>역할</span><span id="dmRole"></span></div>
+  <div class="muted" style="font-size:12px;margin-top:8px" id="dmRights"></div>
+  <div class="row" style="margin-top:16px"><button class="btn" id="dmPw">비밀번호 변경</button><button class="btn" id="dmUsers" hidden>사용자 관리</button><span class="spacer"></span><button class="btn" id="dmOut">로그아웃</button></div>
+</dialog>
+<dialog id="dlgPw" style="width:min(420px,96vw)">
+  <form id="pwForm"><h3 style="margin:0 0 4px">비밀번호 변경</h3>
+  <div class="muted" style="font-size:12.5px" id="pwDesc">8자 이상으로 정하세요.</div>
+  <label for="pwOld">현재 비밀번호</label><input id="pwOld" type="password" autocomplete="current-password" required>
+  <label for="pwNew">새 비밀번호</label><input id="pwNew" type="password" autocomplete="new-password" required minlength="8">
+  <label for="pwNew2">새 비밀번호 확인</label><input id="pwNew2" type="password" autocomplete="new-password" required>
+  <div class="err" id="pwErr" role="alert" style="color:var(--err);font-size:12.5px;min-height:18px;margin-top:8px"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" type="button" id="pwClose">닫기</button><button class="btn primary" type="submit">변경</button></div></form>
+</dialog>
+<dialog id="dlgUsers" style="width:min(880px,96vw)">
+  <div class="row"><h3 style="margin:0">사용자 관리</h3><span class="spacer"></span><button class="btn sm" id="usClose">닫기</button></div>
+  <div class="muted" style="font-size:12.5px;margin:4px 0 10px">역할: 조회(읽기만) · 엔지니어(요구사항·링크 편집, 본인 작업 진척·실적 입력) · PM(일정·공수·기준선) · 관리자(사용자·AI 설정). 새 계정과 초기화한 비밀번호는 첫 로그인 때 바꾸게 됩니다.</div>
+  <div style="overflow-x:auto"><table class="ut" id="usTable"></table></div>
+  <div class="sec"><b>계정 추가</b>
+  <form class="addu" id="usAdd">
+    <div><label class="muted" style="font-size:11px" for="uaId">아이디</label><input id="uaId" required autocapitalize="off" spellcheck="false"></div>
+    <div><label class="muted" style="font-size:11px" for="uaName">이름</label><input id="uaName"></div>
+    <div><label class="muted" style="font-size:11px" for="uaRole">역할</label><select id="uaRole"></select></div>
+    <div><label class="muted" style="font-size:11px" for="uaPw">임시 비밀번호</label><input id="uaPw" type="text" autocomplete="off" required minlength="8"></div>
+    <button class="btn primary" type="submit">추가</button>
+  </form></div>
+  <div class="sec" id="usTok" hidden><b>API 토큰 (한 번만 표시)</b><input id="usTokVal" readonly class="mono" style="width:100%"><div class="muted" style="font-size:12px;margin-top:4px">CI·스크립트에서 <span class="mono">Authorization: Bearer &lt;토큰&gt;</span> 헤더로 씁니다 (예: POST /api/results).</div></div>
+  <div class="sec"><b>최근 로그인 기록</b><div id="usLog" style="max-height:180px;overflow:auto;font-size:12px"></div></div>
+</dialog>
+<dialog id="dlgForm" style="width:min(520px,96vw)">
+  <form id="fmForm" class="pf"><h3 style="margin:0 0 4px" id="fmTitle"></h3><div class="muted" style="font-size:12.5px" id="fmDesc"></div>
+  <div id="fmBody"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" type="button" id="fmClose">취소</button><button class="btn primary" type="submit" id="fmOk">확인</button></div></form>
+</dialog>
 <dialog id="dlgImport">
   <div id="impStep1">
     <h3 style="margin:0 0 4px">요구사항 가져오기</h3>
@@ -396,8 +540,11 @@ const RULES={'SYS1>SYS2':'CRS 문장마다 SYS.2 초안을 만들고 derives 링
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),3000);}
 async function api(path, body){
   if(STATIC) throw new Error('읽기 전용 스냅샷입니다');
-  const r=await fetch(path, body===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-  const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j;
+  const r=await fetch(path, body===undefined?{}:{method:'POST',headers:{'content-type':'application/json','X-ECUALM':'1'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401&&j.login){ ME=null; showLogin({}); }
+  if(r.status===403&&j.must_change){ openPw(true); }
+  if(!r.ok) throw new Error(j.error||r.status); return j;
 }
 async function load(){
   S = STATIC ? STATIC.state : await api('/api/state');
@@ -421,15 +568,16 @@ function renderStrip(){
   const last=$('#strip').querySelectorAll('.st'); if(last.length) last[last.length-1].classList.add('last');
   $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>goStage(b.dataset.sid));
   $('#strip').querySelector('[data-home]').onclick=()=>{view={kind:'home'};render();};
-  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':'';
+  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':'';
 }
 function goStage(sid){view={kind:'stage',sid};stageTab=S.stageById[sid]?.canvas&&sid==='HWE2'?'canvas':'doc';render();}
 function render(){
   renderStrip();
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
-  $('#content').style.maxWidth=(view.kind==='wb'||(view.kind==='stage'&&stageTab==='canvas'))?'none':'';
-  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench})[view.kind]();
-  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';}
+  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||(view.kind==='stage'&&stageTab==='canvas'))?'none':'';
+  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan})[view.kind]();
+  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';}
+  else if(ME&&ME.role==='viewer'){$('#btnImport').style.display='none';}
   broadcastCtx();
 }
 
@@ -1120,7 +1268,7 @@ $('#impClose1').onclick=()=>$('#dlgImport').close();
 $('#impBack').onclick=()=>{$('#impStep1').hidden=false;$('#impStep2').hidden=true;};
 async function runImport(dry){
   const f=$('#impFile').files[0]; if(!f){toast('파일을 선택하세요');return null;}
-  const r=await fetch('/api/import',{method:'POST',body:await f.arrayBuffer(),headers:{'X-Filename':encodeURIComponent(f.name),'X-Doc':encodeURIComponent($('#impDoc').value.trim()),'X-Rev':encodeURIComponent($('#impRev').value.trim()),'X-Mode':$('#impMode').value,'X-Dry-Run':dry?'1':'0'}});
+  const r=await fetch('/api/import',{method:'POST',body:await f.arrayBuffer(),headers:{'X-ECUALM':'1','X-Filename':encodeURIComponent(f.name),'X-Doc':encodeURIComponent($('#impDoc').value.trim()),'X-Rev':encodeURIComponent($('#impRev').value.trim()),'X-Mode':$('#impMode').value,'X-Dry-Run':dry?'1':'0'}});
   const s=await r.json(); if(!r.ok) throw new Error(s.error); return s;
 }
 $('#impPreview').onclick=async()=>{
@@ -1158,7 +1306,360 @@ $('#dvClose').onclick=()=>$('#dlgDerive').close();
 $('#btnAudit').onclick=()=>{view={kind:'audit'};render();};
 $('#btnHist').onclick=()=>{view={kind:'history'};render();};
 $('#btnXlsx').onclick=()=>{location.href='/api/export/xlsx';};
-load().catch(e=>{$('#content').innerHTML=`<div class="empty">로드 실패: ${esc(e.message)}</div>`;});
+// ---------------- login / account ----------------
+let ME=null, AUTH=true, ROLES=[{id:'viewer',label:'조회'},{id:'engineer',label:'엔지니어'},{id:'manager',label:'PM'},{id:'admin',label:'관리자'}], LGMODE='login';
+const RANK={viewer:0,engineer:1,manager:2,admin:3};
+const atLeast=r=>!AUTH||(ME&&RANK[ME.role]>=RANK[r]);
+const RIGHTS={viewer:'모든 화면을 볼 수 있고, AI 어시스턴트에게 질문할 수 있습니다. 편집은 할 수 없습니다.',
+  engineer:'요구사항·링크 편집, 단계 전개, 문서 가져오기, 본인 작업의 진척·실적 입력을 할 수 있습니다.',
+  manager:'엔지니어 권한에 더해 일정·공수 계획, 기준선 저장을 할 수 있습니다.',
+  admin:'모든 권한 + 사용자 관리, AI 설정을 할 수 있습니다.'};
+async function boot(){
+  if(STATIC){ return load().catch(e=>{$('#content').innerHTML=`<div class="empty">로드 실패: ${esc(e.message)}</div>`;}); }
+  try{
+    const st=await (await fetch('/api/auth/state')).json();
+    AUTH=st.enabled; ME=st.user; if(st.roles) ROLES=st.roles;
+    if(st.enabled&&!st.user){ showLogin(st); return; }
+    await afterLogin();
+  }catch(e){ $('#content').innerHTML=`<div class="empty">서버에 연결할 수 없습니다: ${esc(e.message)}</div>`; }
+}
+function showLogin(st){
+  document.body.classList.add('locked'); document.querySelectorAll('dialog[open]').forEach(d=>d.close());
+  LGMODE=st.setup?'setup':'login';
+  const setup=LGMODE==='setup';
+  $('#lgTitle').textContent=setup?'첫 관리자 계정 만들기':'로그인';
+  $('#lgDesc').textContent=setup?'아직 계정이 없습니다. 이 계정이 관리자가 되어 다른 사람의 계정을 만듭니다.':'ASPICE 요구사항·추적·일정 관리';
+  $('#lgSetup').hidden=!setup; $('#lgSetup2').hidden=!setup; $('#lgPw2').required=setup;
+  $('#lgPw').autocomplete=setup?'new-password':'current-password';
+  $('#lgGo').textContent=setup?'관리자 계정 만들고 시작':'로그인';
+  $('#lgNote').textContent=setup?'비밀번호는 8자 이상. 첫 계정은 서버 PC(localhost)에서만 만들 수 있습니다.':'계정이 없으면 관리자에게 요청하세요. 비밀번호를 잊었으면 관리자가 초기화할 수 있습니다.';
+  $('#lgErr').textContent=setup&&st.can_setup===false?'이 PC에서는 첫 계정을 만들 수 없습니다. 서버 PC에서 http://localhost:8765 로 여세요.':'';
+  $('#login').hidden=false; setTimeout(()=>(setup?$('#lgName'):$('#lgUser')).focus(),0);
+}
+$('#loginForm').onsubmit=async ev=>{
+  ev.preventDefault(); $('#lgErr').textContent='';
+  const body={username:$('#lgUser').value.trim(),password:$('#lgPw').value,name:$('#lgName').value.trim()};
+  if(LGMODE==='setup'&&body.password!==$('#lgPw2').value){$('#lgErr').textContent='두 비밀번호가 다릅니다';return;}
+  $('#lgGo').disabled=true;
+  try{
+    const r=await fetch(LGMODE==='setup'?'/api/auth/setup':'/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    ME=j.user; $('#lgPw').value=''; $('#lgPw2').value='';
+    await afterLogin();
+  }catch(e){ $('#lgErr').textContent=e.message; }
+  $('#lgGo').disabled=false;
+};
+async function afterLogin(){
+  $('#login').hidden=true; document.body.classList.remove('locked'); renderMe();
+  if(ME&&ME.must_change) openPw(true);
+  await load();
+}
+function renderMe(){
+  const b=$('#btnMe'); b.hidden=!AUTH||!ME; if(!ME) return;
+  $('#meName').textContent=ME.name; $('#meRole').textContent=ME.role_label; b.title=`${ME.name} (${ME.username}) · ${ME.role_label}`;
+}
+$('#btnMe').onclick=()=>{ $('#dmName').textContent=ME.name; $('#dmUser').textContent=ME.username; $('#dmRole').textContent=ME.role_label;
+  $('#dmRights').textContent=RIGHTS[ME.role]||''; $('#dmUsers').hidden=ME.role!=='admin'; $('#dlgMe').showModal(); };
+$('#dmClose').onclick=()=>$('#dlgMe').close();
+$('#dmOut').onclick=async()=>{ try{await api('/api/auth/logout',{});}catch(e){} ME=null; $('#dlgMe').close(); S=null; $('#content').innerHTML=''; showLogin({}); };
+$('#dmPw').onclick=()=>{ $('#dlgMe').close(); openPw(false); };
+let pwForced=false;
+function openPw(forced){
+  pwForced=forced; $('#pwErr').textContent=''; ['#pwOld','#pwNew','#pwNew2'].forEach(k=>$(k).value='');
+  $('#pwDesc').textContent=forced?'관리자가 만든 임시 비밀번호입니다. 계속하려면 새 비밀번호(8자 이상)로 바꾸세요.':'8자 이상으로 정하세요.';
+  $('#pwClose').hidden=forced; if(!$('#dlgPw').open) $('#dlgPw').showModal();
+}
+$('#dlgPw').addEventListener('cancel',e=>{ if(pwForced) e.preventDefault(); });
+$('#pwClose').onclick=()=>$('#dlgPw').close();
+$('#pwForm').onsubmit=async ev=>{
+  ev.preventDefault();
+  if($('#pwNew').value!==$('#pwNew2').value){$('#pwErr').textContent='새 비밀번호가 서로 다릅니다';return;}
+  try{ await api('/api/auth/password',{old:$('#pwOld').value,new:$('#pwNew').value}); ME.must_change=false; pwForced=false; $('#dlgPw').close(); toast('비밀번호를 바꿨습니다'); }
+  catch(e){ $('#pwErr').textContent=e.message; }
+};
+// ---- user admin ----
+const fmtT=t=>t?new Date(t*1000).toLocaleString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+async function openUsers(){
+  const d=await api('/api/users');
+  $('#uaRole').innerHTML=ROLES.map(r=>`<option value="${r.id}" ${r.id==='engineer'?'selected':''}>${esc(r.label)}</option>`).join('');
+  $('#usTable').innerHTML=`<tr><th>아이디</th><th>이름</th><th>역할</th><th>상태</th><th>마지막 로그인</th><th></th></tr>`+d.users.map(u=>`<tr data-u="${esc(u.username)}">
+    <td class="mono">${esc(u.username)}${u.username===ME.username?' <span class="chip">나</span>':''}</td><td>${esc(u.name)}</td>
+    <td><select data-role aria-label="${esc(u.username)} 역할">${ROLES.map(r=>`<option value="${r.id}" ${r.id===u.role?'selected':''}>${esc(r.label)}</option>`).join('')}</select></td>
+    <td>${u.disabled?'<span class="chip deleted">비활성</span>':'<span class="chip approved">활성</span>'}${u.must_change?' <span class="chip warn">임시 비번</span>':''}</td>
+    <td class="muted">${fmtT(u.last_login)}</td>
+    <td style="white-space:nowrap"><button class="btn sm" data-reset>비번 초기화</button> <button class="btn sm" data-dis>${u.disabled?'활성화':'비활성화'}</button> <button class="btn sm" data-tok title="CI·스크립트용 토큰 발급">토큰</button></td></tr>`).join('');
+  const ev={login:'로그인',login_failed:'로그인 실패',password_changed:'비번 변경',user_created:'계정 생성',user_updated:'계정 변경',token_created:'토큰 발급'};
+  $('#usLog').innerHTML=d.log.map(l=>`<div class="lk"><span class="muted" style="width:120px">${fmtT(l.at)}</span><span class="mono">${esc(l.username||'')}</span><span class="chip ${l.event==='login_failed'?'err':''}">${esc(ev[l.event]||l.event)}</span><span class="t">${esc(l.addr||'')} ${esc(l.detail||'')}</span></div>`).join('')||'<div class="muted">기록 없음</div>';
+  $('#usTable').querySelectorAll('tr[data-u]').forEach(tr=>{ const u=tr.dataset.u;
+    tr.querySelector('[data-role]').onchange=async e=>{try{await api('/api/users/update',{username:u,role:e.target.value});toast(`${u}: 역할 변경`);}catch(x){toast(x.message);} openUsers();};
+    tr.querySelector('[data-dis]').onclick=async()=>{const dis=tr.querySelector('[data-dis]').textContent==='비활성화';try{await api('/api/users/update',{username:u,disabled:dis});}catch(x){toast(x.message);} openUsers();};
+    tr.querySelector('[data-reset]').onclick=async()=>{const v=await formDlg({title:`${u} 비밀번호 초기화`,desc:'임시 비밀번호를 정해 본인에게 전달하세요. 첫 로그인 때 바꾸게 됩니다.',ok:'초기화',fields:[{k:'pw',label:'임시 비밀번호 (8자 이상)',value:'',req:true}]});
+      if(v){try{await api('/api/users/reset',{username:u,password:v.pw});toast('초기화했습니다');}catch(x){toast(x.message);} } $('#dlgUsers').open||$('#dlgUsers').showModal(); openUsers();};
+    tr.querySelector('[data-tok]').onclick=async()=>{try{const r=await api('/api/users/token',{username:u,label:'web'});$('#usTok').hidden=false;$('#usTokVal').value=r.token;$('#usTokVal').select();}catch(x){toast(x.message);}};
+  });
+  if(!$('#dlgUsers').open) $('#dlgUsers').showModal();
+}
+$('#dmUsers').onclick=()=>{ $('#dlgMe').close(); $('#usTok').hidden=true; openUsers().catch(e=>toast(e.message)); };
+$('#usClose').onclick=()=>$('#dlgUsers').close();
+$('#usAdd').onsubmit=async ev=>{ ev.preventDefault();
+  try{ await api('/api/users',{username:$('#uaId').value.trim(),name:$('#uaName').value.trim(),role:$('#uaRole').value,password:$('#uaPw').value,must_change:true});
+    toast(`${$('#uaId').value} 계정을 만들었습니다`); ['#uaId','#uaName','#uaPw'].forEach(k=>$(k).value=''); openUsers(); }catch(e){ toast(e.message); } };
+// ---- generic form dialog ----
+function formDlg({title,desc='',fields,ok='확인'}){
+  return new Promise(res=>{
+    $('#fmTitle').textContent=title; $('#fmDesc').textContent=desc; $('#fmOk').textContent=ok;
+    $('#fmBody').innerHTML=fields.map(f=>{const id='fm_'+f.k;
+      if(f.type==='textarea') return `<label for="${id}">${esc(f.label)}</label><textarea id="${id}" placeholder="${esc(f.ph||'')}">${esc(f.value||'')}</textarea>`;
+      if(f.type==='check') return `<label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="${id}" style="width:auto" ${f.value?'checked':''}> ${esc(f.label)}</label>`;
+      return `<label for="${id}">${esc(f.label)}</label><input id="${id}" type="${f.type||'text'}" value="${esc(f.value??'')}" placeholder="${esc(f.ph||'')}" ${f.req?'required':''}>`;}).join('');
+    const d=$('#dlgForm'); let done=false;
+    const fin=v=>{ if(done) return; done=true; d.close(); res(v); };
+    $('#fmForm').onsubmit=e=>{e.preventDefault(); const v={}; for(const f of fields){const el=$('#fm_'+f.k); v[f.k]=f.type==='check'?el.checked:el.value;} fin(v);};
+    $('#fmClose').onclick=()=>fin(null); d.onclose=()=>fin(null);
+    d.showModal(); setTimeout(()=>d.querySelector('input,textarea')?.focus(),0);
+  });
+}
+
+// ---------------- MAN.3 project plan: WBS · Gantt · effort ----------------
+const PL={data:null,zoom:'month',fam:'',owner:'',q:'',base:true,deps:true,collapsed:new Set(),sel:null};
+try{const z=localStorage.getItem('ecualm-plan-zoom'); if(z) PL.zoom=z;}catch(e){}
+const ZOOM={week:{ppd:18,label:'주'},month:{ppd:5,label:'월'},quarter:{ppd:2,label:'분기'}};
+const FAM={SYS:'--sys2',HWE:'--hwe',SWE:'--swe1',MAN:'--crs',SUP:'--muted',VAL:'--tc'};
+const famOf=t=>(t.process||'').slice(0,3);
+const fcol=t=>`var(${FAM[famOf(t)]||'--muted'})`;
+const DAY=86400000;
+const pd=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d);};
+const iso=ms=>new Date(ms).toISOString().slice(0,10);
+const addD=(s,n)=>iso(pd(s)+n*DAY);
+const lvl=w=>(w||'').split('.').length-1;
+const canPlan=()=>atLeast('manager');
+const ownTask=t=>ME&&ME.role==='engineer'&&[ME.username,ME.name].includes(t.owner);
+const STATUS_K={not_started:'미착수',in_progress:'진행',done:'완료',on_hold:'보류'};
+$('#btnPlan').onclick=()=>{view={kind:'plan'};render();};
+function planCols(){ const narrow=matchMedia('(max-width:760px)').matches;
+  return narrow?[{k:'wbs',w:40,h:'WBS'},{k:'nm',w:160,h:'작업'}]
+   :[{k:'wbs',w:46,h:'WBS'},{k:'nm',w:260,h:'작업 (Activity)'},{k:'st',w:96,h:'상태'},{k:'am',w:48,h:'ALM',n:1},{k:'ow',w:76,h:'담당'},{k:'s',w:82,h:'시작'},{k:'f',w:82,h:'종료'},{k:'pe',w:56,h:'계획 MD',n:1},{k:'ae',w:56,h:'실적 MD',n:1},{k:'pg',w:50,h:'진척',n:1}]; }
+async function viewPlan(){
+  const c=$('#content');
+  if(!PL.data) c.innerHTML='<div class="empty">일정을 불러오는 중…</div>';
+  try{ PL.data=await api('/api/plan'); }catch(e){ c.innerHTML=`<div class="empty">불러오기 실패: ${esc(e.message)}</div>`; return; }
+  drawPlan();
+}
+function planVisible(){
+  const D=PL.data, q=PL.q.toLowerCase();
+  const hidden=t=>[...PL.collapsed].some(w=>t.wbs.startsWith(w+'.'));
+  const match=t=>(!PL.fam||famOf(t)===PL.fam)&&(!PL.owner||t.owner===PL.owner)&&(!q||(t.name+' '+t.wbs+' '+t.work_product+' '+t.process).toLowerCase().includes(q));
+  const filtering=PL.fam||PL.owner||q;
+  return D.tasks.filter(t=>!hidden(t)&&(filtering?(!t.summary&&match(t)):true));
+}
+function drawPlan(){
+  const D=PL.data, M=D.metrics, c=$('#content');
+  const head=`<div class="bar"><h1>프로젝트 일정·공수</h1><span class="sub">ASPICE MAN.3 · 14-10 작업 패키지 · 08-56 일정 · 15-06 프로젝트 상태${D.meta.title?' · '+esc(D.meta.title):''}${D.meta.doc_no?' · '+esc(D.meta.doc_no):''}</span><span class="spacer"></span>
+    ${canPlan()?`<button class="btn" id="plAdd">작업 추가</button><button class="btn" id="plBase" title="현재 계획을 승인된 기준선으로 고정합니다 (계획 대비 지연 추적)">기준선 저장</button><button class="btn" id="plTpl">표준 WBS</button><button class="btn" id="plSet" aria-label="일정 설정">설정</button>`:''}
+    <button class="btn" id="plXlsx" title="ASPICE MAN.3 양식 (WBS·간트·공수 부하·변경 이력)">Excel 양식</button></div>`;
+  if(!D.tasks.length){
+    c.innerHTML=head+`<div class="empty"><b>아직 프로젝트 계획이 없습니다</b>${canPlan()?'표준 ASPICE WBS(MAN.3 · SYS · HWE · SWE · SUP, A~D 샘플 마일스톤)로 시작하거나 작업을 직접 추가하세요.<div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary" id="plTpl2">표준 ASPICE WBS로 시작</button><button class="btn" id="plAdd2">빈 작업 추가</button></div>':'PM 또는 관리자가 계획을 만들면 여기에 간트 차트가 보입니다.'}</div>`;
+    bindPlanHead(); $('#plTpl2')&&($('#plTpl2').onclick=planTemplate); $('#plAdd2')&&($('#plAdd2').onclick=()=>openTask(null)); return;
+  }
+  const spiTxt=M.spi==null?'—':M.spi.toFixed(2), cpiTxt=M.cpi==null?'—':M.cpi.toFixed(2);
+  const lvlCls=v=>v==null?'':v<0.9?'err':v<1?'warn':'ok', lvlTxt=v=>v==null?'아직 계산 전':v<0.9?'지연':v<1?'주의':'정상';
+  const nm=M.next_milestone, dday=nm?Math.round((pd(nm.date)-pd(D.today))/DAY):null;
+  const owners=[...new Set(D.tasks.filter(t=>!t.summary&&t.owner).map(t=>t.owner))].sort();
+  c.innerHTML=head+`<div class="cards">
+    <div class="card"><span class="lbl">진척률 (EV/BAC)</span><b>${M.progress}%</b><small>획득 ${M.ev} / 총 ${M.bac} MD</small></div>
+    <div class="card ${lvlCls(M.spi)}"><span class="lbl">SPI 일정 성과</span><b>${spiTxt}</b><small>${lvlTxt(M.spi)} · 계획 가치 ${M.pv} MD</small></div>
+    <div class="card ${lvlCls(M.cpi)}"><span class="lbl">CPI 공수 성과</span><b>${cpiTxt}</b><small>${M.cpi==null?'실적 공수 입력 전':M.cpi<0.9?'공수 초과':M.cpi<1?'주의':'정상'} · 실적 ${M.ac} MD</small></div>
+    <div class="card ${M.late?'err':''}"><span class="lbl">지연 작업</span><b>${M.late}</b><small>${M.overrun?`공수 초과 ${M.overrun}건`:'공수 초과 없음'}</small></div>
+    <div class="card"><span class="lbl">다음 마일스톤</span><b>${nm?(dday===0?'D-day':'D-'+dday):'—'}</b><small>${nm?esc(nm.name)+' · '+nm.date:'남은 마일스톤 없음'}</small></div>
+    <div class="card"><span class="lbl">기준선</span><b style="font-size:16px;padding:6px 0">${D.baselines.length?esc(D.baselines[D.baselines.length-1].name):'없음'}</b><small>${D.baselines.length?fmtT(D.baselines[D.baselines.length-1].at):'기준선을 저장하면 계획 대비 지연이 보입니다'}</small></div></div>
+  <div class="pctl"><span class="seg" role="group" aria-label="확대">${Object.entries(ZOOM).map(([k,z])=>`<button data-z="${k}" class="${PL.zoom===k?'on':''}" aria-pressed="${PL.zoom===k}">${z.label}</button>`).join('')}</span>
+    <select id="plFam" aria-label="프로세스 그룹"><option value="">전체 프로세스</option>${['MAN','SYS','HWE','SWE','SUP'].map(f=>`<option ${PL.fam===f?'selected':''}>${f}</option>`).join('')}</select>
+    <select id="plOwner" aria-label="담당"><option value="">전체 담당</option>${owners.map(o=>`<option ${PL.owner===o?'selected':''}>${esc(o)}</option>`).join('')}</select>
+    <input type="search" id="plQ" placeholder="작업·산출물 검색" value="${esc(PL.q)}" aria-label="검색">
+    <label><input type="checkbox" id="plBl" ${PL.base?'checked':''}> 기준선</label><label><input type="checkbox" id="plDp" ${PL.deps?'checked':''}> 선후행</label>
+    <span class="spacer"></span><span class="muted" style="font-size:12px">${canPlan()?'막대를 끌어 일정 이동 · 오른쪽 끝을 끌어 기간 조정 · 행을 눌러 편집':ME&&ME.role==='engineer'?'본인 작업을 눌러 진척·실적 공수를 입력하세요':'읽기 전용'}</span></div>
+  <div class="gw" id="gw"></div>
+  <div class="plan-side"><div><h3>담당별 주간 계획 공수 (MD)</h3><div id="plLoad"></div></div><div><h3>계획 변경 이력</h3><div id="plHist" style="max-height:320px;overflow:auto"></div></div></div>`;
+  bindPlanHead();
+  c.querySelectorAll('[data-z]').forEach(b=>b.onclick=()=>{PL.zoom=b.dataset.z;PL._scrolled=false;try{localStorage.setItem('ecualm-plan-zoom',PL.zoom);}catch(e){}drawPlan();});
+  $('#plFam').onchange=e=>{PL.fam=e.target.value;drawGantt();}; $('#plOwner').onchange=e=>{PL.owner=e.target.value;drawGantt();};
+  $('#plQ').oninput=e=>{PL.q=e.target.value;drawGantt();};
+  $('#plBl').onchange=e=>{PL.base=e.target.checked;drawGantt();}; $('#plDp').onchange=e=>{PL.deps=e.target.checked;drawGantt();};
+  drawGantt(); drawLoad(); drawPlanHist();
+}
+function bindPlanHead(){
+  $('#plXlsx').onclick=()=>{location.href='/api/plan/xlsx';};
+  if(!canPlan()) return;
+  $('#plAdd').onclick=()=>openTask(null); $('#plTpl').onclick=planTemplate; $('#plSet').onclick=planSettings;
+  $('#plBase').onclick=async()=>{const n=PL.data.baselines.length+1;
+    const v=await formDlg({title:'기준선 저장',desc:'현재 계획의 시작·종료·공수를 기준선으로 고정합니다. 이후 일정이 밀리면 간트에 기준선과 지연 일수가 표시됩니다 (MAN.3 계획 조정 추적).',ok:'저장',
+      fields:[{k:'name',label:'기준선 이름',value:`BL${n}`,req:true},{k:'note',label:'메모',type:'textarea',value:'',ph:'예: B 샘플 계획 승인 (CCB 2026-11-20)'}]});
+    if(v){try{await api('/api/plan/baseline',v);toast(`기준선 ${v.name} 저장`);viewPlan();}catch(e){toast(e.message);}}};
+}
+async function planTemplate(){
+  const has=PL.data.tasks.length;
+  const mon=(()=>{const d=new Date();const k=(d.getDay()+6)%7;d.setDate(d.getDate()-k+7);return d.toISOString().slice(0,10);})();
+  const v=await formDlg({title:'표준 ASPICE WBS 만들기',desc:'MAN.3 관리, SYS.1~5, HWE.1~4, SWE.1~6, SUP.1/8/9/10 작업과 A~D 샘플 마일스톤, 작업별 PAM 4.0 산출물·공수 초안을 만듭니다. 담당은 역할명으로 들어가니 실제 사람으로 바꾸세요.',ok:'만들기',
+    fields:[{k:'start',label:'프로젝트 시작일 (그 주 월요일로 맞춥니다)',type:'date',value:mon,req:true},...(has?[{k:'replace',label:'기존 작업을 모두 지우고 다시 만들기',type:'check',value:false}]:[])]});
+  if(!v) return;
+  if(has&&!v.replace){toast('기존 계획이 있습니다. 덮어쓰려면 체크하세요');return;}
+  try{const r=await api('/api/plan/template',{start:v.start,replace:!!v.replace});toast(`작업 ${r.created}개 생성 (시작 ${r.start})`);viewPlan();}catch(e){toast(e.message);}
+}
+async function planSettings(){
+  const m=PL.data.meta;
+  const v=await formDlg({title:'일정 설정',ok:'저장',fields:[{k:'title',label:'프로젝트명 (양식 머리말)',value:m.title||''},{k:'doc_no',label:'문서 번호',value:m.doc_no||'',ph:'예: PMP-LSD-C3-001'},
+    {k:'capacity',label:'1인 주간 가용 공수 (MD/주)',type:'number',value:m.capacity},{k:'holidays',label:'휴일 (한 줄에 하나, YYYY-MM-DD) — 공수 분배·기간 계산에서 뺍니다',type:'textarea',value:(m.holidays||[]).join('\n'),ph:'2027-01-01\n2027-02-08'}]});
+  if(!v) return;
+  try{await api('/api/plan/meta',{title:v.title,doc_no:v.doc_no,capacity:Number(v.capacity),holidays:v.holidays.split(/\s+/).filter(Boolean)});toast('설정 저장');viewPlan();}catch(e){toast(e.message);}
+}
+function drawGantt(){
+  const D=PL.data, z=ZOOM[PL.zoom], ppd=z.ppd, cols=planCols(), LW=cols.reduce((a,c)=>a+c.w,0), RH=30, HH=44;
+  const rows=planVisible();
+  const allS=D.tasks.flatMap(t=>[t.start,t.base_start].filter(Boolean)), allF=D.tasks.flatMap(t=>[t.finish,t.base_finish].filter(Boolean));
+  let t0=pd(allS.length?allS.reduce((a,b)=>a<b?a:b):D.today), t1=pd(allF.length?allF.reduce((a,b)=>a>b?a:b):D.today);
+  t0-=((new Date(t0).getUTCDay()+6)%7)*DAY+7*DAY; t1+=21*DAY;
+  if(pd(D.today)<t0) t0=pd(D.today)-7*DAY; if(pd(D.today)>t1) t1=pd(D.today)+14*DAY;
+  const W=Math.round((t1-t0)/DAY*ppd), X=s=>Math.round((pd(s)-t0)/DAY*ppd);
+  // scale
+  let mh='', wh='';
+  for(let d=new Date(t0);d.getTime()<t1;){
+    const y=d.getUTCFullYear(), m=d.getUTCMonth();
+    const step=PL.zoom==='quarter'?3:1, mm=PL.zoom==='quarter'?m-m%3:m;
+    const a=Date.UTC(y,mm,1), b=Date.UTC(y,mm+step,1), x0=Math.max(0,(a-t0)/DAY*ppd), x1=Math.min(W,(b-t0)/DAY*ppd);
+    mh+=`<div class="m" style="left:${x0}px;width:${x1-x0}px">${PL.zoom==='quarter'?`${y} Q${mm/3+1}`:`${y}.${String(m+1).padStart(2,'0')}`}</div>`;
+    d=new Date(b);
+  }
+  if(PL.zoom==='quarter'){ for(let d=new Date(Date.UTC(new Date(t0).getUTCFullYear(),new Date(t0).getUTCMonth(),1));d.getTime()<t1;d=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1))){const x=(d.getTime()-t0)/DAY*ppd; if(x>=0) wh+=`<div class="w" style="left:${x}px;width:${30*ppd}px">${d.getUTCMonth()+1}월</div>`;} }
+  else for(let w=t0;w<t1;w+=7*DAY){const d=new Date(w); wh+=`<div class="w" style="left:${(w-t0)/DAY*ppd}px;width:${7*ppd}px">${PL.zoom==='week'?`${d.getUTCMonth()+1}/${d.getUTCDate()}`:d.getUTCDate()}</div>`;}
+  const wkBg=ppd>=10?`background:repeating-linear-gradient(90deg,transparent 0 ${5*ppd}px,var(--soft2) ${5*ppd}px ${7*ppd}px)`:`background:repeating-linear-gradient(90deg,transparent 0 ${7*ppd-1}px,var(--soft) ${7*ppd-1}px ${7*ppd}px)`;
+  const idx=Object.fromEntries(rows.map((t,i)=>[t.id,i])), byId=Object.fromEntries(D.tasks.map(t=>[t.id,t]));
+  const wbsOf=id=>byId[id]?.wbs||id;
+  const FLAG={late:['지연',''],late_start:['착수 지연','w'],slip:['기준선 초과','w'],overrun:['공수 초과','w'],dep_conflict:['선후행 충돌','']};
+  const row=(t,i)=>{
+    const lv=lvl(t.wbs), hasKids=t.summary, col=PL.collapsed.has(t.wbs), sel=PL.sel===t.id?' sel':'';
+    const flags=t.flags.filter(f=>FLAG[f]&&!(f==='slip'&&!PL.base)).slice(0,1).map(f=>`<span class="fl ${FLAG[f][1]}" title="${esc(t.flags.map(x=>FLAG[x]?FLAG[x][0]+(x==='slip'?` +${t.slip_days}일`:''):'').filter(Boolean).join(' · '))}">${f==='late'?'⚠ ':''}${FLAG[f][0]}${f==='slip'?` +${t.slip_days}일`:''}${t.flags.length>1?` +${t.flags.length-1}`:''}</span>`).join('');
+    const cell={wbs:`<span class="mono" style="font-size:11.5px">${esc(t.wbs)}</span>`,
+      nm:`<span style="width:${lv*12}px;flex:none"></span>${hasKids?`<button class="cr" data-col="${esc(t.wbs)}" aria-label="${col?'펼치기':'접기'}" aria-expanded="${!col}">${col?'▸':'▾'}</button>`:'<span style="width:14px;flex:none"></span>'}${t.milestone?'<span aria-hidden="true">◆</span>':''}<span class="t" title="${esc(t.name)}">${esc(t.name)}</span>`,
+      st:flags||`<span class="muted" style="font-size:11.5px">${t.milestone?(t.status==='done'?'달성':''):(STATUS_K[t.status]||'')}</span>`,
+      am:t.alm?`<span title="ALM ${esc(t.stage)} 승인 ${t.alm.approved}/${t.alm.total}">${t.alm.pct}%</span>`:'',
+      ow:esc(t.owner), s:t.start?t.start.slice(2):'', f:t.milestone?'':(t.finish?t.finish.slice(2):''), pe:t.milestone?'':(t.effort_plan||''), ae:t.milestone?'':(t.effort_actual||''), pg:t.milestone?'':`${Math.round(t.progress)}%`};
+    let bars='';
+    if(t.start){
+      const x=X(t.start), w=Math.max(ppd, X(addD(t.finish||t.start,1))-x);
+      if(PL.base&&t.base_start&&t.base_finish&&!t.milestone&&(t.base_start!==t.start||t.base_finish!==t.finish)){const bx=X(t.base_start);bars+=`<div class="gbl" style="left:${bx}px;width:${Math.max(ppd,X(addD(t.base_finish,1))-bx)}px" title="기준선 ${t.base_start} ~ ${t.base_finish}"></div>`;}
+      if(t.milestone) bars+=`<div class="gm" data-bar="${t.id}" style="left:${x-6}px"></div><span class="gml" style="left:${x+10}px">${esc(t.name)} · ${t.start.slice(5)}</span>`;
+      else if(t.summary) bars+=`<div class="gs" data-bar="${t.id}" style="left:${x}px;width:${w}px"></div>`;
+      else { const can=canPlan(); bars+=`<div class="gb${can?' can':''}${t.flags.includes('late')?' late':''}" data-bar="${t.id}" style="left:${x}px;width:${w}px;--c:${fcol(t)}"><i style="width:${Math.min(100,t.progress)}%"></i>${can?'<span class="h" data-h></span>':''}</div><span class="gpc" style="left:${x+w+5}px">${Math.round(t.progress)}%</span>`; }
+    }
+    return `<div class="gr${t.summary?' sum':''}${sel}" data-t="${t.id}"><div class="gl" style="width:${LW}px">${cols.map(c=>`<span class="c ${c.k} ${c.n?'n':''} ${c.k==='s'||c.k==='f'?'d':''}" style="width:${c.w}px">${cell[c.k]}</span>`).join('')}</div><div class="gt" style="width:${W}px;${wkBg};background-position:${X(iso(t0))}px 0">${bars}</div></div>`;
+  };
+  // dependency lines (finish-to-start)
+  let svg='';
+  if(PL.deps){ for(const t of rows){ if(!t.start||t.summary) continue; for(const d of t.deps){ const p=byId[d]; if(!p||idx[d]==null||!p.finish) continue;
+      const x1=p.milestone?X(p.start)+6:X(addD(p.finish,1)), y1=idx[d]*RH+RH/2, x2=X(t.start)+(t.milestone?-6:0), y2=idx[t.id]*RH+RH/2, bad=pd(p.finish)>=pd(t.start)&&!p.milestone;
+      const mid=x2-8>x1+4?`M${x1} ${y1} H${x2-8} V${y2} H${x2}`:`M${x1} ${y1} h6 V${y1+(y2>y1?RH/2:-RH/2)} H${x2-10} V${y2} H${x2}`;
+      svg+=`<path d="${mid}" fill="none" stroke="${bad?'var(--err)':'var(--muted)'}" stroke-width="1.2" ${bad?'':'opacity=".7"'} marker-end="url(#${bad?'arE':'arM'})"/>`; } } }
+  const today=X(D.today);
+  $('#gw').innerHTML=`<div class="gin" style="width:${LW+W}px">
+    <div class="ghd"><div class="gl" style="width:${LW}px">${cols.map(c=>`<span class="c ${c.n?'n':''}" style="width:${c.w}px">${c.h}</span>`).join('')}</div><div class="gsc" style="width:${W}px">${mh}${wh}</div></div>
+    ${rows.map(row).join('')}
+    <svg class="gdep" style="left:${LW}px;top:${HH}px" width="${W}" height="${rows.length*RH}" aria-hidden="true"><defs>${['arM:var(--muted)','arE:var(--err)'].map(x=>{const [id,c]=x.split(':');return `<marker id="${id}" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L6 3L0 6z" fill="${c}"/></marker>`;}).join('')}</defs>${svg}</svg>
+    <div class="gtoday" style="left:${LW+today}px"><b>오늘</b></div>
+  </div><div class="gtip" id="gtip" role="tooltip"></div>`;
+  const gw=$('#gw');
+  if(!PL._scrolled){ PL._scrolled=true; gw.scrollLeft=Math.max(0,today-160); }
+  gw.querySelectorAll('[data-col]').forEach(b=>b.onclick=e=>{e.stopPropagation();const w=b.dataset.col;PL.collapsed.has(w)?PL.collapsed.delete(w):PL.collapsed.add(w);drawGantt();});
+  gw.querySelectorAll('.gr').forEach(r=>r.onclick=e=>{ if(PL._dragged){PL._dragged=false;return;} openTask(byId[r.dataset.t]); });
+  // tooltip
+  const tip=$('#gtip');
+  gw.onmousemove=e=>{ const b=e.target.closest('[data-bar]'); if(!b){tip.style.display='none';return;} const t=byId[b.dataset.bar];
+    const dur=t.start&&t.finish?Math.round((pd(t.finish)-pd(t.start))/DAY)+1:0;
+    tip.innerHTML=`<b>${esc(t.wbs)} ${esc(t.name)}</b><span class="k">${esc(t.process)}${t.owner?' · '+esc(t.owner):''}</span><br>${t.milestone?`마일스톤 ${t.start}`:`${t.start} ~ ${t.finish} (${dur}일)`}${t.milestone?'':`<br><span class="k">공수</span> 계획 ${t.effort_plan} · 실적 ${t.effort_actual} MD<br><span class="k">진척</span> ${Math.round(t.progress)}% · ${STATUS_K[t.status]||t.status}`}${t.base_finish&&t.slip_days?`<br><span class="k">기준선 종료</span> ${t.base_finish} (${t.slip_days>0?'+':''}${t.slip_days}일)`:''}${t.work_product?`<br><span class="k">산출물</span> ${esc(t.work_product)}`:''}`;
+    const r=gw.getBoundingClientRect(); let x=e.clientX-r.left+gw.scrollLeft+14, y=e.clientY-r.top+gw.scrollTop+14;
+    tip.style.display='block'; if(x+tip.offsetWidth>gw.scrollLeft+gw.clientWidth) x-=tip.offsetWidth+28; tip.style.left=x+'px'; tip.style.top=y+'px'; };
+  gw.onmouseleave=()=>tip.style.display='none';
+  // drag to move / resize (PM and admin)
+  if(canPlan()) gw.querySelectorAll('.gb.can').forEach(b=>b.onpointerdown=e=>{
+    const t=byId[b.dataset.bar], resize=!!e.target.closest('[data-h]'), sx=e.clientX, L=parseFloat(b.style.left), Wd=parseFloat(b.style.width);
+    let days=0; b.setPointerCapture(e.pointerId); b.classList.add('drag'); tip.style.display='none'; e.preventDefault();
+    b.onpointermove=ev=>{ days=Math.round((ev.clientX-sx)/ppd); if(resize) b.style.width=Math.max(ppd,Wd+days*ppd)+'px'; else b.style.left=(L+days*ppd)+'px'; };
+    b.onpointerup=async()=>{ b.onpointermove=b.onpointerup=null; b.classList.remove('drag'); if(!days) return; PL._dragged=true; setTimeout(()=>PL._dragged=false,0);
+      const body=resize?{id:t.id,finish:addD(t.finish,days)}:{id:t.id,start:addD(t.start,days),finish:addD(t.finish,days)};
+      if(resize&&body.finish<t.start){drawGantt();return;}
+      try{ await api('/api/plan/task',body); toast(`${t.wbs} ${resize?'종료':'일정'} ${days>0?'+':''}${days}일 → ${body.start||t.start} ~ ${body.finish}`); viewPlan(); }catch(err){ toast(err.message); drawGantt(); } };
+  });
+}
+function drawLoad(){
+  const D=PL.data, cap=D.meta.capacity, owners=Object.keys(D.load);
+  if(!owners.length){$('#plLoad').innerHTML='<div class="muted" style="font-size:12.5px">계획 공수가 들어간 작업이 없습니다.</div>';return;}
+  const all=D.weeks; if(!all.length) return;
+  const weeks=[]; for(let w=pd(all[0]);w<=pd(all[all.length-1]);w+=7*DAY) weeks.push(iso(w));
+  const tot=weeks.map(w=>owners.reduce((a,o)=>a+(D.load[o][w]||0),0));
+  const cell=(v,o,w)=>{ if(!v) return '<td></td>'; const over=v>cap+1e-6; const a=Math.round(Math.min(1,v/cap)*40);
+    return `<td class="${over?'over':''}" style="background:color-mix(in srgb,var(--accent) ${a}%,var(--panel))" title="${esc(o)} · ${w} 주: ${v.toFixed(1)} MD${over?` (가용 ${cap} MD 초과)`:''}">${over?'▲':''}${v<10?v.toFixed(1):Math.round(v)}</td>`; };
+  $('#plLoad').innerHTML=`<div class="hmw"><table class="hm"><thead><tr><th class="o">담당</th>${weeks.map(w=>`<th title="${w} 주">${w.slice(5,7)==='01'&&+w.slice(8)<=7?w.slice(2,4)+'.':''}${+w.slice(5,7)}/${+w.slice(8)}</th>`).join('')}</tr></thead>
+    <tbody>${owners.map(o=>`<tr><th class="o">${esc(o)}</th>${weeks.map(w=>cell(D.load[o][w],o,w)).join('')}</tr>`).join('')}
+    <tr><th class="o" style="color:var(--muted)">합계</th>${tot.map((v,i)=>`<td class="muted" title="${weeks[i]} 주 합계 ${v.toFixed(1)} MD">${v?(v<10?v.toFixed(1):Math.round(v)):''}</td>`).join('')}</tr></tbody></table></div>
+    <div class="muted" style="font-size:12px;margin-top:6px">셀 = 그 주의 계획 공수(작업 공수를 근무일에 고르게 분배). 진할수록 가용 ${cap} MD/주에 가깝고, ▲ 는 가용 초과입니다.</div>`;
+}
+async function drawPlanHist(){
+  try{ const h=(await api('/api/plan/history')).history.slice(0,40), byId=Object.fromEntries(PL.data.tasks.map(t=>[t.id,t]));
+    const L={created:'추가',modified:'변경',deleted:'삭제',baseline:'기준선',template:'표준 WBS',replaced:'전체 교체'};
+    const F={start:'시작',finish:'종료',effort_plan:'계획 공수',effort_actual:'실적 공수',progress:'진척',status:'상태',owner:'담당',name:'작업명',deps:'선행',wbs:'WBS',note:'비고',name_:'이름'};
+    $('#plHist').innerHTML=h.map(x=>`<div class="hist"><span class="muted">${fmtT(x.at)} · ${esc(x.by)}</span> <span class="chip">${L[x.change]||x.change}</span> <b class="mono">${esc(byId[x.task]?.wbs||(x.task==='*'?'':x.task))}</b>
+      <div style="font-size:12px">${x.change==='modified'?Object.entries(x.fields).map(([k,v])=>`${F[k]||k}: <del>${esc(fmtV(v[0]))}</del> → <ins>${esc(fmtV(v[1]))}</ins>`).join(' · '):x.change==='baseline'?esc(x.fields.name?.[1]||''):x.change==='created'?esc(x.fields.name?.[1]||''):''}</div></div>`).join('')||'<div class="muted" style="font-size:12.5px">변경 없음</div>';
+  }catch(e){}
+}
+const fmtV=v=>Array.isArray(v)?v.map(i=>PL.data.tasks.find(t=>t.id===i)?.wbs||i).join(', '):v===''||v==null?'—':String(v);
+async function openTask(t){
+  const D=PL.data, isNew=!t; t=t||{id:'',wbs:'',name:'',process:'SWE.1',stage:'',work_product:'',owner:'',start:D.today,finish:addD(D.today,13),effort_plan:5,effort_actual:0,progress:0,status:'not_started',milestone:false,deps:[],actual_start:'',actual_finish:'',note:'',summary:false,flags:[]};
+  PL.sel=t.id||null; if(!isNew) document.querySelectorAll('.gr').forEach(r=>r.classList.toggle('sel',r.dataset.t===t.id));
+  const full=canPlan(), self=!full&&ownTask(t), dis=k=>(full&&!(t.summary&&['start','finish','effort_plan','effort_actual','progress','status','milestone'].includes(k)))||(self&&['effort_actual','progress','status','actual_start','actual_finish','note'].includes(k))?'':'disabled';
+  const byId=Object.fromEntries(D.tasks.map(x=>[x.id,x]));
+  const owners=[...new Set(D.tasks.map(x=>x.owner).filter(Boolean))];
+  const stages=S?S.stages:[];
+  $('#drawer').innerHTML=`<div class="row"><h3>${isNew?'새 작업':esc(t.wbs)+' '+(t.summary?'요약 작업':t.milestone?'마일스톤':'작업')}</h3><span class="spacer"></span><button class="btn sm" id="tkClose">닫기</button></div>
+   ${t.summary?'<div class="muted" style="font-size:12.5px">하위 작업에서 기간·공수·진척을 자동 집계합니다.</div>':''}
+   ${!full&&!self?'<div class="muted" style="font-size:12.5px">읽기 전용입니다. 담당 엔지니어는 진척·실적을, PM은 전체를 고칠 수 있습니다.</div>':''}
+   ${self?'<div class="muted" style="font-size:12.5px">본인 작업입니다. 진척률·실적 공수·상태를 입력하세요.</div>':''}
+   <form class="pf" id="tkForm">
+    <div class="g3"><div><label for="tk_wbs">WBS</label><input id="tk_wbs" value="${esc(t.wbs)}" ${dis('wbs')} placeholder="자동"></div><div style="grid-column:span 2"><label for="tk_process">ASPICE 프로세스</label><select id="tk_process" ${dis('process')}>${D.processes.map(p=>`<option ${p===t.process?'selected':''}>${p}</option>`).join('')}</select></div></div>
+    <label for="tk_name">작업명</label><input id="tk_name" value="${esc(t.name)}" ${dis('name')} required>
+    <label for="tk_work_product">산출물 (PAM 4.0 Information Item)</label><input id="tk_work_product" value="${esc(t.work_product)}" ${dis('work_product')} placeholder="예: 17-00 요구사항, 13-51 일관성 증거">
+    <div class="g2"><div><label for="tk_owner">담당</label><input id="tk_owner" list="tkOwners" value="${esc(t.owner)}" ${dis('owner')}><datalist id="tkOwners">${owners.map(o=>`<option value="${esc(o)}">`).join('')}</datalist></div>
+      <div><label for="tk_stage">ALM 단계 연동</label><select id="tk_stage" ${dis('stage')}><option value="">없음</option>${stages.map(s=>`<option value="${s.id}" ${s.id===t.stage?'selected':''}>${s.aspice} ${esc(s.name)}</option>`).join('')}</select></div></div>
+    ${t.alm?`<div class="fields">ALM ${esc(t.stage)}: 아이템 ${t.alm.total}건 중 승인 ${t.alm.approved}건 (${t.alm.pct}%) ${dis('progress')?'':`<button type="button" class="btn sm" id="tkAlm">승인률을 진척으로</button>`}</div>`:''}
+    <label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="tk_milestone" style="width:auto" ${t.milestone?'checked':''} ${dis('milestone')}> 마일스톤 (기간·공수 없음)</label>
+    <div class="g2"><div><label for="tk_start">계획 시작</label><input type="date" id="tk_start" value="${esc(t.start)}" ${dis('start')}></div><div><label for="tk_finish">계획 종료</label><input type="date" id="tk_finish" value="${esc(t.finish)}" ${dis('finish')}></div></div>
+    <div class="g3"><div><label for="tk_effort_plan">계획 공수 (MD)</label><input type="number" step="0.5" min="0" id="tk_effort_plan" value="${t.effort_plan}" ${dis('effort_plan')}></div><div><label for="tk_effort_actual">실적 공수 (MD)</label><input type="number" step="0.5" min="0" id="tk_effort_actual" value="${t.effort_actual}" ${dis('effort_actual')}></div><div><label for="tk_progress">진척률 (%)</label><input type="number" min="0" max="100" step="5" id="tk_progress" value="${Math.round(t.progress)}" ${dis('progress')}></div></div>
+    <div class="g3"><div><label for="tk_status">상태</label><select id="tk_status" ${dis('status')}>${Object.entries(STATUS_K).map(([k,v])=>`<option value="${k}" ${k===t.status?'selected':''}>${v}</option>`).join('')}</select></div><div><label for="tk_actual_start">실적 시작</label><input type="date" id="tk_actual_start" value="${esc(t.actual_start)}" ${dis('actual_start')}></div><div><label for="tk_actual_finish">실적 종료</label><input type="date" id="tk_actual_finish" value="${esc(t.actual_finish)}" ${dis('actual_finish')}></div></div>
+    <label for="tk_deps">선행 작업 (WBS, 쉼표 구분 · 종료→시작)</label><input id="tk_deps" value="${esc(t.deps.map(d=>byId[d]?.wbs||d).join(', '))}" ${dis('deps')} placeholder="예: 2.2, 4.1">
+    <label for="tk_note">비고</label><textarea id="tk_note" ${dis('note')}>${esc(t.note)}</textarea>
+    ${t.base_finish?`<div class="fields">기준선: ${t.base_start} ~ ${t.base_finish} · ${t.base_effort??'—'} MD${t.slip_days?` · 종료 ${t.slip_days>0?'+':''}${t.slip_days}일`:''}</div>`:''}
+    <div class="row" style="margin-top:14px">${full&&!isNew?'<button type="button" class="btn" id="tkDel">삭제</button>':''}<span class="spacer"></span>${full||self?`<button class="btn primary" type="submit">${isNew?'추가':'저장'}</button>`:''}</div>
+   </form>${isNew?'':'<div class="sec"><b>변경 이력</b><div id="tkHist" class="muted" style="font-size:12.5px">…</div></div>'}`;
+  $('#drawer').classList.add('open');
+  $('#tkClose').onclick=()=>{$('#drawer').classList.remove('open');PL.sel=null;document.querySelectorAll('.gr.sel').forEach(r=>r.classList.remove('sel'));};
+  $('#tkAlm')&&($('#tkAlm').onclick=()=>{$('#tk_progress').value=t.alm.pct;});
+  $('#tkDel')&&($('#tkDel').onclick=async()=>{const v=await formDlg({title:`${t.wbs} ${t.name} 삭제`,desc:'작업을 지우고 다른 작업의 선행 관계에서도 뺍니다. 변경 이력에는 남습니다.',ok:'삭제',fields:[]});
+    if(v){try{await api('/api/plan/task/delete',{id:t.id});$('#drawer').classList.remove('open');toast('삭제했습니다');viewPlan();}catch(e){toast(e.message);}}});
+  $('#tkForm').onsubmit=async ev=>{ev.preventDefault();
+    const keys=['wbs','name','process','work_product','owner','stage','start','finish','effort_plan','effort_actual','progress','status','actual_start','actual_finish','deps','note','milestone'];
+    const body=isNew?{}:{id:t.id};
+    for(const k of keys){ const el=$('#tk_'+k); if(!el||el.disabled) continue; let v=el.type==='checkbox'?el.checked:el.value;
+      if(['effort_plan','effort_actual','progress'].includes(k)) v=Number(v||0);
+      if(k==='deps') v=v.split(',').map(x=>x.trim()).filter(Boolean);
+      const old=k==='deps'?t.deps.map(d=>byId[d]?.wbs||d):t[k];
+      if(isNew||JSON.stringify(v)!==JSON.stringify(k==='progress'?Math.round(old):old)) body[k]=v; }
+    if(!isNew&&Object.keys(body).length===1){toast('바뀐 내용이 없습니다');return;}
+    try{const r=await api('/api/plan/task',body);toast(isNew?`${r.wbs} 추가`:`${r.wbs} 저장`);PL.sel=r.id;await viewPlan();openTask(PL.data.tasks.find(x=>x.id===r.id));}catch(e){toast(e.message);}};
+  if(!isNew) try{ const h=(await api('/api/plan/history?task='+encodeURIComponent(t.id))).history;
+    const F={start:'시작',finish:'종료',effort_plan:'계획 공수',effort_actual:'실적 공수',progress:'진척',status:'상태',owner:'담당',name:'작업명',deps:'선행',wbs:'WBS',note:'비고',process:'프로세스',work_product:'산출물',stage:'ALM 단계',milestone:'마일스톤',actual_start:'실적 시작',actual_finish:'실적 종료'};
+    $('#tkHist').innerHTML=h.map(x=>`<div class="hist"><span>${fmtT(x.at)} · ${esc(x.by)} · ${x.change==='created'?'추가':x.change==='modified'?'변경':esc(x.change)}</span>${x.change==='modified'?`<div>${Object.entries(x.fields).map(([k,v])=>`${F[k]||k}: <del>${esc(fmtV(v[0]))}</del> → <ins>${esc(fmtV(v[1]))}</ins>`).join('<br>')}</div>`:''}</div>`).join('')||'없음';
+  }catch(e){}
+}
+
+boot();
 </script>
 </body>
 </html>

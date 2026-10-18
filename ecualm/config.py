@@ -200,6 +200,8 @@ DEFAULT_CONFIG: dict = {
     "match_threshold": 0.62,
     # Optional AI refinement. provider: "none" | "anthropic" | "openai_compatible" (on-prem LLM)
     "llm": {"provider": "none", "model": "claude-sonnet-5-5", "base_url": "", "api_key_env": "ANTHROPIC_API_KEY"},
+    # Login for the web UI. Turn off only for a single-user PC: "auth": {"enabled": false}
+    "auth": {"enabled": True, "session_hours": 12, "idle_minutes": 120},
 }
 
 

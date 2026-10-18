@@ -1,6 +1,7 @@
 """Local web UI server (stdlib only). Run: ecualm serve --port 8765"""
 from __future__ import annotations
 
+import http.cookies
 import json
 import mimetypes
 import sys
@@ -11,7 +12,8 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, ops
+from . import arch, assistant, ops, schedule
+from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
 from .db import Repo
@@ -23,11 +25,85 @@ WEB = Path(__file__).parent / "web"
 LOCK = threading.Lock()
 
 
+# Minimum role per POST path (anything not listed needs "engineer"). /api/plan/* checks rights per task.
+POST_ROLE = {"/api/chat": "viewer", "/api/auth/logout": "viewer", "/api/auth/password": "viewer",
+             "/api/plan/task": "viewer", "/api/plan/task/delete": "viewer", "/api/plan/baseline": "viewer",
+             "/api/plan/template": "viewer", "/api/plan/meta": "manager", "/api/baseline": "manager",
+             "/api/ai/settings": "admin", "/api/users": "admin", "/api/users/update": "admin", "/api/users/reset": "admin",
+             "/api/users/token": "admin"}
+PUBLIC_POST = {"/api/auth/login", "/api/auth/setup"}
+
+
+def _pub(u: dict | None) -> dict | None:
+    if not u:
+        return None
+    return {"username": u["username"], "name": u.get("name") or u["username"], "role": u["role"],
+            "role_label": ROLE_LABEL.get(u["role"], u["role"]), "must_change": bool(u.get("must_change"))}
+
+
 def make_handler(root: Path):
     repo = Repo(root)
+    cfg0 = load_config(root)
+    auth = Auth(repo, cfg0)
+    schedule.init(repo)
+    auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
         server_version = "ecualm"
+
+        # ---------------- auth helpers ----------------
+        def _token(self) -> str:
+            c = http.cookies.SimpleCookie()
+            try:
+                c.load(self.headers.get("Cookie", ""))
+            except http.cookies.CookieError:
+                return ""
+            return c[COOKIE].value if COOKIE in c else ""
+
+        def _who(self) -> tuple[dict | None, str]:
+            """(user, how) — how is 'cookie', 'token' or 'open' (auth disabled)."""
+            if not auth_on:
+                name = self.headers.get("X-User", "web")
+                return {"username": name, "name": name, "role": "admin"}, "open"
+            a = self.headers.get("Authorization", "")
+            if a.lower().startswith("bearer "):
+                return auth.token_user(a[7:].strip()), "token"
+            return auth.session_user(self._token()), "cookie"
+
+        def _cookie(self, token: str, max_age: int) -> dict:
+            return {"Set-Cookie": f"{COOKIE}={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={max_age}"}
+
+        def _auth_post(self, path: str, b: dict, user):
+            addr = self.client_address[0]
+            if path == "/api/auth/login":
+                token, u = auth.login(b.get("username", ""), b.get("password", ""), addr)
+                return self._sent(200, {"user": _pub(u)}, headers=self._cookie(token, int(auth.session_hours * 3600)))
+            if path == "/api/auth/setup":
+                if auth.count():
+                    raise AuthError("이미 사용자가 있습니다. 관리자에게 계정을 요청하세요", 409)
+                if not is_loopback(addr):
+                    raise AuthError("첫 관리자 계정은 서버 PC(localhost)에서만 만들 수 있습니다", 403)
+                auth.create_user(b.get("username", ""), b.get("password", ""), b.get("name", ""), "admin")
+                token, u = auth.login(b.get("username", ""), b.get("password", ""), addr)
+                return self._sent(200, {"user": _pub(u)}, headers=self._cookie(token, int(auth.session_hours * 3600)))
+            if path == "/api/auth/logout":
+                auth.logout(self._token())
+                return self._sent(200, {"ok": True}, headers=self._cookie("", 0))
+            if path == "/api/auth/password":
+                auth.set_password(user["username"], b.get("new", ""), b.get("old", ""))
+                return self._sent(200, {"ok": True})
+            if path == "/api/users":
+                u = auth.create_user(b.get("username", ""), b.get("password", ""), b.get("name", ""), b.get("role", "engineer"),
+                                     must_change=bool(b.get("must_change", True)))
+                return self._sent(200, u)
+            if path == "/api/users/update":
+                return self._sent(200, auth.update_user(b["username"], b.get("name"), b.get("role"), b.get("disabled"), user["username"]))
+            if path == "/api/users/reset":
+                auth.set_password(b["username"], b.get("password", ""), must_change=True)
+                return self._sent(200, {"ok": True})
+            if path == "/api/users/token":
+                return self._sent(200, {"token": auth.create_token(b["username"], b.get("label", ""))})
+            return None
 
         def log_message(self, fmt, *args):
             pass
@@ -47,6 +123,10 @@ def make_handler(root: Path):
             self.end_headers()
             self.wfile.write(data)
 
+        def _sent(self, *a, **k) -> bool:
+            self._send(*a, **k)
+            return True
+
         def _json_body(self) -> dict:
             n = int(self.headers.get("Content-Length") or 0)
             return json.loads(self.rfile.read(n) or b"{}")
@@ -57,6 +137,31 @@ def make_handler(root: Path):
                 path = p.path
                 if path in ("/", "/index.html"):
                     return self._send(200, (WEB / "index.html").read_bytes(), "text/html; charset=utf-8")
+                user, _how = self._who()
+                if path == "/api/auth/state":
+                    return self._send(200, {"enabled": auth_on, "setup": auth_on and auth.count() == 0,
+                                            "can_setup": is_loopback(self.client_address[0]), "user": _pub(user),
+                                            "roles": [{"id": r, "label": ROLE_LABEL[r]} for r in ROLES]})
+                if not user:
+                    return self._send(401, {"error": "로그인이 필요합니다", "login": True})
+                if path == "/api/users":
+                    if rank(user["role"]) < rank("admin"):
+                        return self._send(403, {"error": "관리자 권한이 필요합니다"})
+                    return self._send(200, {"users": auth.users(), "log": auth.log(60)})
+                if path == "/api/plan":
+                    with LOCK:
+                        from .stages import stage_counts
+                        return self._send(200, schedule.computed(repo, self.cfg, stage_counts(repo, self.cfg)))
+                if path == "/api/plan/history":
+                    t = urllib.parse.parse_qs(p.query).get("task", [None])[0]
+                    return self._send(200, {"history": schedule.history(repo, t)})
+                if path == "/api/plan/xlsx":
+                    from .stages import stage_counts
+                    with LOCK, tempfile.TemporaryDirectory() as td:
+                        out = schedule.export_xlsx(repo, self.cfg, Path(td) / "plan.xlsx", stage_counts(repo, self.cfg))
+                        return self._send(200, out.read_bytes(),
+                                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                          {"Content-Disposition": "attachment; filename=project_plan_MAN3.xlsx"})
                 if path.startswith("/assets/"):
                     f = (repo.assets / Path(path[8:]).name)
                     if f.exists():
@@ -64,7 +169,9 @@ def make_handler(root: Path):
                     return self._send(404, {"error": "not found"})
                 if path == "/api/state":
                     with LOCK:
-                        return self._send(200, state_payload(repo, self.cfg))
+                        st = state_payload(repo, self.cfg)
+                    st["me"] = _pub(user); st["auth"] = auth_on
+                    return self._send(200, st)
                 if path.startswith("/api/item/"):
                     iid = urllib.parse.unquote(path[len("/api/item/"):])
                     it = repo.get(iid)
@@ -115,7 +222,35 @@ def make_handler(root: Path):
             try:
                 path = urllib.parse.urlparse(self.path).path
                 cfg = self.cfg
-                user = self.headers.get("X-User", "web")
+                who, how = (None, "") if path in PUBLIC_POST else self._who()
+                if path not in PUBLIC_POST:
+                    if not who:
+                        return self._send(401, {"error": "로그인이 필요합니다", "login": True})
+                    if how == "cookie" and self.headers.get("X-ECUALM") != "1":
+                        return self._send(403, {"error": "잘못된 요청 출처"})
+                    need = POST_ROLE.get(path, "engineer")
+                    if rank(who["role"]) < rank(need):
+                        return self._send(403, {"error": f"권한이 없습니다 ({ROLE_LABEL[need]} 이상 필요)"})
+                    if who.get("must_change") and path not in ("/api/auth/password", "/api/auth/logout"):
+                        return self._send(403, {"error": "임시 비밀번호입니다. 먼저 비밀번호를 바꾸세요", "must_change": True})
+                user = who["username"] if who else ""
+                if path.startswith("/api/auth/") or path.startswith("/api/users"):
+                    r = self._auth_post(path, self._json_body(), who)
+                    return r if r is not None else self._send(404, {"error": "not found"})
+                if path.startswith("/api/plan/"):
+                    b = self._json_body()
+                    with LOCK:
+                        if path == "/api/plan/task":
+                            return self._send(200, schedule.save_task(repo, b, who))
+                        if path == "/api/plan/task/delete":
+                            return self._send(200, schedule.delete_task(repo, b["id"], who))
+                        if path == "/api/plan/baseline":
+                            return self._send(200, schedule.set_baseline(repo, b.get("name", ""), b.get("note", ""), who))
+                        if path == "/api/plan/template":
+                            return self._send(200, schedule.template(repo, b.get("start", ""), who, bool(b.get("replace"))))
+                        if path == "/api/plan/meta":
+                            return self._send(200, schedule.set_meta(repo, b, user))
+                    return self._send(404, {"error": "not found"})
                 if path == "/api/chat":     # read-only and possibly slow (LLM): do not hold the write lock
                     b = self._json_body()
                     return self._send(200, assistant.chat(repo, cfg, b.get("messages", []), b.get("context") or {}))
@@ -170,7 +305,7 @@ def make_handler(root: Path):
                         return self._send(200, arch.create_interface(repo, cfg, b["canvas"], b["from"], b["to"], b.get("name", ""),
                                                                      b.get("signal_class", "digital"), b.get("signals"), user=user))
                     if path == "/api/results":
-                        return self._send(200, arch.ingest_results(repo, cfg, b, user=user if user != "web" else "ci"))
+                        return self._send(200, arch.ingest_results(repo, cfg, b, user=user or "ci"))
                     if path == "/api/arch/import":
                         return self._send(200, arch.import_arch(repo, cfg, b, user=user))
                     if path == "/api/sample/hw":
@@ -178,6 +313,10 @@ def make_handler(root: Path):
                     if path == "/api/baseline":
                         return self._send(200, repo.create_baseline(b["name"], b.get("note", "")))
                 return self._send(404, {"error": "not found"})
+            except AuthError as e:
+                return self._send(e.code, {"error": str(e)})
+            except PermissionError as e:
+                return self._send(403, {"error": str(e)})
             except (KeyError, ValueError, json.JSONDecodeError) as e:
                 return self._send(400, {"error": str(e)})
             except Exception as e:
@@ -223,6 +362,12 @@ def serve(root: Path, host: str = "127.0.0.1", port: int = 8765):
     except OSError as e:
         raise SystemExit(f"포트 {port} 를 열 수 없습니다 ({e}). 이미 ECU-ALM 서버가 떠 있으면 그 창을 닫거나 --port 로 다른 포트를 쓰세요.")
     print(f"ECU-ALM web UI: http://{host}:{port}  (Ctrl+C 로 종료)")
+    cfg = load_config(Path(root))
+    if cfg.get("auth", {}).get("enabled", True):
+        if not Auth(Repo(Path(root)), cfg).count():
+            print("  로그인: 아직 계정이 없습니다. 이 PC의 브라우저에서 열어 첫 관리자 계정을 만드세요 (또는 ecualm user add).")
+    else:
+        print("  로그인: 꺼짐 (alm.json auth.enabled=false)")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

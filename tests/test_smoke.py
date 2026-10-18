@@ -193,6 +193,76 @@ def test_assistant_local_and_llm(monkeypatch=None):
         assert r["mode"] == "local" and "AI 호출 실패" in r["reply"]
 
 
+def _http(port, path, body=None, opener=None, csrf=True):
+    import json, urllib.request, urllib.error
+    h = {"content-type": "application/json"}
+    if csrf:
+        h["X-ECUALM"] = "1"
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", None if body is None else json.dumps(body).encode(), h)
+    try:
+        r = opener.open(req)
+        return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read() or b"{}")
+
+
+def test_login_roles_and_plan():
+    import http.cookiejar, threading, urllib.request
+    from ecualm.server import _Server, make_handler
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        write_default_config(root)
+        srv = _Server(("127.0.0.1", 0), make_handler(root)); port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        mk = lambda: urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        adm, eng, anon = mk(), mk(), mk()
+        try:
+            assert _http(port, "/api/state", opener=anon)[0] == 401
+            assert _http(port, "/api/auth/state", opener=anon)[1]["setup"] is True
+            assert _http(port, "/api/auth/setup", {"username": "pm", "password": "Passw0rd!"}, adm)[0] == 200
+            assert _http(port, "/api/auth/setup", {"username": "x", "password": "Passw0rd!"}, anon)[0] == 409   # only once
+            assert _http(port, "/api/state", opener=adm)[1]["me"]["role"] == "admin"
+            assert _http(port, "/api/plan/template", {"start": "2026-11-02"}, adm, csrf=False)[0] == 403       # CSRF header required
+            assert _http(port, "/api/plan/template", {"start": "2026-11-02"}, adm)[1]["created"] > 30
+            plan = _http(port, "/api/plan", opener=adm)[1]
+            t = next(x for x in plan["tasks"] if x["wbs"] == "4.1")
+            assert not t["flags"], t["flags"]                       # template respects finish-to-start
+            assert plan["metrics"]["bac"] > 0 and plan["load"]
+            # engineer: temp password must be changed, then only own task progress/actuals
+            assert _http(port, "/api/users", {"username": "kim", "password": "Temp12345", "role": "engineer"}, adm)[0] == 200
+            assert _http(port, "/api/auth/login", {"username": "kim", "password": "nope"}, eng)[0] == 401
+            assert _http(port, "/api/auth/login", {"username": "kim", "password": "Temp12345"}, eng)[1]["user"]["must_change"]
+            assert _http(port, "/api/plan/task", {"id": t["id"], "progress": 10}, eng)[0] == 403
+            assert _http(port, "/api/auth/password", {"old": "Temp12345", "new": "Kim-12345"}, eng)[0] == 200
+            assert _http(port, "/api/plan/task", {"id": t["id"], "progress": 10}, eng)[0] == 403      # not the owner yet
+            assert _http(port, "/api/plan/task", {"id": t["id"], "owner": "kim"}, adm)[0] == 200
+            r = _http(port, "/api/plan/task", {"id": t["id"], "progress": 40, "effort_actual": 12}, eng)
+            assert r[0] == 200 and r[1]["status"] == "in_progress"
+            assert _http(port, "/api/plan/task", {"id": t["id"], "start": "2027-01-04"}, eng)[0] == 403   # dates are the PM's
+            assert _http(port, "/api/baseline", {"name": "b"}, eng)[0] == 403
+            # baseline then slip -> flags; cycle rejected
+            assert _http(port, "/api/plan/baseline", {"name": "BL1"}, adm)[0] == 200
+            nxt = next(x for x in plan["tasks"] if x["wbs"] == "4.2")
+            import datetime as _dt
+            later = (_dt.date.fromisoformat(t["finish"]) + _dt.timedelta(days=14)).isoformat()
+            _http(port, "/api/plan/task", {"id": t["id"], "finish": later}, adm)
+            t2 = next(x for x in _http(port, "/api/plan", opener=adm)[1]["tasks"] if x["id"] == t["id"])
+            assert "slip" in t2["flags"] and t2["slip_days"] == 14
+            assert "dep_conflict" in next(x for x in _http(port, "/api/plan", opener=adm)[1]["tasks"] if x["id"] == nxt["id"])["flags"]
+            assert _http(port, "/api/plan/task", {"id": t["id"], "deps": [nxt["id"]]}, adm)[0] == 400
+            x = adm.open(__import__("urllib.request").request.Request(f"http://127.0.0.1:{port}/api/plan/xlsx"))
+            assert x.status == 200 and x.read(2) == b"PK"
+            assert _http(port, "/api/auth/logout", {}, eng)[0] == 200 and _http(port, "/api/state", opener=eng)[0] == 401
+        finally:
+            srv.shutdown()
+        from ecualm import schedule
+        out = schedule.export_xlsx(Repo(root), load_config(root), root / "plan.xlsx")
+        from openpyxl import load_workbook
+        wb = load_workbook(out)
+        assert wb.sheetnames == ["일정·공수 계획", "공수 부하", "계획 변경 이력"]
+        assert wb["일정·공수 계획"]["A6"].value == "1"
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -200,4 +270,5 @@ if __name__ == "__main__":
     test_stage_flow()
     test_hwe_architecture_flow()
     test_config_merge_adds_new_stages()
+    test_login_roles_and_plan()
     print("OK")
