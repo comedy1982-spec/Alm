@@ -3,11 +3,11 @@
 * stage_doc()  builds the live document of a stage in PAM 4.0 structure (an SRS for SYS.2, an SWRS
                for SWE.1, ...) from the work items, grouped either by domain or by source section.
 * derive()     deploys items of one stage into draft items of the next stage, with trace links:
-               CRS → SYS.2 → SYS.3/HSI → SWE.1 → SWE.2 → SWE.3 and every spec stage → its test stage.
+               CRS → SYS.2 → SYS.3/HSI → SWE.1 → SWE.2 → SWE.3, the HW branch SYS.2 → HWE.1 → HWE.2
+               (and SYS.3 → HWE.2), and every spec stage → its test stage.
 Everything derived is rule-based and lands in 'draft' with a `derived_from` attribute, so a human
 reviews it before it counts. The optional AI step can refine the same items afterwards.
 """
-from __future__ import annotations
 from __future__ import annotations
 
 import re
@@ -18,6 +18,7 @@ from .db import Repo
 from .importer import REQ_TYPES, fingerprint
 from .ops import _fmt
 
+PART_RE = re.compile(r"\b([A-Z]{2,}[0-9]{3,}[A-Z0-9/-]*)\b")
 TRIGGER_RE = re.compile(r"^(?P<pre>.*?)(?P<trig>[^,，]*?(?:이면|되면|하면|시에|경우|때|동안|이후|후에|수신 시|요청 시|검출 시)\s*[,，]?\s*)(?P<rest>.+)$")
 STATE_RE = re.compile(r"(IG\s*ON|IG\s*OFF|NORMAL|INIT|SLEEP|FAIL-?SAFE|확장 세션|기본 세션|정상 상태|초기화)", re.I)
 
@@ -104,7 +105,8 @@ def stage_doc(repo: Repo, cfg: dict, sid: str, mode: str = "pam") -> dict:
         by_dom[i["domain"]].append(i)
     order = [d for d in cfg["domain_names"] if d in by_dom] + [d for d in by_dom if d not in cfg["domain_names"]]
     main_title = {"SYS1": "고객 요구사항", "SYS2": "시스템 요구사항", "SYS3": "시스템 요소 및 HW-SW 인터페이스",
-                  "SWE1": "소프트웨어 요구사항", "SWE2": "소프트웨어 아키텍처 요소", "SWE3": "소프트웨어 유닛 설계"}.get(sid, "테스트 케이스")
+                  "SWE1": "소프트웨어 요구사항", "SWE2": "소프트웨어 아키텍처 요소", "SWE3": "소프트웨어 유닛 설계",
+                  "HWE1": "하드웨어 요구사항", "HWE2": "하드웨어 블록 및 인터페이스"}.get(sid, "테스트 케이스")
     n = 4
     sub = []
     for k, d in enumerate(order, 1):
@@ -115,7 +117,7 @@ def stage_doc(repo: Repo, cfg: dict, sid: str, mode: str = "pam") -> dict:
         sub.append({"number": f"{n}.{k}", "title": cfg["domain_names"].get(d, d), "items": rows, "kind": "items"})
     sections.append({"number": str(n), "title": main_title, "kind": "group", "sub": sub})
 
-    if sid in ("SYS2", "SWE1", "SYS1", "HSI"):
+    if sid in ("SYS2", "SWE1", "SYS1", "HSI", "HWE1"):
         n += 1
         vc = [{"id": i["id"], "criteria": i["attrs"].get("verification_criteria") or "[검증 기준 작성 필요]",
                "method": i["attrs"].get("verification_method") or (i["attrs"].get("fields") or {}).get("검증방법") or "",
@@ -253,6 +255,44 @@ def derive(repo: Repo, cfg: dict, src_stage: str, dst_stage: str, ids: list[str]
                 if _signal_match(h, s["text"]) and not any(l["src"] == h["id"] and l["dst"] == s["id"] for l in repo.links(s["id"])):
                     repo.add_link(h["id"], "satisfies", s["id"], state="proposed", note="signal match"); linked.append((h["id"], s["id"]))
 
+        elif pair == ("SYS2", "HWE1"):
+            if not _hw_relevant(an, cfg, s, dom):
+                skipped.append(s["id"]); continue
+            if _has_target(repo, s["id"], "refines", {"HWE1"}, "down"):
+                skipped.append(s["id"]); continue
+            it = _new(repo, cfg, "HWE1", s["text"], dom, s,
+                      {"discipline": "HW", "asil": s["attrs"].get("asil") or (s["attrs"].get("fields") or {}).get("ASIL", ""),
+                       "verification_method": s["attrs"].get("verification_method", ""),
+                       "verification_criteria": s["attrs"].get("verification_criteria") or _verification_criteria(s["text"], dom)}, user=user)
+            repo.add_link(it["id"], "refines", s["id"]); created.append(it["id"]); linked.append((it["id"], s["id"]))
+            for h in repo.items(type_="HSI"):
+                if _signal_match(h, s["text"]):
+                    repo.add_link(it["id"], "uses", h["id"], state="proposed", note="signal match")
+
+        elif pair == ("SYS3", "HWE2"):
+            if s["type"] != "SYS3" or not _hw_block_name(s["title"]):
+                skipped.append(s["id"]); continue
+            el = element("HWE2", s["title"], dom, s, _block_attrs(s["title"]))
+            if not any(l["src"] == el["id"] and l["dst"] == s["id"] for l in repo.links(s["id"])):
+                repo.add_link(el["id"], "refines", s["id"]); linked.append((el["id"], s["id"]))
+
+        elif pair == ("HWE1", "HWE2"):
+            if _has_target(repo, s["id"], "satisfies", {"HWE2"}, "down"):
+                skipped.append(s["id"]); continue
+            names = [n for n in cfg["sys3_allocation"].get(dom, cfg["sys3_allocation"]["GEN"]) if _hw_block_name(n)]
+            for name in names:
+                el = element("HWE2", name, dom, s, _block_attrs(name))
+                repo.add_link(el["id"], "satisfies", s["id"]); linked.append((el["id"], s["id"]))
+                sys3 = next((i for i in repo.items(type_="SYS3") if i["title"] == name), None)
+                if sys3 and not any(l["dst"] == sys3["id"] and l["role"] == "refines" for l in repo.links(el["id"])):
+                    repo.add_link(el["id"], "refines", sys3["id"])
+            if s["attrs"].get("asil"):
+                for name in names:
+                    el = cache[name]
+                    if el["attrs"].get("asil", "QM") in ("", "QM"):
+                        el = repo.update(el["id"], {"attrs": {**el["attrs"], "asil": s["attrs"]["asil"]}}, bump_version=False)
+                        cache[name] = el
+
         elif pair == ("SWE1", "SWE2"):
             if _has_target(repo, s["id"], "allocates", {"SWE2"}, "down"):
                 skipped.append(s["id"]); continue
@@ -288,6 +328,26 @@ def derive(repo: Repo, cfg: dict, src_stage: str, dst_stage: str, ids: list[str]
     return {"from": src_stage, "to": dst_stage, "sources": len(srcs), "created": created, "links": len(linked), "skipped": skipped}
 
 
+def _hw_relevant(an: Analyzer, cfg: dict, s: dict, dom: str) -> bool:
+    if dom in ("MECH", "MFG") or re.match(r"^\s*(SW|S/W|소프트웨어|software)(?![A-Za-z0-9])", s["text"], re.I):
+        return False   # mechanical / production stay at SYS.2; a sentence whose subject is the SW goes to SWE.1
+    kw = any(k.lower() in s["text"].lower() for k in cfg.get("hwe1_keywords", []))
+    if dom in cfg.get("hwe1_domains", []):
+        lvl, conf = an.level(s["text"], s["section"])
+        return kw or not (lvl == "SWE1" and conf >= 0.6)
+    return kw
+
+
+def _hw_block_name(name: str) -> bool:
+    return not any(w in name for w in ("기구", "SW", "소프트웨어", "하우징"))
+
+
+def _block_attrs(name: str) -> dict:
+    m = PART_RE.search(name)
+    return {"block_kind": "HW block", "asil": "QM",
+            "hw": {"part_number": m.group(1) if m else "", "interfaces": "", "safety_mechanism": ""}}
+
+
 def _signal_match(hsi: dict, text: str) -> bool:
     f = hsi["attrs"].get("fields") or {}
     hay = " ".join(f.values()).upper()
@@ -300,7 +360,19 @@ def _test_cases(s: dict, dom: str, dst_stage: str) -> list[dict]:
     text = s["text"]
     qs = quantities(text)
     tool = {"SWE6": "CANoe/CAPL · 고장주입", "SYS5": "차량/벤치/환경 챔버", "SWE5": "SIL/TRACE32 · RTE 인터페이스",
-            "SYS4": "오실로스코프/HIL", "SWE4": "GoogleTest/VectorCAST"}[dst_stage]
+            "SYS4": "오실로스코프/HIL", "SWE4": "GoogleTest/VectorCAST",
+            "HWE3": "오실로스코프·파워서플라이·전자부하", "HWE4": "환경 챔버·EMC 챔버·HIL"}[dst_stage]
+    if dst_stage == "HWE3" and s["type"] == "HWE2":
+        out = [{"title": f"{s['id']} 설계 검증",
+                "text": f"[설계검증] {s['title']}: 전원·인터페이스의 전기적 특성(전압 레벨, 타이밍, 부하)을 측정하여 설계값 이내인지 확인한다.",
+                "attrs": {"kind": "design_verification", "tool": tool, "pre_condition": "벤치, 정격 전원 13.5V, 25°C",
+                          "expected": "측정값이 부품 데이터시트·설계값 이내", "pass_criteria": "모든 측정 항목 합격"}}]
+        if (s["attrs"].get("asil") or "QM") not in ("", "QM") or dom in ("SAFE", "PWR"):
+            out.append({"title": f"{s['id']} 고장 주입 (FTTI)",
+                        "text": f"[고장주입] {s['title']}: 단락·개방·과전류 조건을 인가하고 안전 메커니즘이 FTTI 이내에 안전 상태로 전환하는지 파형으로 확인한다.",
+                        "attrs": {"kind": "fault_injection", "tool": tool, "expected": "FTTI 이내 Safe State 진입",
+                                  "pass_criteria": "반응 시간 < FTTI, 파형 첨부"}})
+        return out
     out = [{"title": f"{s['id']} 정상 조건",
             "text": f"[정상] {text} — 규정 조건을 충족하는 입력을 인가하고 기대 출력이 발생하는지 확인한다.",
             "attrs": {"kind": "nominal", "tool": tool, "pre_condition": "IG ON, 정상 상태",
@@ -312,6 +384,8 @@ def _test_cases(s: dict, dom: str, dst_stage: str) -> list[dict]:
         groups.setdefault(q["raw"], []).append(q)
     for raw, grp in list(groups.items())[:2]:
         unit = grp[0]["unit"]
+        if raw.lower().endswith(unit.lower()):
+            unit = raw[len(raw) - len(unit):]      # keep the document's spelling (A, mV, µs ...)
         sc = scale.get(unit.lower(), 1)
         vals = sorted({q["value"] * sc for q in grp})
         step = 10 if vals[0] >= 100 else (0.1 if vals[0] < 10 else 1)
@@ -328,9 +402,12 @@ def _test_cases(s: dict, dom: str, dst_stage: str) -> list[dict]:
             crit = f"{fmt(pts[0])}{unit} / {fmt(pts[1])}{unit} 에서 판정 결과가 요구사항과 일치"
         out.append({"title": f"{s['id']} 경계값 {raw}", "text": text,
                     "attrs": {"kind": "boundary", "tool": tool, "boundary": [f"{fmt(p)}{unit}" for p in pts], "pass_criteria": crit}})
-    if dom in ("SAFE", "COM", "DIAG") and dst_stage in ("SWE6", "SYS5"):
+    if (dom in ("SAFE", "COM", "DIAG") and dst_stage in ("SWE6", "SYS5")) or \
+       (dst_stage in ("HWE3", "HWE4") and (dom in ("SAFE", "PWR") or (s["attrs"].get("asil") or "QM") not in ("", "QM"))):
+        hw = dst_stage in ("HWE3", "HWE4")
         out.append({"title": f"{s['id']} 고장 주입",
-                    "text": f"[고장주입] 관련 신호 단선/타임아웃/CRC 오류를 주입하고 Fail-safe 동작과 DTC 발생을 확인한다.",
+                    "text": ("[고장주입] 단락·개방·과전류·저전압 조건을 인가하고 하드웨어 안전 메커니즘의 반응 시간과 안전 상태를 파형으로 확인한다."
+                             if hw else "[고장주입] 관련 신호 단선/타임아웃/CRC 오류를 주입하고 Fail-safe 동작과 DTC 발생을 확인한다."),
                     "attrs": {"kind": "fault_injection", "tool": tool, "expected": "Fail-safe 진입 + DTC 저장",
                               "pass_criteria": "규정 시간 내 안전 상태 진입"}})
     return out

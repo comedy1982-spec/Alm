@@ -10,7 +10,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import ops
+from . import arch, ops
 from .audit import run_audit, suggest_links
 from .config import load_config
 from .db import Repo
@@ -84,6 +84,16 @@ def make_handler(root: Path):
                         return self._send(200, out.read_bytes(),
                                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                           {"Content-Disposition": f"attachment; filename={sid}_PAM40.docx"})
+                if path.startswith("/api/artifact/"):
+                    iid = urllib.parse.unquote(path[len("/api/artifact/"):])
+                    with LOCK:
+                        return self._send(200, arch.artifact_json(repo, self.cfg, iid))
+                if path.startswith("/api/arch/"):
+                    sid = path[len("/api/arch/"):]
+                    with LOCK:
+                        data = json.dumps(arch.export_arch(repo, self.cfg, sid), ensure_ascii=False, indent=2).encode()
+                    return self._send(200, data, "application/json; charset=utf-8",
+                                      {"Content-Disposition": f"attachment; filename={sid}_architecture.json"})
                 if path == "/api/audit":
                     with LOCK:
                         return self._send(200, run_audit(repo, self.cfg))
@@ -143,10 +153,24 @@ def make_handler(root: Path):
                                                              float(b.get("min", 0.2)), int(b.get("top", 2))))
                     if path == "/api/derive":
                         return self._send(200, derive(repo, cfg, b["from"], b["to"], b.get("ids"), user))
+                    if path == "/api/layout":
+                        return self._send(200, {"moved": arch.set_layout(repo, b["positions"])})
+                    if path == "/api/block":
+                        return self._send(200, arch.create_block(repo, cfg, b["canvas"], b["title"], b.get("text", ""),
+                                                                 b.get("domain", "GEN"), b.get("x", 40), b.get("y", 40), user=user))
+                    if path == "/api/interface":
+                        return self._send(200, arch.create_interface(repo, cfg, b["canvas"], b["from"], b["to"], b.get("name", ""),
+                                                                     b.get("signal_class", "digital"), b.get("signals"), user=user))
+                    if path == "/api/results":
+                        return self._send(200, arch.ingest_results(repo, cfg, b, user=user if user != "web" else "ci"))
+                    if path == "/api/arch/import":
+                        return self._send(200, arch.import_arch(repo, cfg, b, user=user))
+                    if path == "/api/sample/hw":
+                        return self._send(200, arch.load_sample(repo, cfg, user=user))
                     if path == "/api/baseline":
                         return self._send(200, repo.create_baseline(b["name"], b.get("note", "")))
                 return self._send(404, {"error": "not found"})
-            except (KeyError, ValueError) as e:
+            except (KeyError, ValueError, json.JSONDecodeError) as e:
                 return self._send(400, {"error": str(e)})
             except Exception as e:
                 traceback.print_exc()

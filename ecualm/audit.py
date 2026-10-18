@@ -104,7 +104,7 @@ def run_audit(repo: Repo, cfg: dict) -> dict:
     seen = defaultdict(list)
     nids = defaultdict(list)
     for i in active.values():
-        if i["type"] in ("CRS", "SYS2", "SWE1", "HSI"):
+        if i["type"] in ("CRS", "SYS2", "SWE1", "HSI", "HWE1"):
             seen[(i["type"], i["fingerprint"])].append(i["id"])
             if i["attrs"].get("native_id"):
                 nids[(i["type"], i["doc"], i["attrs"]["native_id"])].append(i["id"])
@@ -119,6 +119,22 @@ def run_audit(repo: Repo, cfg: dict) -> dict:
     for i in active.values():
         for f in i["lint"]:
             add(f["sev"], "lint:" + f["rule"], i["id"], f["msg"])
+
+    # verification results attached by CI / HIL (arch.ingest_results)
+    for i in active.values():
+        res = i["attrs"].get("result")
+        if not i["type"].endswith("_TC") or not res:
+            continue
+        if res.get("status") == "FAIL":
+            add("error", "test_fail", i["id"], f"시험 FAIL (run {res.get('run_id') or '-'})" + (f": {res['note']}" if res.get("note") else ""),
+                [l["dst"] for l in up[i["id"]] if l["role"] == "verifies"])
+        elif res.get("status") == "BLOCKED":
+            add("warn", "test_blocked", i["id"], f"시험 수행 불가(BLOCKED) (run {res.get('run_id') or '-'})")
+        for dst, ver in (res.get("verified_versions") or {}).items():
+            d = active.get(dst)
+            if d and ver is not None and d["version"] > ver:
+                add("warn", "result_stale", i["id"],
+                    f"{dst} 가 시험 후 변경됨 (v{ver} → v{d['version']}) → 재시험 필요", [dst])
 
     status_count = defaultdict(lambda: defaultdict(int))
     for i in active.values():

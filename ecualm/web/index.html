@@ -11,18 +11,21 @@
   --bg:#F4F6F9; --panel:#FFFFFF; --ink:#16202C; --muted:#5A6878; --line:#DCE2EA; --soft:#EEF1F5; --soft2:#F8FAFC;
   --accent:#1F5FBF; --accent-soft:#E8EFFA; --ok:#1E7A3A; --ok-soft:#E3F4E7; --warn:#8A5A00; --warn-soft:#FFF3DC; --err:#B3261E; --err-soft:#FDF3F2;
   --spec:#3442A0; --verify:#1E7A50;
-  --crs:#6B4BB5; --sys2:#0F6E7C; --swe1:#1F5FBF; --hsi:#8A5A00; --tc:#1E7A50; --arch:#7B3F9E;
+  --crs:#6B4BB5; --sys2:#0F6E7C; --swe1:#1F5FBF; --hsi:#8A5A00; --tc:#1E7A50; --arch:#7B3F9E; --hwe:#A8501E;
+  --cvbg:#FBFCFD; --cvdot:#D5DCE5;
+  --sc-can:#2a78d6; --sc-pwm:#eb6834; --sc-analog:#1baf7a; --sc-power:#eda100; --sc-digital:#e87ba4; --sc-mech:#008300; --sc-spi:#6250d6;
+  --w1:#2a78d6; --w2:#eb6834; --w3:#1baf7a;
   --mono:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
   --sans:'IBM Plex Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0F141A; --panel:#171E27; --ink:#E4E9F0; --muted:#97A3B3; --line:#2A3440; --soft:#212A35; --soft2:#1C242E;
   --accent:#6EA4F5; --accent-soft:#1F2D44; --ok:#5CC27A; --ok-soft:#183223; --warn:#E0A54A; --warn-soft:#3A2E17; --err:#F07A72; --err-soft:#3A1F1D;
-  --spec:#8E9AF0; --verify:#5CC27A; --crs:#A98BE8; --sys2:#5BB3CF; --swe1:#6EA4F5; --hsi:#D6A649; --tc:#62C28C; --arch:#C18EE0; color-scheme:dark }}
+  --spec:#8E9AF0; --verify:#5CC27A; --crs:#A98BE8; --sys2:#5BB3CF; --swe1:#6EA4F5; --hsi:#D6A649; --tc:#62C28C; --arch:#C18EE0; --hwe:#E8935E; --cvbg:#131920; --cvdot:#2A3440; --sc-can:#3987e5; --sc-pwm:#d95926; --sc-analog:#199e70; --sc-power:#c98500; --sc-digital:#d55181; --sc-mech:#008300; --sc-spi:#9085e9; --w1:#3987e5; --w2:#d95926; --w3:#199e70; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0F141A; --panel:#171E27; --ink:#E4E9F0; --muted:#97A3B3; --line:#2A3440; --soft:#212A35; --soft2:#1C242E;
   --accent:#6EA4F5; --accent-soft:#1F2D44; --ok:#5CC27A; --ok-soft:#183223; --warn:#E0A54A; --warn-soft:#3A2E17; --err:#F07A72; --err-soft:#3A1F1D;
-  --spec:#8E9AF0; --verify:#5CC27A; --crs:#A98BE8; --sys2:#5BB3CF; --swe1:#6EA4F5; --hsi:#D6A649; --tc:#62C28C; --arch:#C18EE0; color-scheme:dark }
+  --spec:#8E9AF0; --verify:#5CC27A; --crs:#A98BE8; --sys2:#5BB3CF; --swe1:#6EA4F5; --hsi:#D6A649; --tc:#62C28C; --arch:#C18EE0; --hwe:#E8935E; --cvbg:#131920; --cvdot:#2A3440; --sc-can:#3987e5; --sc-pwm:#d95926; --sc-analog:#199e70; --sc-power:#c98500; --sc-digital:#d55181; --sc-mech:#008300; --sc-spi:#9085e9; --w1:#3987e5; --w2:#d95926; --w3:#199e70; color-scheme:dark }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans)}
 button,select,input,textarea{font:inherit;color:inherit}
@@ -188,6 +191,56 @@ dialog input,dialog select{width:100%;border:1px solid var(--line);background:va
 .dc .top button{margin-left:auto}
 .wbbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .wbhint{font-size:12.5px;color:var(--muted)}
+/* architecture canvas (HWE.2 / SYS.3 / SWE.2): blocks and interface lines are work items */
+.cvtool{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.legend{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.cvgrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:12px;align-items:start}
+.cv{position:relative;overflow:auto;border:1px solid var(--line);border-radius:10px;height:min(660px,calc(100vh - 250px));min-height:380px;background:var(--cvbg) radial-gradient(var(--cvdot) 1px,transparent 1px) 0 0/20px 20px}
+.cvst{position:relative;min-width:100%;min-height:100%}
+.cvst>svg{position:absolute;left:0;top:0;overflow:visible}
+.node{position:absolute;width:220px;background:var(--panel);border:1.5px solid var(--line);border-left:4px solid var(--c);border-radius:9px;padding:8px 12px 8px 10px;font-size:12px;cursor:grab;user-select:none;touch-action:none;box-shadow:0 1px 2px rgba(10,20,30,.06)}
+.node:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.node.drag{cursor:grabbing;box-shadow:0 6px 18px rgba(10,20,30,.18)}
+.node.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.node.peer{border-color:var(--accent)}
+.node.dim{opacity:.42}
+.node .nt{font-weight:600;font-size:13px;line-height:1.3;margin:3px 0 2px}
+.node .np{font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .nb{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.node .port{position:absolute;right:-9px;top:50%;width:16px;height:16px;margin-top:-8px;border-radius:50%;background:var(--panel);border:2px solid var(--accent);cursor:crosshair;padding:0}
+.node .port:hover,.node .port:focus-visible{background:var(--accent)}
+.edge{fill:none;stroke-width:2;stroke-linecap:round}
+.edge.mech{stroke-width:3.5}
+.edge.sel{stroke-width:3.5}.edge.mech.sel{stroke-width:5}
+.edge.flow{stroke-dasharray:8 5;animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-26}}
+@media (prefers-reduced-motion: reduce){.edge.flow{animation:none}}
+.ehit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer;pointer-events:stroke}
+.elab rect{fill:var(--panel);stroke:var(--line)}.elab text{font:11px var(--sans);fill:var(--ink)}
+.elab.sel rect{stroke:var(--accent)}
+.res{font-family:var(--mono);font-size:10.5px;padding:0 6px;border-radius:8px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.res.PASS{color:var(--ok);border-color:var(--ok)}.res.FAIL{background:var(--err);border-color:var(--err);color:#fff;font-weight:700}.res.BLOCKED{color:var(--warn);border-color:var(--warn)}
+.insp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-height:min(660px,calc(100vh - 250px));overflow:auto;font-size:12.5px}
+.insp h3{margin:2px 0;font-size:15px}
+.insp .grp{margin-top:12px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--soft2)}
+.insp .grp>b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.insp .tr{display:flex;gap:6px;align-items:baseline;padding:3px 0;border-top:1px dashed var(--line)}
+.insp .tr:first-of-type{border-top:0}
+.insp .tr .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.insp .tr[data-wave],.insp .tr[data-sel]{cursor:pointer}.insp .tr[data-wave]:hover .t,.insp .tr[data-sel]:hover .t{color:var(--accent)}
+.insp input,.insp select{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:4px 6px;height:30px;font-size:12.5px}
+.insp label{display:block;font-size:11px;color:var(--muted);margin:6px 0 2px}
+/* waveform viewer */
+.wave{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px}
+.wave .wh{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-bottom:6px}
+.wave svg text{font:11px var(--mono);fill:var(--muted)}
+.wave svg text.ink{fill:var(--ink)}
+.wave .tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:11.5px/1.5 var(--mono);box-shadow:0 4px 14px rgba(10,20,30,.14);display:none;z-index:2;white-space:nowrap}
+.wave .lg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px}
+.wave .lg i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:5px}
+.wave details{margin-top:8px;font-size:12px}.wave details table{font-family:var(--mono)}
+@media (max-width: 1000px){ .cvgrid{grid-template-columns:1fr} .insp{max-height:none} }
 body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,body.win #btnHist{display:none}
 @media (max-width: 760px){ main{grid-template-columns:1fr} aside.left{display:none} .content{padding:14px 16px 60px} .hrow{gap:8px} .brand small{display:none} #btnXlsx{display:none} .strip .st{min-width:88px}}
 </style>
@@ -250,12 +303,32 @@ body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,
   <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="dvClose">닫기</button><button class="btn primary" id="dvGo">전개 실행</button></div>
 </dialog>
 
+<dialog id="dlgIf">
+  <h3 style="margin:0 0 4px">인터페이스 만들기</h3>
+  <div class="muted" style="font-size:12.5px" id="ifDesc"></div>
+  <label for="ifName">이름</label><input id="ifName" placeholder="예: PWM x6 + SPI">
+  <label for="ifClass">신호 분류</label><select id="ifClass"></select>
+  <label for="ifSig">신호 (쉼표로 구분)</label><input id="ifSig" placeholder="예: GTM_TOM0_CH0..5, QSPI0">
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="ifClose">닫기</button><button class="btn primary" id="ifGo">만들기</button></div>
+</dialog>
+<dialog id="dlgBlk">
+  <h3 style="margin:0 0 4px" id="blkTitle">블록 추가</h3>
+  <label for="blkName">블록 이름</label><input id="blkName" placeholder="예: 게이트 드라이버 IC">
+  <label for="blkText">설명</label><input id="blkText" placeholder="역할 한 줄">
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="blkClose">닫기</button><button class="btn primary" id="blkGo">추가</button></div>
+</dialog>
+<dialog id="dlgJson">
+  <div class="row"><h3 style="margin:0" id="jsonTitle">추적 JSON</h3><span class="spacer"></span><button class="btn sm" id="jsonCopy">복사</button><button class="btn sm" id="jsonClose">닫기</button></div>
+  <div class="muted" style="font-size:12.5px;margin:4px 0 8px">아이템 하나의 상위 요구사항 · SW 할당 · 검증 결과 · 인터페이스를 한 번에 담은 JSON 입니다. <span class="mono">ecualm artifact &lt;ID&gt;</span> 로도 얻을 수 있습니다.</div>
+  <pre class="code" id="jsonBody" style="max-height:60vh"></pre>
+</dialog>
+
 <script>
 const STATIC = window.__STATIC__ || null;
 let S=null, view={kind:'home'}, selected=null, stageTab='doc', docMode='pam', tracePair=null;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const TYPE_COLOR={CRS:'--crs',SYS2:'--sys2',SWE1:'--swe1',HSI:'--hsi',SYS3:'--arch',SWE2:'--arch',SWE3:'--arch'};
+const TYPE_COLOR={CRS:'--crs',SYS2:'--sys2',SWE1:'--swe1',HSI:'--hsi',SYS3:'--arch',SWE2:'--arch',SWE3:'--arch',HWE1:'--hwe',HWE2:'--hwe',IF:'--hsi'};
 const tcolor=t=>`var(${TYPE_COLOR[t]||(String(t).endsWith('_TC')?'--tc':'--accent')})`;
 const REQ=t=>!['HDG','INFO','TBL','FIG'].includes(t);
 const RULES={'SYS1>SYS2':'CRS 문장마다 SYS.2 초안을 만들고 derives 링크를 겁니다. HW/SW 분야(Discipline)와 검증 기준 초안이 붙습니다.',
@@ -266,7 +339,12 @@ const RULES={'SYS1>SYS2':'CRS 문장마다 SYS.2 초안을 만들고 derives 링
  'SWE1>SWE2':'도메인별 AUTOSAR 컴포넌트(SWC/CDD/BSW)에 1:N 할당하고 allocates 링크를 겁니다.',
  'SWE1>SWE6':'SWE.1마다 정상 1 + 경계값/고장주입 TC를 만들고 verifies 링크를 겁니다 (PAM 4.0: SWE.6이 SWE.1을 100% 검증).',
  'SWE2>SWE3':'컴포넌트마다 Init / MainFunction 유닛 설계 스텁(C 시그니처)을 만듭니다.','SWE2>SWE5':'컴포넌트 인터페이스·시퀀스 통합 TC를 만듭니다 (SWE.5는 SWE.2만 검증).',
- 'SWE3>SWE4':'유닛마다 단위 테스트 TC를 만듭니다.'};
+ 'SWE3>SWE4':'유닛마다 단위 테스트 TC를 만듭니다.',
+ 'SYS2>HWE1':'HW가 관여하는 SYS.2(전원·안전·환경·전류/회로 언급)를 HWE.1 HW 요구사항으로 구체화하고 refines 링크를 겁니다. 주어가 SW인 문장, 기구·제조 항목은 건너뜁니다.',
+ 'SYS3>HWE2':'HW 시스템 요소(MCU, 게이트 드라이버, PMIC…)마다 HWE.2 블록을 만들고 refines 링크를 겁니다. 블록은 “블록도” 탭에서 배치·연결합니다.',
+ 'HWE1>HWE2':'HW 요구사항을 도메인별 할당표에 따라 HW 블록에 satisfies 로 할당합니다. 없는 블록은 만들고, 같은 이름의 SYS.3 요소에도 연결합니다.',
+ 'HWE2>HWE3':'블록마다 설계 검증 TC를 만들고, ASIL 블록이나 안전·전원 블록에는 FTTI 고장 주입 TC를 추가합니다.',
+ 'HWE1>HWE4':'HW 요구사항마다 정상 + 경계값 TC(+ 고장 주입)를 만들어 적격성 시험(HWE.4)으로 검증합니다.'};
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),3000);}
 async function api(path, body){
@@ -294,14 +372,15 @@ function renderStrip(){
     return `<button class="st ${s.side} ${on?'on':''}" data-sid="${s.id}"><span class="a">${s.aspice}</span><span class="n">${esc(s.name)}</span><span class="c"><b>${c.total}</b>${c.status.approved?`<span>승인 ${c.status.approved}</span>`:''}${c.lint?`<span style="color:var(--warn)">⚠${c.lint}</span>`:''}</span>${c.suspect?`<span class="sus">SUS ${c.suspect}</span>`:''}</button>`;};
   $('#strip').innerHTML=`<button class="st home ${view.kind==='home'?'on':''}" data-home><span class="n">V-모델</span></button>${spec.map(box).join('')}<span class="gap">⇄</span>${ver.map(box).join('').replace(/class="st verify /g,'class="st verify ')}`;
   const last=$('#strip').querySelectorAll('.st'); if(last.length) last[last.length-1].classList.add('last');
-  $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{view={kind:'stage',sid:b.dataset.sid};stageTab='doc';render();});
+  $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>goStage(b.dataset.sid));
   $('#strip').querySelector('[data-home]').onclick=()=>{view={kind:'home'};render();};
   $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':'';
 }
+function goStage(sid){view={kind:'stage',sid};stageTab=S.stageById[sid]?.canvas&&sid==='HWE2'?'canvas':'doc';render();}
 function render(){
   renderStrip();
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
-  $('#content').style.maxWidth=view.kind==='wb'?'none':'';
+  $('#content').style.maxWidth=(view.kind==='wb'||(view.kind==='stage'&&stageTab==='canvas'))?'none':'';
   ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench})[view.kind]();
   if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';}
 }
@@ -350,11 +429,15 @@ function viewHome(){
     return `<div class="vrow"><div style="width:${indent}px;flex:none"></div>${vb(S.stageById[l],role)}<div class="vline"><i class="${c.covered?'':'miss'}"></i><span class="${miss?'miss':''}">${c.covered} / ${c.total}</span><i class="${miss?'miss':''}"></i></div>${vb(S.stageById[r])}<div style="width:${indent}px;flex:none"></div></div>`;};
   const total=S.items.filter(i=>REQ(i.type)&&i.status!=='deleted').length, appr=S.items.filter(i=>REQ(i.type)&&i.status==='approved').length, sus=S.links.filter(l=>l.suspect).length, prop=S.links.filter(l=>l.state==='proposed').length;
   $('#content').innerHTML=`<div class="bar"><div><h1>${esc(S.project)} — V-모델 현황</h1><div class="sub">왼쪽은 명세, 오른쪽은 검증입니다. 가로줄은 같은 레벨의 verifies 커버리지, 상자 안의 ↑는 상위 단계 연결률입니다. 상자를 누르면 그 단계의 라이브 문서가 열립니다.</div></div></div>
-   <div class="cards"><div class="card"><b>${total}</b>요구사항·설계·TC</div><div class="card ok"><b>${appr}</b>승인</div><div class="card ${sus?'err':''}"><b>${sus}</b>Suspect 링크</div><div class="card ${prop?'warn':''}"><b>${prop}</b>미확정 제안 링크</div><div class="card"><b>${S.docs.length}</b>원천 문서</div></div>
+   <div class="cards"><div class="card"><b>${total}</b>요구사항·설계·TC</div><div class="card ok"><b>${appr}</b>승인</div>${(()=>{const r=testTally();return r.total?`<div class="card ${r.FAIL?'err':''}"><b>${r.PASS}/${r.total}</b>시험 PASS${r.FAIL?` · FAIL ${r.FAIL}`:''}</div>`:'';})()}<div class="card ${sus?'err':''}"><b>${sus}</b>Suspect 링크</div><div class="card ${prop?'warn':''}"><b>${prop}</b>미확정 제안 링크</div><div class="card"><b>${S.docs.length}</b>원천 문서</div></div>
    <div class="vm">
      <div class="vrow">${vb(crs)}<div class="vline" style="min-width:0"></div><div class="vbox" style="visibility:hidden"></div></div>
      ${row('SYS2','SYS5',upPct('SYS2','derives','SYS1'),24)}
      ${row('SYS3','SYS4',upPct('SYS3','satisfies','SYS2'),72)}
+     <div class="vrow" style="font-size:11.5px;color:var(--muted);letter-spacing:.06em"><div style="width:120px;flex:none"></div>HW 분기 — HWE.1 ~ HWE.4</div>
+     ${row('HWE1','HWE4',upPct('HWE1','refines','SYS2'),120)}
+     ${row('HWE2','HWE3',upPct('HWE2','satisfies','HWE1'),168)}
+     <div class="vrow" style="font-size:11.5px;color:var(--muted);letter-spacing:.06em"><div style="width:120px;flex:none"></div>SW 분기 — SWE.1 ~ SWE.6</div>
      ${row('SWE1','SWE6',upPct('SWE1','refines','SYS2'),120)}
      ${row('SWE2','SWE5',upPct('SWE2','allocates','SWE1'),168)}
      ${row('SWE3','SWE4',upPct('SWE3','refines','SWE2'),216)}
@@ -363,7 +446,7 @@ function viewHome(){
      <div class="card"><div style="font-weight:600;margin-bottom:6px">다음에 할 일</div>${nextSteps().map(s=>`<div style="font-size:13px;padding:4px 0;border-top:1px solid var(--line)">${s}</div>`).join('')||'<div class="muted">모든 단계가 전개되었습니다.</div>'}</div>
      <div class="card"><div style="font-weight:600;margin-bottom:6px">원천 문서</div>${S.docs.map(d=>`<div style="font-size:13px;padding:4px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between"><span>${esc(d.doc)}</span><span class="muted">rev ${esc(d.rev)} · ${d.n}</span></div>`).join('')||'<div class="muted">아직 없음 — 오른쪽 위 “요구사항 가져오기”</div>'}</div>
    </div>`;
-  $('#content').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{view={kind:'stage',sid:b.dataset.sid};stageTab='doc';render();});
+  $('#content').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>goStage(b.dataset.sid));
 }
 function nextSteps(){
   const out=[];const c=S.stage_counts;
@@ -372,6 +455,10 @@ function nextSteps(){
   if(c.SYS2.total){ if(!c.SWE1.total) out.push('SYS.2 → SWE.1 전개로 SW 요구사항을 구체화하세요.'); if(!c.SYS3.total) out.push('SYS.2 → SYS.3 전개로 시스템 요소·HSI를 할당하세요.'); if(!c.SYS5.total) out.push('SYS.2 → SYS.5 시스템 검증 TC를 만드세요.'); if((c.SYS2.status.draft||0)>0) out.push(`SYS.2 초안 ${c.SYS2.status.draft}건을 검토·승인하세요.`);}
   if(c.SWE1.total){ if(!c.SWE2.total) out.push('SWE.1 → SWE.2 AUTOSAR 컴포넌트 할당을 전개하세요.'); if(!c.SWE6.total) out.push('SWE.1 → SWE.6 검증 TC를 만드세요.');}
   if(c.SWE2.total&&!c.SWE3.total) out.push('SWE.2 → SWE.3 유닛 설계를 전개하세요.');
+  if(c.SYS2.total&&!c.HWE1.total) out.push('SYS.2 → HWE.1 전개로 HW 요구사항을 도출하세요.');
+  if((c.HWE1.total||c.SYS3.total)&&!c.HWE2.total) out.push('HWE.1 → HWE.2 (또는 SYS.3 → HWE.2) 전개 후 블록도에서 인터페이스를 연결하세요.');
+  if(c.HWE2.total&&!c.HWE3.total) out.push('HWE.2 → HWE.3 HW 설계 검증 TC를 만드세요.');
+  {const r=testTally(); if(r.FAIL) out.push(`시험 FAIL ${r.FAIL}건을 확인하세요 (감사 콘솔 · test_fail).`);}
   const sus=S.links.filter(l=>l.suspect).length; if(sus) out.push(`Suspect 링크 ${sus}건을 재검토하세요 (감사 콘솔).`);
   return out.slice(0,6);
 }
@@ -381,7 +468,8 @@ function viewStage(){
   const st=S.stageById[view.sid]; const c=S.stage_counts[st.id]; const its=stageItems(st.id);
   const prev=S.stages.filter(s=>s.next.includes(st.id)||(st.verifies&&s.id===st.verifies));
   const nexts=[...st.next, ...S.stages.filter(s=>s.verifies===st.id).map(s=>s.id)];
-  const tabs=[['doc','라이브 문서'],['board','리뷰 보드'],['trace','추적'],['quality','품질']];
+  const tabs=[['doc','라이브 문서'],...(st.canvas?[['canvas','블록도']]:[]),['board','리뷰 보드'],['trace','추적'],['quality','품질']];
+  if(stageTab==='canvas'&&!st.canvas) stageTab='doc';
   $('#content').innerHTML=`<div class="bar"><div><h1>${esc(st.aspice)} ${esc(st.name)}</h1><div class="sub">${c.total}건 · 승인 ${c.status.approved||0} · 초안 ${c.status.draft||0}${c.suspect?` · <span style="color:var(--err)">Suspect ${c.suspect}</span>`:''}</div></div><span class="spacer"></span>
      ${STATIC?'':prev.map(p=>`<button class="btn" data-dv="${p.id}|${st.id}">← ${p.aspice}에서 전개</button>`).join('')}
      ${STATIC||!nexts.length?'':`<button class="btn primary" id="dvOpen">다음 단계로 전개 →</button>`}
@@ -390,7 +478,7 @@ function viewStage(){
   $('#content').querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{stageTab=b.dataset.tab;render();});
   $('#content').querySelectorAll('[data-dv]').forEach(b=>b.onclick=()=>{const [f,t]=b.dataset.dv.split('|');openDerive(f,[t]);});
   if($('#dvOpen')) $('#dvOpen').onclick=()=>openDerive(st.id,nexts);
-  ({doc:stageDoc,board:stageBoard,trace:stageTrace,quality:stageQuality})[stageTab](st,its);
+  ({doc:stageDoc,canvas:stageCanvas,board:stageBoard,trace:stageTrace,quality:stageQuality})[stageTab](st,its);
 }
 async function stageDoc(st,its){
   const body=$('#stageBody');
@@ -484,6 +572,276 @@ function viewHistory(){
   if($('#blgo')) $('#blgo').onclick=async()=>{const n=$('#blname').value.trim();if(!n)return;try{await api('/api/baseline',{name:n});await load();toast('베이스라인 생성');}catch(e){toast(e.message)}};
 }
 
+// ---------------- ARCHITECTURE CANVAS: blocks and interface lines are work items ----------------
+const SC_DASH={power:'',pwm:'',spi:'7 4',can:'2 4',analog:'10 4 2 4',digital:'5 3',mech:''};
+const RES_LABEL={PASS:'PASS',FAIL:'FAIL',BLOCKED:'BLOCKED',NOT_RUN:'미수행'};
+const resLabel=s=>RES_LABEL[s]||s;
+const fmtAt=t=>typeof t==='number'?new Date(t*1000).toLocaleString():String(t||'');
+let CV={sel:null,wave:null,model:null,st:null};
+function testTally(){const r={total:0,PASS:0,FAIL:0,BLOCKED:0};for(const i of S.items){if(!String(i.type).endsWith('_TC')||i.status==='deleted'||!i.attrs.result)continue;r.total++;r[i.attrs.result.status]=(r[i.attrs.result.status]||0)+1;}return r;}
+function resultHead(r){const m=r.metrics||{};const u=esc(m.unit||'');const has=m.reaction!=null&&m.limit!=null;
+  return `<div class="row" style="gap:8px;margin:2px 0 4px"><span class="res ${r.status}">${resLabel(r.status)}</span><span class="mono" style="font-size:11.5px">${esc(r.run_id||'')}</span><span class="muted" style="font-size:12px">${esc(r.tool||'')}${r.at?' · '+esc(fmtAt(r.at)):''}</span></div>`+
+   (has?`<div style="font-size:12.5px">${esc(m.label||'반응 시간')}: <b class="mono">${m.reaction}${u}</b> / 한계 <span class="mono">${m.limit}${u}</span> — ${m.reaction<=m.limit?`여유 <span class="mono">${+(m.limit-m.reaction).toFixed(3)}${u}</span>`:`<b style="color:var(--err)">한계 초과 ${+(m.reaction-m.limit).toFixed(3)}${u}</b>`}</div>`:'')+
+   (r.note?`<div class="muted" style="font-size:12.5px">${esc(r.note)}</div>`:'');}
+function verifiers(id){return (S.down[id]||[]).filter(l=>l.role==='verifies').map(l=>({l,t:S.byId[l.src]})).filter(x=>x.t&&x.t.status!=='deleted');}
+function canvasModel(st){
+  const typ=st.canvas; const nodes=S.items.filter(i=>i.type===typ&&i.status!=='deleted');
+  const ids=new Set(nodes.map(n=>n.id));
+  const edges=S.items.filter(i=>i.type==='IF'&&i.status!=='deleted'&&i.attrs.canvas===st.id&&ids.has(i.attrs.from)&&ids.has(i.attrs.to));
+  const pos={}; for(const n of nodes){const L=n.attrs.canvas_layout; if(L) pos[n.id]={x:L.x,y:L.y};}
+  const placed=Object.values(pos); let base=placed.length?Math.max(...placed.map(p=>p.y))+190:40, k=0;
+  for(const n of nodes) if(!pos[n.id]){pos[n.id]={x:40+(k%4)*300,y:base+Math.floor(k/4)*170};k++;}
+  return {nodes,edges,pos};
+}
+function nodeHTML(n,p,ro){
+  const a=n.attrs, v=verifiers(n.id), c={PASS:0,FAIL:0,other:0};
+  v.forEach(x=>{const s=x.t.attrs.result?.status; if(s==='PASS')c.PASS++; else if(s==='FAIL')c.FAIL++; else c.other++;});
+  const sus=(S.up[n.id]||[]).some(l=>l.suspect), sw=(S.down[n.id]||[]).filter(l=>l.role==='controls').length;
+  return `<div class="node" tabindex="0" aria-label="${esc(n.id)} ${esc(n.title)}" data-node="${esc(n.id)}" style="left:${p.x}px;top:${p.y}px;--c:${tcolor(n.type)}">
+    <div class="row" style="gap:4px"><span class="id" style="--c:${tcolor(n.type)};font-size:11.5px">${esc(n.id)}</span>${a.asil&&a.asil!=='QM'?`<span class="chip" style="border:1px solid var(--line);background:transparent">ASIL ${esc(a.asil)}</span>`:''}${sus?'<span class="chip sus" title="상위 변경으로 재검토 필요">SUS</span>':''}</div>
+    <div class="nt">${esc(n.title)}</div>${a.hw?.part_number?`<div class="np" title="${esc(a.hw.part_number)}">${esc(a.hw.part_number)}</div>`:''}
+    <div class="nb">${c.PASS?`<span class="res PASS" title="PASS ${c.PASS}건">✓ ${c.PASS}</span>`:''}${c.FAIL?`<span class="res FAIL" title="FAIL ${c.FAIL}건">✕ ${c.FAIL}</span>`:''}${c.other?`<span class="res" title="결과 없음 ${c.other}건">○ ${c.other}</span>`:''}${!v.length?'<span class="res" title="검증 TC 없음">TC 없음</span>':''}${sw?`<span class="chip" title="이 블록을 제어하는 SW (controls)">SW ${sw}</span>`:''}</div>
+    ${ro?'':`<button class="port" data-port="${esc(n.id)}" aria-label="${esc(n.id)} 에서 인터페이스 연결" title="다른 블록으로 끌어 인터페이스 연결"></button>`}</div>`;
+}
+function stageCanvas(st){
+  const M=canvasModel(st), body=$('#stageBody'), ro=!!STATIC;
+  CV.model=M; CV.st=st; if(CV.sel&&!S.byId[CV.sel.id]) CV.sel=null;
+  const legend=`<div class="legend" aria-label="신호 분류 범례">${Object.entries(S.signal_classes||{}).map(([k,n])=>`<span><svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" class="edge ${k}" style="stroke:var(--sc-${k})" ${SC_DASH[k]?`stroke-dasharray="${SC_DASH[k]}"`:''}/></svg>${esc(n)}</span>`).join('')}</div>`;
+  body.innerHTML=`<div class="cvtool">${ro?'':`<button class="btn" id="cvAdd">+ 블록</button><a class="btn" href="/api/arch/${st.id}" title="블록도를 JSON(diagram-as-code)으로 저장해 Git 에 커밋">JSON 내보내기</a><label class="btn" style="cursor:pointer">JSON 가져오기<input type="file" id="cvImp" accept=".json,application/json" hidden></label>${st.id==='HWE2'?'<button class="btn" id="cvSample">샘플 HW 아키텍처</button>':''}`}
+     <span class="muted" style="font-size:12px">블록을 끌어 배치 · 블록 오른쪽 ● 를 다른 블록으로 끌면 인터페이스 · 블록/선을 누르면 추적 정보</span></div>
+     <div style="margin:-2px 0 10px">${legend}</div>
+     ${M.nodes.length?`<div class="cvgrid"><div class="cv" id="cv"><div class="cvst" id="cvst"><svg id="cvsvg" aria-hidden="true"></svg>${M.nodes.map(n=>nodeHTML(n,M.pos[n.id],ro)).join('')}</div></div><aside class="insp" id="insp" aria-live="polite"></aside></div><div id="wave"></div>`
+     :`<div class="empty"><b>${esc(st.aspice)} 블록도가 비어 있습니다</b>${st.id==='HWE2'?'SYS.3 또는 HWE.1 에서 “← 전개”로 HW 블록을 만들거나, “샘플 HW 아키텍처”를 불러오세요.':st.id==='SYS3'?'SYS.2 → SYS.3 전개로 시스템 요소를 만드세요.':'SWE.1 → SWE.2 전개로 SW 컴포넌트를 만드세요.'}</div>`}`;
+  if(!ro){
+    $('#cvAdd').onclick=()=>openBlockDialog(st);
+    $('#cvImp').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const r=await api('/api/arch/import',JSON.parse(await f.text()));await load();notifyOthers();toast(`[${r.canvas}] 블록 신규 ${r.created.length} · 갱신 ${r.updated.length} · 인터페이스 ${r.interfaces} · TC ${r.tests} · 결과 ${r.results}`);}catch(e){toast('가져오기 실패: '+e.message);}};
+    if($('#cvSample')) $('#cvSample').onclick=async()=>{try{const r=await api('/api/sample/hw',{});CV.sel=null;await load();notifyOthers();toast(`샘플 HW 아키텍처: 블록 신규 ${r.created.length} · 갱신 ${r.updated.length} · 인터페이스 ${r.interfaces} · TC ${r.tests} · 결과 ${r.results}`);}catch(e){toast(e.message);}};
+  }
+  if(!M.nodes.length){CV.model=null;return;}
+  growStage(); drawEdges(); bindCanvas(ro); renderInsp();
+  const wt=CV.wave&&S.byId[CV.wave]; if(wt?.attrs.result?.waveform) renderWave($('#wave'),wt);
+}
+function growStage(){
+  const st=$('#cvst'); if(!st) return; let w=0,h=0;
+  st.querySelectorAll('.node').forEach(n=>{w=Math.max(w,n.offsetLeft+n.offsetWidth);h=Math.max(h,n.offsetTop+n.offsetHeight);});
+  st.style.width=(w+160)+'px'; st.style.height=(h+120)+'px';
+  const svg=$('#cvsvg'); svg.setAttribute('width',w+160); svg.setAttribute('height',h+120);
+}
+function drawEdges(){
+  const M=CV.model, svg=$('#cvsvg'); if(!M||!svg) return; const R={};
+  document.querySelectorAll('#cvst .node').forEach(el=>{const l=el.offsetLeft,t=el.offsetTop,w=el.offsetWidth,h=el.offsetHeight;R[el.dataset.node]={l,t,r:l+w,b:t+h,cx:l+w/2,cy:t+h/2};});
+  const groups={}; for(const e of M.edges){const k=[e.attrs.from,e.attrs.to].sort().join('|');(groups[k]||=[]).push(e);}
+  const sel=CV.sel, selNode=sel?.kind==='node'?sel.id:null;
+  const vseg=[], hseg=[], boxes=Object.values(R).map(r=>({l:r.l,t:r.t,r:r.r,b:r.b}));
+  const clash=(segs,v,a,b)=>segs.some(s=>Math.abs(s[0]-v)<9&&Math.min(b,s[2])-Math.max(a,s[1])>0);
+  const spread=(segs,v,a,b)=>{for(const d of [0,14,-14,28,-28,42,-42]) if(!clash(segs,v+d,a,b)) return v+d; return v;};
+  const txtW=t=>[...t].reduce((w,c)=>w+(c.charCodeAt(0)>0x1100?11.2:6.7),0)+14;
+  const hit=(b,list)=>list.some(o=>b.l<o.r&&b.r>o.l&&b.t<o.b&&b.b>o.t);
+  const placed=[]; let paths='',labels='';
+  for(const list of Object.values(groups)) list.forEach((e,i)=>{
+    const A=R[e.attrs.from],B=R[e.attrs.to]; if(!A||!B) return;
+    const off=(i-(list.length-1)/2)*18, dx=B.cx-A.cx, dy=B.cy-A.cy; let d,lx,ly;
+    if(Math.abs(dx)>=Math.abs(dy)*0.8){const x1=dx>0?A.r:A.l,x2=dx>0?B.l:B.r,y1=A.cy+off,y2=B.cy+off;
+      const mx=spread(vseg,(x1+x2)/2,Math.min(y1,y2),Math.max(y1,y2)); vseg.push([mx,Math.min(y1,y2),Math.max(y1,y2)]);
+      d=`M${x1},${y1} H${mx} V${y2} H${x2}`; lx=Math.abs(y1-y2)<2?(x1+x2)/2:mx; ly=(y1+y2)/2;}
+    else{const y1=dy>0?A.b:A.t,y2=dy>0?B.t:B.b,x1=A.cx+off,x2=B.cx+off;
+      const my=spread(hseg,(y1+y2)/2,Math.min(x1,x2),Math.max(x1,x2)); hseg.push([my,Math.min(x1,x2),Math.max(x1,x2)]);
+      d=`M${x1},${y1} V${my} H${x2} V${y2}`; lx=(x1+x2)/2; ly=my;}
+    const c=e.attrs.signal_class||'digital', dash=SC_DASH[c]||'';
+    const on=(sel?.kind==='edge'&&sel.id===e.id)||(selNode&&(e.attrs.from===selNode||e.attrs.to===selNode));
+    const sus=(S.up[e.id]||[]).some(l=>l.suspect);
+    paths+=`<path class="edge ${c}${on?' sel':''}${on&&!dash?' flow':''}" d="${d}" style="stroke:var(--sc-${c})" ${dash?`stroke-dasharray="${dash}"`:''} marker-end="url(#ar-${c})"/><path class="ehit" d="${d}" data-edge="${esc(e.id)}"><title>${esc(e.id)} ${esc(e.title)}</title></path>`;
+    const name=(sus?'⚠ ':'')+(on||e.title.length<=18?e.title:e.title.slice(0,17)+'…'), w=txtW(name);
+    let box=null;   // nudge the label off other labels and off blocks
+    for(const d2 of [0,20,-20,40,-40,60,-60]){const b={l:lx-w/2,r:lx+w/2,t:ly-9+d2,b:ly+9+d2};if(!hit(b,placed)&&!hit(b,boxes)){box=b;break;}}
+    box=box||{l:lx-w/2,r:lx+w/2,t:ly-9,b:ly+9}; placed.push(box);
+    labels+=`<g class="elab${on?' sel':''}" data-edge="${esc(e.id)}" style="cursor:pointer"><rect rx="4" x="${box.l}" y="${box.t}" width="${w}" height="18"/><text x="${lx}" y="${box.t+13}" text-anchor="middle">${esc(name)}</text></g>`;
+  });
+  svg.innerHTML='<defs>'+Object.keys(S.signal_classes||{}).map(c=>`<marker id="ar-${c}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sc-${c})"/></marker>`).join('')+'</defs>'+paths+labels;
+  svg.querySelectorAll('[data-edge]').forEach(p=>{p.style.pointerEvents=p.tagName==='g'?'all':'stroke';p.addEventListener('click',ev=>{ev.stopPropagation();CV.sel={kind:'edge',id:p.dataset.edge};refreshSel();});});
+}
+function bindCanvas(ro){
+  const st=$('#cvst');
+  st.addEventListener('pointerdown',ev=>{if(ev.target===st||ev.target.id==='cvsvg'){CV.sel=null;refreshSel();}});
+  st.querySelectorAll('.node').forEach(el=>{
+    const id=el.dataset.node;
+    el.addEventListener('keydown',ev=>{
+      if(ev.target!==el) return;
+      if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();selectNode(id);}
+      else if(!ro&&ev.key.startsWith('Arrow')){ev.preventDefault();const s=ev.shiftKey?50:10;moveNode(el,el.offsetLeft+({ArrowLeft:-s,ArrowRight:s}[ev.key]||0),el.offsetTop+({ArrowUp:-s,ArrowDown:s}[ev.key]||0));saveLayoutSoon(id,el);}
+    });
+    el.addEventListener('pointerdown',ev=>{
+      if(ev.button!==0||ev.target.closest('.port')) return;
+      if(ro){selectNode(id);return;}
+      ev.preventDefault(); el.focus({preventScroll:true});
+      const sx=ev.clientX,sy=ev.clientY,ox=el.offsetLeft,oy=el.offsetTop; let moved=false;
+      el.setPointerCapture(ev.pointerId);
+      const mv=e=>{const dx=e.clientX-sx,dy=e.clientY-sy;if(!moved&&Math.hypot(dx,dy)<4)return;moved=true;el.classList.add('drag');moveNode(el,ox+dx,oy+dy);};
+      const up=async()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.classList.remove('drag');if(moved) await saveLayout(id,el); else selectNode(id);};
+      el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up);
+    });
+    const port=el.querySelector('.port');
+    if(port){port.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopPropagation();startWire(id,el);});
+      port.addEventListener('click',ev=>{ev.stopPropagation();selectNode(id);setTimeout(()=>$('#inspPeer')?.focus(),0);});}
+  });
+}
+function moveNode(el,x,y){el.style.left=Math.max(0,Math.round(x/10)*10)+'px';el.style.top=Math.max(0,Math.round(y/10)*10)+'px';growStage();drawEdges();}
+async function saveLayout(id,el){const x=el.offsetLeft,y=el.offsetTop;try{await api('/api/layout',{positions:{[id]:{x,y}}});if(S.byId[id])S.byId[id].attrs.canvas_layout={x,y};notifyOthers();}catch(e){toast(e.message);}}
+let _layT; function saveLayoutSoon(id,el){clearTimeout(_layT);_layT=setTimeout(()=>saveLayout(id,el),500);}
+function startWire(id,el){
+  const st=$('#cvst'),svg=$('#cvsvg'),NS='http://www.w3.org/2000/svg';
+  const ln=document.createElementNS(NS,'line'),x1=el.offsetLeft+el.offsetWidth,y1=el.offsetTop+el.offsetHeight/2;
+  for(const [k,v] of Object.entries({x1,y1,x2:x1,y2:y1,'stroke-dasharray':'4 3','stroke-width':2})) ln.setAttribute(k,v);
+  ln.style.stroke='var(--accent)'; svg.appendChild(ln);
+  const tgt=e=>document.elementFromPoint(e.clientX,e.clientY)?.closest('#cvst .node');
+  const clear=()=>st.querySelectorAll('.node.peer').forEach(n=>n.classList.remove('peer'));
+  const mv=e=>{const b=st.getBoundingClientRect();ln.setAttribute('x2',e.clientX-b.left);ln.setAttribute('y2',e.clientY-b.top);clear();const t=tgt(e);if(t&&t!==el)t.classList.add('peer');};
+  const up=e=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);ln.remove();clear();const t=tgt(e);if(t&&t!==el)openIfDialog(id,t.dataset.node);else refreshSel();};
+  window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+}
+function selectNode(id){CV.sel={kind:'node',id};refreshSel();}
+function refreshSel(){drawEdges();renderInsp();}
+function openIfDialog(from,to){
+  const a=S.byId[from],b=S.byId[to]; if(!a||!b) return;
+  $('#ifDesc').textContent=`${a.id} ${a.title}  →  ${b.id} ${b.title}`; $('#ifName').value=''; $('#ifSig').value='';
+  $('#ifClass').innerHTML=Object.entries(S.signal_classes).map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join('');
+  $('#ifGo').onclick=async()=>{$('#ifGo').disabled=true;try{const it=await api('/api/interface',{canvas:CV.st.id,from,to,name:$('#ifName').value,signal_class:$('#ifClass').value,signals:$('#ifSig').value});$('#dlgIf').close();CV.sel={kind:'edge',id:it.id};await load();notifyOthers();toast(`${it.id} 생성 — ${from} ↔ ${to} connects`);}catch(e){toast(e.message);}$('#ifGo').disabled=false;};
+  $('#dlgIf').showModal(); $('#ifName').focus();
+}
+function openBlockDialog(st){
+  $('#blkTitle').textContent=`${st.aspice} 블록 추가`; $('#blkName').value=''; $('#blkText').value='';
+  $('#blkGo').onclick=async()=>{const t=$('#blkName').value.trim();if(!t){toast('블록 이름을 입력하세요');return;}const cv=$('#cv');
+    try{const it=await api('/api/block',{canvas:st.id,title:t,text:$('#blkText').value.trim(),x:(cv?cv.scrollLeft:0)+60,y:(cv?cv.scrollTop:0)+60});$('#dlgBlk').close();CV.sel={kind:'node',id:it.id};await load();notifyOthers();toast(`${it.id} 추가`);}catch(e){toast(e.message);}};
+  $('#dlgBlk').showModal(); $('#blkName').focus();
+}
+async function openJson(id){
+  try{const j=await api('/api/artifact/'+encodeURIComponent(id));$('#jsonTitle').textContent=`${id} 추적 JSON`;$('#jsonBody').textContent=JSON.stringify(j,null,2);$('#dlgJson').showModal();}catch(e){toast(e.message);}
+}
+$('#ifClose').onclick=()=>$('#dlgIf').close(); $('#blkClose').onclick=()=>$('#dlgBlk').close(); $('#jsonClose').onclick=()=>$('#dlgJson').close();
+$('#jsonCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#jsonBody').textContent);toast('복사됨');}catch(e){toast('복사 실패: '+e.message);}};
+function trRow(id,extra='',attr=''){const o=S.byId[id];return `<div class="tr" ${attr||`data-open="${esc(id)}"`}>${extra}<span class="id" style="--c:${tcolor(o?.type)};font-size:11.5px">${esc(id)}</span><span class="t">${esc(o?.title||o?.text||'')}</span></div>`;}
+function vRows(id){const v=verifiers(id);return v.map(({l,t})=>{const r=t.attrs.result;return trRow(t.id,`<span class="res ${r?.status||''}">${resLabel(r?.status||'NOT_RUN')}</span>${l.suspect?'<span class="chip sus">SUS</span>':''}`,r?.waveform?`data-wave="${esc(t.id)}" title="파형 보기"`:'');}).join('')||'<div class="muted">검증 TC 없음</div>';}
+function renderInsp(){
+  const el=$('#insp'),M=CV.model; if(!el||!M) return; const ro=!!STATIC, sel=CV.sel, st=CV.st;
+  const selIt=sel&&S.byId[sel.id];
+  document.querySelectorAll('#cvst .node').forEach(n=>{const id=n.dataset.node;
+    n.classList.toggle('sel',sel?.kind==='node'&&sel.id===id);
+    const peer=sel?.kind==='node'?M.edges.some(e=>(e.attrs.from===sel.id&&e.attrs.to===id)||(e.attrs.to===sel.id&&e.attrs.from===id)):sel?.kind==='edge'&&selIt?[selIt.attrs.from,selIt.attrs.to].includes(id):false;
+    n.classList.toggle('peer',!!peer);});
+  if(!selIt){
+    const tcs=[...new Map([...M.nodes,...M.edges].flatMap(n=>verifiers(n.id)).map(x=>[x.t.id,x.t])).values()];
+    const cnt={PASS:0,FAIL:0,other:0}; tcs.forEach(t=>{const s=t.attrs.result?.status;s==='PASS'?cnt.PASS++:s==='FAIL'?cnt.FAIL++:cnt.other++;});
+    const noUp=M.nodes.filter(n=>!(S.up[n.id]||[]).some(l=>l.state==='confirmed'&&l.role!=='relates'));
+    const noTc=M.nodes.filter(n=>!verifiers(n.id).length);
+    const noSw=st.id==='HWE2'?M.nodes.filter(n=>!(S.down[n.id]||[]).some(l=>l.role==='controls')):[];
+    el.innerHTML=`<h3>${esc(st.aspice)} 블록도</h3><div class="muted">블록 ${M.nodes.length} · 인터페이스 ${M.edges.length}</div>
+      <div class="grp"><b>검증 현황 (${tcs.length} TC)</b><div class="row" style="gap:6px;margin:2px 0 6px"><span class="res PASS">PASS ${cnt.PASS}</span><span class="res FAIL" style="${cnt.FAIL?'':'background:transparent;color:var(--muted);border-color:var(--line);font-weight:400'}">FAIL ${cnt.FAIL}</span><span class="res">미수행 ${cnt.other}</span></div>
+        ${tcs.filter(t=>t.attrs.result?.status==='FAIL').map(t=>trRow(t.id,'<span class="res FAIL">FAIL</span>')).join('')}</div>
+      <div class="grp"><b>추적 누락</b>${noUp.map(n=>trRow(n.id,'<span class="chip err">상위 없음</span>',`data-sel="${esc(n.id)}"`)).join('')}${noTc.map(n=>trRow(n.id,'<span class="chip warn">TC 없음</span>',`data-sel="${esc(n.id)}"`)).join('')}${noSw.map(n=>trRow(n.id,'<span class="chip">SW 미연결</span>',`data-sel="${esc(n.id)}"`)).join('')}${noUp.length+noTc.length+noSw.length?'':'<div class="muted">없음</div>'}</div>
+      <p class="muted" style="margin-top:12px">블록이나 선을 누르면 상위 요구사항(▲), 이 블록을 제어하는 SW(▼), 검증 TC 결과와 파형을 여기서 봅니다. 키보드: Tab 으로 블록 선택, Enter 로 열기, 방향키로 이동(Shift = 50px).</p>`;
+  } else if(sel.kind==='node'){
+    const n=selIt,a=n.attrs,id=n.id,hw=a.hw||{};
+    const ups=(S.up[id]||[]).filter(l=>l.role!=='connects'), sw=(S.down[id]||[]).filter(l=>l.role==='controls');
+    const ifs=M.edges.filter(e=>e.attrs.from===id||e.attrs.to===id);
+    const others=M.nodes.filter(x=>x.id!==id);
+    const swCands=S.items.filter(i=>['SWE2','SWE3'].includes(i.type)&&i.status!=='deleted'&&!sw.some(l=>l.src===i.id));
+    el.innerHTML=`<div class="row" style="gap:6px"><span class="id" style="--c:${tcolor(n.type)}">${esc(id)}</span><span class="chip ${n.status}">${esc(n.status)}</span><span class="chip">v${n.version}</span><span class="spacer"></span><span class="chip" style="border:1px solid var(--line);background:transparent">${a.asil&&a.asil!=='QM'?'ASIL '+esc(a.asil):'QM'}</span></div>
+      <h3>${esc(n.title)}</h3>${n.text&&n.text!==n.title?`<div class="muted">${esc(n.text)}</div>`:''}
+      <div class="grp"><b>속성</b>${ro?`<div class="kv"><span>부품</span><span>${esc(hw.part_number||'—')}</span><span>인터페이스</span><span>${esc(hw.interfaces||'—')}</span><span>안전 메커니즘</span><span>${esc(hw.safety_mechanism||'—')}</span></div>`:
+        `${n.type==='HWE2'?`<label for="ipPart">부품 번호</label><input id="ipPart" value="${esc(hw.part_number||'')}"><label for="ipIf">인터페이스</label><input id="ipIf" value="${esc(hw.interfaces||'')}"><label for="ipSm">안전 메커니즘</label><input id="ipSm" value="${esc(hw.safety_mechanism||'')}">`:''}<label for="ipAsil">ASIL</label><select id="ipAsil">${['QM','A','B','C','D'].map(x=>`<option ${x===(a.asil||'QM')?'selected':''}>${x}</option>`).join('')}</select><button class="btn sm" id="ipSave" style="margin-top:8px">속성 저장 (v+1 · 하위 Suspect)</button>`}</div>
+      <div class="grp"><b>▲ 상위 (만족 · 구체화) ${ups.length}</b>${ups.map(l=>trRow(l.dst,`<span class="chip">${esc(l.role)}</span>${l.suspect?'<span class="chip sus">SUS</span>':''}`)).join('')||'<div class="muted" style="color:var(--err)">상위 링크 없음</div>'}</div>
+      ${n.type==='HWE2'?`<div class="grp"><b>▼ 이 블록을 제어하는 SW (controls) ${sw.length}</b>${sw.map(l=>trRow(l.src,l.suspect?'<span class="chip sus">SUS</span>':'')).join('')||'<div class="muted">연결된 SW 없음</div>'}
+        ${ro||!swCands.length?'':`<div class="row" style="gap:6px;margin-top:6px"><select id="ipSw" aria-label="연결할 SW 컴포넌트" style="flex:1">${swCands.slice(0,500).map(i=>`<option value="${esc(i.id)}">${esc(i.id)} ${esc(i.title)}</option>`).join('')}</select><button class="btn sm" id="ipSwGo">연결</button></div>`}</div>`:''}
+      <div class="grp"><b>▼ 검증 (verifies)</b>${vRows(id)}</div>
+      <div class="grp"><b>인터페이스 ${ifs.length}</b>${ifs.map(e=>{const out=e.attrs.from===id,peer=S.byId[out?e.attrs.to:e.attrs.from];return `<div class="tr" data-sel="${esc(e.id)}"><span class="mono" title="${out?'출력':'입력'}">${out?'→':'←'}</span><span class="id" style="--c:var(--hsi);font-size:11.5px">${esc(e.id)}</span><span class="t">${esc(e.title)} · ${esc(peer?.title||'')}</span></div>`;}).join('')||'<div class="muted">없음</div>'}
+        ${ro||!others.length?'':`<div class="row" style="gap:6px;margin-top:6px"><select id="inspPeer" aria-label="연결할 상대 블록" style="flex:1">${others.map(o=>`<option value="${esc(o.id)}">→ ${esc(o.id)} ${esc(o.title)}</option>`).join('')}</select><button class="btn sm" id="ipIfGo">인터페이스 추가</button></div>`}</div>
+      <div class="row" style="gap:6px;margin-top:12px"><button class="btn sm" data-open="${esc(id)}">상세 · 이력</button>${ro?'':`<button class="btn sm" id="ipJson">추적 JSON</button>`}</div>`;
+    if(!ro){
+      $('#ipSave').onclick=async()=>{const at={asil:$('#ipAsil').value};if(n.type==='HWE2')at.hw={part_number:$('#ipPart').value.trim(),interfaces:$('#ipIf').value.trim(),safety_mechanism:$('#ipSm').value.trim()};
+        try{await api('/api/item/'+encodeURIComponent(id),{attrs:at});await load();notifyOthers();toast(`${id} 저장 — 하위 링크 Suspect`);}catch(e){toast(e.message);}};
+      if($('#ipSwGo')) $('#ipSwGo').onclick=async()=>{try{await api('/api/link',{src:$('#ipSw').value,role:'controls',dst:id});await load();notifyOthers();toast(`${$('#ipSw').value} —controls→ ${id}`);}catch(e){toast(e.message);}};
+      if($('#ipIfGo')) $('#ipIfGo').onclick=()=>openIfDialog(id,$('#inspPeer').value);
+      $('#ipJson').onclick=()=>openJson(id);
+    }
+  } else {
+    const e=selIt,a=e.attrs,ups=(S.up[e.id]||[]).filter(l=>l.role!=='connects');
+    el.innerHTML=`<div class="row" style="gap:6px"><span class="id" style="--c:var(--hsi)">${esc(e.id)}</span><span class="chip ${e.status}">${esc(e.status)}</span><span class="chip">v${e.version}</span></div>
+      <h3>${esc(e.title)}</h3>
+      <div class="row" style="gap:6px;margin:4px 0"><svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" class="edge ${esc(a.signal_class)}" style="stroke:var(--sc-${esc(a.signal_class)})" ${SC_DASH[a.signal_class]?`stroke-dasharray="${SC_DASH[a.signal_class]}"`:''}/></svg><span>${esc(S.signal_classes[a.signal_class]||a.signal_class)}</span></div>
+      <div class="grp"><b>연결</b>${trRow(a.from,'<span class="chip">출발</span>',`data-sel="${esc(a.from)}"`)}${trRow(a.to,'<span class="chip">도착</span>',`data-sel="${esc(a.to)}"`)}<div class="muted mono" style="margin-top:4px">${esc((a.signals||[]).join(', ')||'신호 미정의')}</div></div>
+      <div class="grp"><b>▲ 상위 (HSI 등) ${ups.length}</b>${ups.map(l=>trRow(l.dst,`<span class="chip">${esc(l.role)}</span>`)).join('')||'<div class="muted">없음 — 상세에서 HSI 핀 항목에 uses 링크를 걸 수 있습니다</div>'}</div>
+      <div class="grp"><b>▼ 검증 (verifies)</b>${vRows(e.id)}</div>
+      <div class="row" style="gap:6px;margin-top:12px"><button class="btn sm" data-open="${esc(e.id)}">상세 · 이력</button>${ro?'':`<button class="btn sm" id="ipJson">추적 JSON</button><button class="btn sm" id="ipDel">인터페이스 삭제</button>`}</div>`;
+    if(!ro){$('#ipJson').onclick=()=>openJson(e.id);
+      $('#ipDel').onclick=async()=>{try{await api('/api/item/'+encodeURIComponent(e.id),{status:'deleted'});CV.sel=null;await load();notifyOthers();toast(`${e.id} 삭제 (ID 는 재사용되지 않음)`);}catch(err){toast(err.message);}};}
+  }
+  el.querySelectorAll('[data-open]').forEach(x=>x.onclick=()=>openItem(x.dataset.open));
+  el.querySelectorAll('[data-sel]').forEach(x=>x.onclick=()=>{const it=S.byId[x.dataset.sel];CV.sel={kind:it?.type==='IF'?'edge':'node',id:x.dataset.sel};refreshSel();if(CV.sel.kind==='node')document.querySelector(`#cvst .node[data-node="${CSS.escape(x.dataset.sel)}"]`)?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});});
+  el.querySelectorAll('[data-wave]').forEach(x=>x.onclick=()=>{CV.wave=x.dataset.wave;renderWave($('#wave'),S.byId[CV.wave]);$('#wave').scrollIntoView({block:'nearest',behavior:'smooth'});});
+}
+
+// ---------------- WAVEFORM VIEWER (HWE.3 / SWE.6 / SYS.4 evidence) ----------------
+// One shared time axis; analog values and logic lanes are separate panels (no second y-scale).
+function niceStep(v){if(!(v>0))return 1;const p=10**Math.floor(Math.log10(v)),f=v/p;return (f<1.5?1:f<3?2:f<7?5:10)*p;}
+const fmtN=v=>String(+(+v).toPrecision(6));
+function renderWave(host,tc,compact){
+  const r=tc?.attrs.result,w=r?.waveform; if(!host) return; if(!w){host.innerHTML='';host.className='';return;}
+  host.className='wave';
+  const X=w.x,n=X.length,x0=X[0],x1=X[n-1],m=r.metrics||{};
+  const tw=t=>[...String(t)].reduce((a,c)=>a+(c.charCodeAt(0)>0x1100?11:6.7),0);
+  const laneW=Math.max(0,...w.panels.flatMap(p=>p.kind==='digital'?p.series.map(s=>tw(s.name)):[tw(`${p.title||''} (${p.unit||''})`)]));
+  const W=Math.max(320,Math.floor((host.clientWidth||720)-28)),padL=Math.max(compact?56:96,Math.ceil(laneW)+16),padR=16,pw=W-padL-padR;
+  const sx=v=>padL+(v-x0)/((x1-x0)||1)*pw;
+  // marker labels: greedy rows so neighbouring labels never overlap
+  const mk=w.markers||[], lw=t=>[...t].reduce((a,c)=>a+(c.charCodeAt(0)>0x1100?11:6.7),0)+8, rowEnd=[], mrow=[];
+  mk.forEach(q=>{const x=sx(q.x)+4,wd=lw(q.label);let r=rowEnd.findIndex(e=>x>e+4);if(r<0){r=rowEnd.length;rowEnd.push(0);}rowEnd[r]=x+wd;mrow.push(r);});
+  const series=[]; let y=8+Math.max(1,rowEnd.length)*13+6, svg='', ci=0; const mTop=4;
+  for(const p of w.panels){
+    if(p.kind==='digital'){
+      const lane=26, top=y+4;
+      p.series.forEach((s,i)=>{const base=top+(i+1)*lane-6,hi=base-14,col=`var(--w${(ci++%3)+1})`;
+        let d=`M${sx(X[0]).toFixed(1)},${s.y[0]?hi:base}`; for(let k=1;k<n;k++) d+=` H${sx(X[k]).toFixed(1)} V${s.y[k]?hi:base}`;
+        svg+=`<line x1="${padL}" x2="${padL+pw}" y1="${base}" y2="${base}" style="stroke:var(--line)"/><path d="${d}" fill="none" style="stroke:${col}" stroke-width="2"/><text x="${padL-8}" y="${base-2}" text-anchor="end" class="ink">${esc(s.name)}</text>`;
+        series.push({name:s.name,y:s.y,digital:true,col});});
+      y=top+p.series.length*lane+12;
+    }else{
+      const h=compact?140:180, top=y+6, bot=y+h;
+      const all=p.series.flatMap(s=>s.y).concat((p.thresholds||[]).map(t=>t.y));
+      let lo=Math.min(0,...all),hi=Math.max(...all); hi+=(hi-lo)*0.1||1;
+      const sy=v=>bot-(v-lo)/((hi-lo)||1)*(bot-top), ys=niceStep((hi-lo)/4);
+      for(let t=Math.ceil(lo/ys)*ys;t<=hi+1e-9;t+=ys) svg+=`<line x1="${padL}" x2="${padL+pw}" y1="${sy(t).toFixed(1)}" y2="${sy(t).toFixed(1)}" style="stroke:var(--line)" stroke-width="${Math.abs(t)<1e-9?1.2:0.6}"/><text x="${padL-6}" y="${(sy(t)+4).toFixed(1)}" text-anchor="end">${fmtN(t)}</text>`;
+      svg+=`<text x="${padL-6}" y="${top-8}" text-anchor="end" class="ink">${esc(p.title||'')}${p.unit?` (${esc(p.unit)})`:''}</text>`;
+      (p.thresholds||[]).forEach(t=>{svg+=`<line x1="${padL}" x2="${padL+pw}" y1="${sy(t.y).toFixed(1)}" y2="${sy(t.y).toFixed(1)}" style="stroke:var(--muted)" stroke-dasharray="5 4"/><text x="${padL+pw-4}" y="${(sy(t.y)-5).toFixed(1)}" text-anchor="end" class="ink">${esc(t.label)}</text>`;});
+      p.series.forEach(s=>{const col=`var(--w${(ci++%3)+1})`;let d='';for(let k=0;k<n;k++) d+=(k?' L':'M')+sx(X[k]).toFixed(1)+','+sy(s.y[k]).toFixed(1);
+        svg+=`<path d="${d}" fill="none" style="stroke:${col}" stroke-width="2" stroke-linejoin="round"/>`;series.push({name:s.name,unit:p.unit,y:s.y,col});});
+      y=bot+14;
+    }
+  }
+  const axY=y, xs=niceStep((x1-x0)/(compact?5:8));
+  svg+=`<line x1="${padL}" x2="${padL+pw}" y1="${axY}" y2="${axY}" style="stroke:var(--muted)"/>`;
+  for(let t=Math.ceil(x0/xs)*xs;t<=x1+1e-9;t+=xs) svg+=`<line x1="${sx(t).toFixed(1)}" x2="${sx(t).toFixed(1)}" y1="${axY}" y2="${axY+4}" style="stroke:var(--muted)"/><text x="${sx(t).toFixed(1)}" y="${axY+16}" text-anchor="middle">${fmtN(t)}</text>`;
+  svg+=`<text x="${padL+pw}" y="${axY+32}" text-anchor="end">시간 (${esc(w.x_unit||'')})</text>`;
+  mk.forEach((q,i)=>{const mx=sx(q.x).toFixed(1),ty=mTop+11+mrow[i]*13;svg+=`<line x1="${mx}" x2="${mx}" y1="${ty-10}" y2="${axY}" style="stroke:var(--ink)" stroke-opacity=".45" stroke-dasharray="3 3"/><text x="${+mx+4}" y="${ty}" class="ink">${esc(q.label)}</text>`;});
+  if(m.reaction!=null&&mk.length){const a0=mk[0].x,bx1=sx(a0),bx2=sx(a0+m.reaction),by=axY-10;
+    svg+=`<line x1="${bx1}" x2="${bx2}" y1="${by}" y2="${by}" style="stroke:var(--ink)" stroke-width="1.5"/><line x1="${bx1}" x2="${bx1}" y1="${by-5}" y2="${by+5}" style="stroke:var(--ink)"/><line x1="${bx2}" x2="${bx2}" y1="${by-5}" y2="${by+5}" style="stroke:var(--ink)"/><text x="${bx2+6}" y="${by+4}" class="ink">반응 ${m.reaction}${esc(m.unit||'')}</text>`;
+    if(m.limit!=null&&a0+m.limit<=x1){const lx=sx(a0+m.limit);const nearR=lx>padL+pw-90;svg+=`<line x1="${lx}" x2="${lx}" y1="${by-12}" y2="${axY}" style="stroke:var(--muted)" stroke-width="1.5" stroke-dasharray="1 3"/><text x="${nearR?lx-4:lx+4}" y="${by-14}" text-anchor="${nearR?'end':'start'}">한계 ${m.limit}${esc(m.unit||'')}</text>`;}}
+  const H=axY+40, analog=series.filter(s=>!s.digital);
+  host.innerHTML=(compact?'':`<div class="wh"><b class="mono">${esc(tc.id)}</b><span>${esc(tc.title)}</span><span class="spacer"></span><button class="btn sm" data-open="${esc(tc.id)}">TC 상세</button><button class="btn sm" id="waveX">닫기</button></div>${resultHead(r)}`)+
+    (analog.length>1?`<div class="lg">${analog.map(s=>`<span><i style="background:${s.col}"></i>${esc(s.name)}</span>`).join('')}</div>`:'')+
+    `<div style="position:relative;overflow-x:auto"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tc.id)} 검증 파형: ${esc(series.map(s=>s.name).join(', '))}">${svg}<line class="xh" y1="8" y2="${axY}" style="stroke:var(--accent)" visibility="hidden"/><rect class="ov" x="${padL}" y="0" width="${pw}" height="${axY}" fill="transparent"/></svg><div class="tip"></div></div>
+    <details><summary>데이터 표 (${n}점)</summary><div style="max-height:240px;overflow:auto"><table class="list"><tr><th>t (${esc(w.x_unit||'')})</th>${series.map(s=>`<th>${esc(s.name)}</th>`).join('')}</tr>${X.map((x,k)=>`<tr><td>${x}</td>${series.map(s=>`<td>${s.digital?(s.y[k]?'H':'L'):s.y[k]}</td>`).join('')}</tr>`).join('')}</table></div></details>`;
+  const sv=host.querySelector('svg'),ov=sv.querySelector('.ov'),xh=sv.querySelector('.xh'),tip=host.querySelector('.tip');
+  ov.addEventListener('pointermove',e=>{const b=sv.getBoundingClientRect(),px=(e.clientX-b.left)*(W/b.width),xv=x0+(px-padL)/pw*(x1-x0);
+    let lo=0,hi=n-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(X[mid]<xv)lo=mid;else hi=mid;} const k=Math.abs(X[lo]-xv)<Math.abs(X[hi]-xv)?lo:hi;
+    xh.setAttribute('x1',sx(X[k]));xh.setAttribute('x2',sx(X[k]));xh.setAttribute('visibility','visible');
+    tip.innerHTML=`t = ${X[k]} ${esc(w.x_unit||'')}<br>`+series.map(s=>`<span style="color:${s.col}">●</span> ${esc(s.name)}: <b>${s.digital?(s.y[k]?'H':'L'):s.y[k]+' '+esc(s.unit||'')}</b>`).join('<br>');
+    tip.style.display='block'; tip.style.top='34px'; tip.style.left=Math.max(4,Math.min(px+14,b.width-tip.offsetWidth-4))+'px';});
+  ov.addEventListener('pointerleave',()=>{xh.setAttribute('visibility','hidden');tip.style.display='none';});
+  host.querySelectorAll('[data-open]').forEach(x=>x.onclick=()=>openItem(x.dataset.open));
+  const cx=host.querySelector('#waveX'); if(cx) cx.onclick=()=>{CV.wave=null;host.innerHTML='';host.className='';};
+}
+let _wvT; window.addEventListener('resize',()=>{clearTimeout(_wvT);_wvT=setTimeout(()=>{if(view.kind==='stage'&&stageTab==='canvas'){drawEdges();const t=CV.wave&&S.byId[CV.wave];if(t)renderWave($('#wave'),t);}},200);});
+
 // ---------------- drawer ----------------
 function wordDiff(a,b){const A=a.split(/(\s+)/),B=b.split(/(\s+)/);if(A.length*B.length>250000)return esc(b);const n=A.length,m=B.length,dp=Array.from({length:n+1},()=>new Int32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=A[i]===B[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);let i=0,j=0,o='';while(i<n&&j<m){if(A[i]===B[j]){o+=esc(A[i]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){o+=`<del>${esc(A[i])}</del>`;i++;}else{o+=`<ins>${esc(B[j])}</ins>`;j++;}}while(i<n)o+=`<del>${esc(A[i++])}</del>`;while(j<m)o+=`<ins>${esc(B[j++])}</ins>`;return o;}
 async function openItem(id){
@@ -494,7 +852,7 @@ async function openItem(id){
   const t=S.types[it.type]||{}; const ups=S.up[id]||[], downs=S.down[id]||[]; const ro=STATIC;
   const roleOpts=[...new Set(S.link_rules.filter(r=>r.src===it.type||r.src==='*').map(r=>r.role))];
   const linkRow=(l,other,dir)=>`<div class="lk ${l.state==='proposed'?'prop':''}"><span class="muted" style="width:72px">${dir} ${esc(l.role)}</span><span class="id" data-open="${esc(other)}" style="--c:${tcolor(S.byId[other]?.type||'')}">${esc(other)}</span>${l.suspect?'<span class="chip sus">SUSPECT</span>':''}${l.state==='proposed'?'<span class="chip">제안</span>':''}<span class="t">${esc(S.byId[other]?.text||'')}</span>${ro?'':`${l.state==='proposed'?`<button class="btn sm" data-ok="${esc(l.src)}|${esc(l.role)}|${esc(l.dst)}">✓</button>`:''}${l.suspect?`<button class="btn sm" data-clr="${esc(l.src)}|${esc(l.dst)}">검토완료</button>`:''}<button class="btn sm" data-del="${esc(l.src)}|${esc(l.role)}|${esc(l.dst)}">✕</button>`}</div>`;
-  const a=it.attrs; const hide=['grid','quantities','prev_text','prev_file','fields','labels','file','sha','orig_ext','converted','render','level','number','list_level','level_confidence','table_row','table_caption','caption','native_id','spec','custom','derived_from','plantuml','rte_ports'];
+  const a=it.attrs; const hide=['grid','quantities','prev_text','prev_file','fields','labels','file','sha','orig_ext','converted','render','level','number','list_level','level_confidence','table_row','table_caption','caption','native_id','spec','custom','derived_from','plantuml','rte_ports','result','results','canvas_layout','hw','canvas','from','to','signal_class','signals','block_kind','asil','kind','tool','boundary','pass_criteria'];
   const extra=Object.entries(a).filter(([k])=>!hide.includes(k));
   $('#drawer').innerHTML=`<div class="row"><h3 style="--c:${tcolor(it.type)};color:var(--c)">${esc(it.id)}</h3><span class="spacer"></span><button class="btn sm" id="cls">닫기</button></div>
    <div class="row" style="margin:4px 0 8px"><span class="chip">${esc(it.type)} · ${esc(t.aspice||'')} · ${esc(t.polarion||'')}</span><span class="chip">${esc(it.domain)}</span><span class="chip ${it.status}">${esc(it.status)}</span><span class="chip">v${it.version}</span>${a.derived_from?`<span class="chip" data-open="${esc(a.derived_from)}" style="cursor:pointer">← ${esc(a.derived_from)} 에서 전개</span>`:''}</div>
@@ -505,6 +863,9 @@ async function openItem(id){
    ${a.prev_text&&it.type!=='FIG'?`<div class="sec"><b>직전 개정 대비 변경</b><div style="font-size:13px">${wordDiff(a.prev_text,it.text)}</div></div>`:''}
    ${a.prev_file?`<div class="sec"><b>이전 개정 그림</b><img src="${asset(a.prev_file)}" style="max-width:100%;background:#fff;opacity:.85"></div>`:''}
    <div class="sec"><b>속성</b><div class="kv"><span>문서</span><span>${esc(it.doc)} rev ${esc(it.doc_rev)}</span><span>원문 위치</span><span>${esc(it.source_loc)}</span><span>섹션</span><span>${esc(it.section)}</span>${a.native_id?`<span>원문 ID</span><span>${esc(a.native_id)}</span>`:''}${a.level_confidence!==undefined?`<span>분류 신뢰도</span><span>${a.level_confidence}</span>`:''}${(a.quantities||[]).length?`<span>수치</span><span>${a.quantities.map(q=>esc(q.raw)).join(', ')}</span>`:''}${Object.entries(a.fields||{}).map(([k,v])=>`<span>${esc(k)}</span><span>${esc(v)}</span>`).join('')}${extra.map(([k,v])=>`<span>${esc(k)}</span><span>${esc(typeof v==='object'?JSON.stringify(v):v)}</span>`).join('')}</div></div>
+   ${a.hw?`<div class="sec"><b>HW 속성</b><div class="kv"><span>부품</span><span>${esc(a.hw.part_number||'—')}</span><span>인터페이스</span><span>${esc(a.hw.interfaces||'—')}</span><span>안전 메커니즘</span><span>${esc(a.hw.safety_mechanism||'—')}</span><span>ASIL</span><span>${esc(a.asil||'QM')}</span></div></div>`:''}
+   ${it.type==='IF'?`<div class="sec"><b>인터페이스</b><div class="kv"><span>연결</span><span><span class="id" data-open="${esc(a.from)}" style="cursor:pointer">${esc(a.from)}</span> → <span class="id" data-open="${esc(a.to)}" style="cursor:pointer">${esc(a.to)}</span></span><span>신호 분류</span><span>${esc(S.signal_classes[a.signal_class]||a.signal_class)}</span><span>신호</span><span class="mono">${esc((a.signals||[]).join(', ')||'—')}</span><span>블록도</span><span>${esc(a.canvas)}</span></div></div>`:''}
+   ${a.result?`<div class="sec"><b>시험 결과</b>${resultHead(a.result)}${a.result.waveform?'<div id="drWave"></div>':''}${(a.results||[]).length>1?`<div style="margin-top:8px">${a.results.slice().reverse().map(r=>`<div class="lk"><span class="res ${r.status}">${resLabel(r.status)}</span><span class="mono" style="font-size:11.5px">${esc(r.run_id||'-')}</span><span class="t">${esc(fmtAt(r.at))} · ${esc(r.tool||'')}</span></div>`).join('')}</div>`:''}</div>`:''}
    ${a.plantuml?`<div class="sec"><b>PlantUML</b><pre class="code">${esc(a.plantuml)}</pre></div>`:''}
    ${it.type==='TBL'?`<div class="sec"><b>표</b><div class="tblwrap">${tableHTML(a.grid||[])}</div></div>`:''}${it.type==='FIG'&&a.file?`<div class="sec"><b>그림</b><img src="${asset(a.file)}" style="max-width:100%;background:#fff"></div>`:''}
    <div class="sec"><b>추적 링크</b>${ups.map(l=>linkRow(l,l.dst,'↑')).join('')}${downs.map(l=>linkRow(l,l.src,'↓')).join('')||(ups.length?'':'<div class="muted">링크 없음</div>')}
@@ -512,6 +873,7 @@ async function openItem(id){
    ${ro||!REQ(it.type)?'':`<div class="sec"><b>재분류</b><div class="row"><select id="rtype" class="btn">${Object.keys(S.types).filter(REQ).map(k=>`<option ${k===it.type?'selected':''}>${k}</option>`).join('')}</select><button class="btn" id="rgo">타입 변경 (새 ID 발급)</button></div></div>`}
    <div class="sec"><b>이력</b>${hist.slice().reverse().map((h,k,arr)=>`<div class="hist"><b>v${h.version}</b> ${esc(h.change)} <span class="muted">${new Date(h.at*1000).toLocaleString()} · ${esc(h.by)}</span>${arr[k+1]&&arr[k+1].text!==h.text?`<div>${wordDiff(arr[k+1].text,h.text)}</div>`:''}</div>`).join('')}</div>`;
   $('#drawer').classList.add('open');
+  if(a.result?.waveform&&$('#drWave')) renderWave($('#drWave'),it,true);
   $('#cls').onclick=()=>{$('#drawer').classList.remove('open');selected=null;document.querySelectorAll('.req.sel').forEach(e=>e.classList.remove('sel'));};
   $('#drawer').querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>openItem(e.dataset.open));
   if(ro) return;
@@ -620,7 +982,7 @@ $('#impGo').onclick=async()=>{
   try{const s=await runImport(false); let msg=`${s.doc} rev ${s.rev}: 신규 ${s.new.length} · 변경 ${s.modified.length} · 삭제 ${s.deleted.length}`;
     const mode=$('#impMode').value; let target={crs:'SYS1',sys2:'SYS2',swe1:'SWE1',srs:'SYS2',info:null}[mode];
     if(mode==='crs'&&$('#impDerive').checked){const d=await api('/api/derive',{from:'SYS1',to:'SYS2'});msg+=` → SYS.2 SRS 초안 ${d.created.length}건 생성`;target='SYS2';}
-    $('#dlgImport').close(); await load(); if(target){view={kind:'stage',sid:target};stageTab='doc';render();} toast(msg);
+    $('#dlgImport').close(); await load(); if(target) goStage(target); toast(msg);
   }catch(e){toast('실패: '+e.message);} $('#impGo').disabled=false;
 };
 // ---------------- derive dialog ----------------
@@ -630,7 +992,7 @@ function openDerive(from,tos){
   $('#dvDesc').textContent=`${f.aspice}의 ${S.stage_counts[from].total}건을 원천으로 초안(draft) 아이템과 추적 링크를 만듭니다. 이미 전개된 항목은 건너뜁니다.`;
   $('#dvTo').innerHTML=tos.map(t=>`<option value="${t}">${S.stageById[t].aspice} ${S.stageById[t].name}</option>`).join('');
   const rule=()=>{$('#dvRule').textContent=RULES[`${from}>${$('#dvTo').value}`]||'';}; $('#dvTo').onchange=rule; rule();
-  $('#dvGo').onclick=async()=>{$('#dvGo').disabled=true;try{const r=await api('/api/derive',{from,to:$('#dvTo').value});$('#dlgDerive').close();await load();view={kind:'stage',sid:r.to};stageTab='doc';render();toast(`${r.from} → ${r.to}: 신규 ${r.created.length}건, 링크 ${r.links}건, 건너뜀 ${r.skipped.length}건`);}catch(e){toast(e.message);}$('#dvGo').disabled=false;};
+  $('#dvGo').onclick=async()=>{$('#dvGo').disabled=true;try{const r=await api('/api/derive',{from,to:$('#dvTo').value});$('#dlgDerive').close();await load();goStage(r.to);toast(`${r.from} → ${r.to}: 신규 ${r.created.length}건, 링크 ${r.links}건, 건너뜀 ${r.skipped.length}건`);}catch(e){toast(e.message);}$('#dvGo').disabled=false;};
   $('#dlgDerive').showModal();
 }
 $('#dvClose').onclick=()=>$('#dlgDerive').close();

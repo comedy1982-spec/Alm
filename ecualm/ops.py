@@ -49,10 +49,12 @@ def edit_item(repo: Repo, cfg: dict, item_id: str, text: str | None = None, stat
     content_changed = False
     if text is not None and text != cur["text"]:
         an = Analyzer(cfg)
-        attrs = dict(cur["attrs"])
-        attrs["quantities"] = quantities(text)
-        attrs["prev_text"] = cur["text"]
-        changes.update(text=text, title=text[:80], fingerprint=fingerprint(text), attrs=attrs,
+        new_attrs = dict(cur["attrs"])
+        new_attrs["quantities"] = quantities(text)
+        new_attrs["prev_text"] = cur["text"]
+        # a title that was only the first 80 chars of the text follows the text; a real name (block, unit) stays
+        title = text[:80] if cur["type"] in REQ_TYPES and cur["title"] == cur["text"][:80] else cur["title"]
+        changes.update(text=text, title=title, fingerprint=fingerprint(text), attrs=new_attrs,
                        lint=an.lint(text, cur["type"]) if cur["type"] in REQ_TYPES else [])
         content_changed = True
         if cur["status"] == "approved" and status is None:
@@ -63,9 +65,9 @@ def edit_item(repo: Repo, cfg: dict, item_id: str, text: str | None = None, stat
         changes["attrs"] = a
         content_changed = True
     if custom:
-        attrs = changes.get("attrs", dict(cur["attrs"]))
-        attrs["custom"] = {**attrs.get("custom", {}), **custom}
-        changes["attrs"] = attrs
+        a = changes.get("attrs", dict(cur["attrs"]))
+        a["custom"] = {**a.get("custom", {}), **custom}
+        changes["attrs"] = a
         content_changed = True
     if status is not None:
         if status not in STATUSES:

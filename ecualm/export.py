@@ -164,6 +164,7 @@ def state_payload(repo: Repo, cfg: dict) -> dict:
         "stage_counts": __import__("ecualm.stages", fromlist=["stage_counts"]).stage_counts(repo, cfg),
         "domain_names": cfg["domain_names"],
         "link_rules": cfg["link_rules"],
+        "signal_classes": cfg.get("signal_classes", {}),
         "docs": repo.docs(),
         "items": repo.items(include_deleted=True),
         "links": repo.links(),

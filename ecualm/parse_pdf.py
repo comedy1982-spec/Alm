@@ -10,7 +10,6 @@
 * Repeated headers / footers and logos are dropped.
 """
 from __future__ import annotations
-from __future__ import annotations
 
 import re
 from collections import Counter

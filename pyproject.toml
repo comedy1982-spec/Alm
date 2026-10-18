@@ -16,4 +16,4 @@ ecualm = "ecualm.cli:main"
 packages = ["ecualm"]
 
 [tool.setuptools.package-data]
-ecualm = ["web/*"]
+ecualm = ["web/*", "data/*.json"]

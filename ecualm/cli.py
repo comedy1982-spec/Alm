@@ -11,9 +11,11 @@
   ecualm stagedoc SYS2                           PAM 4.0 구조 SRS 보기 / export docx srs.docx --stage SYS2
   ecualm export xlsx out.xlsx | json out.json | md ./md | html snapshot.html
   ecualm baseline create BL_v1.0 / baseline diff BL_v1.0
+  ecualm results results.json                   CI/HIL 시험 결과(PASS/FAIL·파형) 반영 → audit 에 FAIL·재시험 필요 표시
+  ecualm arch export HWE2 hw.json / arch import hw.json / arch sample   블록도를 JSON(Git) 으로 주고받기
+  ecualm artifact HWE2-0003                     아이템 하나의 추적 JSON (상위·SW 할당·검증 결과·인터페이스)
   ecualm serve --port 8765                      웹 UI
 """
-from __future__ import annotations
 from __future__ import annotations
 
 import argparse
@@ -329,6 +331,39 @@ def cmd_serve(args):
     serve(_root(args), args.host, args.port)
 
 
+def cmd_results(args):
+    from .arch import ingest_results
+    repo, cfg = _ctx(args)
+    r = ingest_results(repo, cfg, json.loads(Path(args.file).read_text(encoding="utf-8")), user=args.user)
+    print(f"결과 반영 {len(r['updated'])}건" + (f", 알 수 없는 TC {len(r['unknown'])}건: {', '.join(map(str, r['unknown']))}" if r["unknown"] else ""))
+    if r["unknown"] and args.strict:
+        sys.exit(2)
+
+
+def cmd_arch(args):
+    from . import arch
+    repo, cfg = _ctx(args)
+    if args.action == "export":
+        if not args.target or not args.out:
+            raise ValueError("사용법: ecualm arch export <SYS3|HWE2|SWE2> <out.json>")
+        Path(args.out).write_text(json.dumps(arch.export_arch(repo, cfg, args.target), ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"내보냄: {args.out}")
+        return
+    if args.action == "import":
+        if not args.target:
+            raise ValueError("사용법: ecualm arch import <arch.json>")
+        r = arch.import_arch(repo, cfg, json.loads(Path(args.target).read_text(encoding="utf-8")), user=args.user)
+    else:
+        r = arch.load_sample(repo, cfg, user=args.user)
+    print(f"[{r['canvas']}] 블록 신규 {len(r['created'])} · 갱신 {len(r['updated'])} · 인터페이스 {r['interfaces']} · TC {r['tests']} · 결과 {r['results']}")
+
+
+def cmd_artifact(args):
+    from .arch import artifact_json
+    repo, cfg = _ctx(args)
+    print(json.dumps(artifact_json(repo, cfg, args.id), ensure_ascii=False, indent=2))
+
+
 def cmd_stats(args):
     repo, cfg = _ctx(args)
     for d in repo.docs():
@@ -384,6 +419,11 @@ def main(argv=None):
     p.add_argument("--mode", default="pam", choices=["pam", "source"]); p.set_defaults(fn=cmd_stagedoc)
     p = sub.add_parser("baseline"); p.add_argument("action", choices=["create", "list", "diff"])
     p.add_argument("name", nargs="?"); p.add_argument("other", nargs="?"); p.add_argument("--note"); p.set_defaults(fn=cmd_baseline)
+    p = sub.add_parser("results", help="시험 결과 JSON 반영 (CI/HIL)"); p.add_argument("file")
+    p.add_argument("--strict", action="store_true", help="모르는 TC 가 있으면 종료 코드 2"); p.set_defaults(fn=cmd_results)
+    p = sub.add_parser("arch", help="블록도 JSON 내보내기/가져오기"); p.add_argument("action", choices=["export", "import", "sample"])
+    p.add_argument("target", nargs="?", help="export: 단계 ID, import: 파일"); p.add_argument("out", nargs="?"); p.set_defaults(fn=cmd_arch)
+    p = sub.add_parser("artifact", help="아이템 추적 JSON"); p.add_argument("id"); p.set_defaults(fn=cmd_artifact)
     p = sub.add_parser("serve"); p.add_argument("--host", default="127.0.0.1"); p.add_argument("--port", type=int, default=8765)
     p.set_defaults(fn=cmd_serve)
     p = sub.add_parser("stats"); p.set_defaults(fn=cmd_stats)

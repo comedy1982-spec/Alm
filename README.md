@@ -31,6 +31,36 @@ ecualm stagedoc SYS2                            # 터미널에서 SRS 구조 보
 ecualm export docx SRS.docx --stage SYS2        # Word 로 내보내기
 ```
 
+### HW 공정 (HWE.1 ~ HWE.4) 과 블록도
+
+V-모델에 HW 분기가 있습니다. **SYS.2 → HWE.1**(HW 요구사항) **→ HWE.2**(HW 블록) **⇄ HWE.3**(HW 설계 검증) / **HWE.4**(HW 적격성 시험)입니다.
+
+- **블록도 탭** (SYS.3 · HWE.2 · SWE.2): 블록 하나하나가 추적 아이템이고, 블록 사이의 선도 `IF-0001` 같은 ID를 가진 **인터페이스 아이템**입니다. 블록을 끌어 배치하면 위치만 저장되고 버전은 바뀌지 않습니다. 블록 오른쪽 ● 를 다른 블록으로 끌면 인터페이스가 생기고(신호 분류: 전원·PWM·SPI·CAN·아날로그·디지털·전력 출력), 두 블록에 `connects` 링크가 걸립니다. 블록이 바뀌면 그 블록에 연결된 인터페이스, 검증 TC, SW 쪽 링크가 모두 Suspect가 됩니다.
+- **인스펙터**: 블록이나 선을 누르면 오른쪽에 ▲상위 요구사항(satisfies/refines), ▼이 블록을 제어하는 SW(`SWE2/SWE3 —controls→ HWE2`), ▼검증 TC와 PASS/FAIL, 인터페이스 목록이 나옵니다. 부품 번호, 안전 메커니즘, ASIL은 여기서 바로 고칩니다. **추적 JSON**은 아이템 하나의 추적 정보를 한 번에 담은 JSON입니다(`ecualm artifact <ID>`).
+- **시험 결과와 파형**: CI, HIL, 벤치 결과를 `POST /api/results` 또는 `ecualm results results.json`으로 넣으면 TC에 결과가 붙고, 파형이 있으면 FTTI 반응 시간과 한계를 함께 그립니다. 감사에서는 FAIL이 `test_fail`(error)로, PASS를 받은 뒤 대상이 바뀐 경우가 `result_stale`(warn, 재시험 필요)로 나옵니다.
+- **Diagram-as-Code**: 블록도는 `ecualm arch export HWE2 hw.json`으로 저장해 Git에 커밋하고, `ecualm arch import hw.json`으로 다시 넣습니다. 같은 파일을 여러 번 넣어도 중복되지 않습니다. 화면의 "샘플 HW 아키텍처"(또는 `ecualm arch sample`)는 30페이지 SRS의 BLDC ECU(TC364, DRV8305, TLF35584, TJA1043, AS5047) 블록도, 인터페이스 10개, HWE.3 TC 4개, 벤치 결과 3건(과전류 차단 6.2µs PASS, 와치독 11.2ms PASS, CAN 복구 FAIL)을 불러옵니다.
+
+```bash
+ecualm derive SYS2 HWE1 && ecualm derive SYS2 SYS3 && ecualm derive SYS3 HWE2 && ecualm derive HWE1 HWE2
+ecualm derive HWE2 HWE3 && ecualm derive HWE1 HWE4
+ecualm arch sample                              # BLDC ECU 블록도 + 시험 결과 샘플
+ecualm results ci_results.json --strict         # CI: 모르는 TC 가 있으면 종료 코드 2
+ecualm audit --fail-on error                    # test_fail 이 있으면 실패
+```
+
+시험 결과 JSON 형식 (파형은 선택):
+
+```json
+{"results": [{"tc": "HWE3-TC-SAFE-0003", "status": "PASS", "run_id": "HIL-1288", "tool": "TRACE32 + NI DAQ",
+  "metrics": {"reaction": 6.2, "limit": 10, "unit": "µs", "label": "단락 주입 → EN_GATE 차단"},
+  "waveform": {"x_unit": "µs", "x": [0, 0.25, 0.5],
+               "panels": [{"title": "상전류", "unit": "A", "series": [{"name": "I_U", "y": [8, 9, 10]}], "thresholds": [{"y": 20, "label": "20A"}]},
+                          {"kind": "digital", "series": [{"name": "EN_GATE", "y": [1, 1, 0]}]}],
+               "markers": [{"x": 0, "label": "단락 주입"}]}}]}
+```
+
+`tc` 에는 ECU-ALM ID 또는 TC의 원문 ID(native_id)를 씁니다. 아날로그 값과 디지털 신호는 시간축 하나를 공유하는 별도 패널로 그립니다. y축을 두 개 쓰지 않습니다.
+
 ### 30페이지 SRS 전개 예시
 
 `samples/SRS_BLDC_Full_revA.docx`(30쪽, 요구사항 169건, 표 20개, 그림 5개)를 통합 SRS로 넣으면 다음과 같이 전개됩니다.
@@ -131,9 +161,15 @@ ecualm export xlsx out.xlsx | json out.json | md ./md | html snapshot.html
 | SWE5_TC | verifies | SWE2 |
 | SWE4_TC | verifies | SWE3 |
 | SYS5_TC | verifies | SYS2 |
-| SYS4_TC | verifies | SYS3/HSI |
+| SYS4_TC | verifies | SYS3/HSI/IF |
+| HWE1 | refines | SYS2 |
+| HWE2 | satisfies / refines | HWE1 / SYS3 |
+| IF (인터페이스) | connects | SYS3/HWE2/SWE2 블록 |
+| SWE2/SWE3 | controls | HWE2 |
+| HWE3_TC | verifies | HWE2/IF |
+| HWE4_TC | verifies | HWE1 |
 
-규칙은 `alm.json`의 `link_rules`와 `coverage_rules`에서 수정합니다.
+규칙은 `alm.json`의 `link_rules`와 `coverage_rules`에서 수정합니다. 예전 버전이 만든 `alm.json`에도 새 단계(HWE.1~4)와 규칙이 자동으로 추가됩니다. 이 자동 추가를 원하지 않으면 `"strict_lists": true`를 넣으세요.
 
 ## AI 정제 (선택)
 

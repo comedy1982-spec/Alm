@@ -5,7 +5,6 @@ to adapt types, prefixes, keywords and rules to your project. Values in alm.json
 override the defaults below key by key.
 """
 from __future__ import annotations
-from __future__ import annotations
 
 import copy
 import json
@@ -23,6 +22,11 @@ DEFAULT_CONFIG: dict = {
         "SYS2":    {"prefix": "SYS2",    "name": "System Requirement",    "aspice": "SYS.2", "polarion": "systemRequirement",   "requirement": True},
         "SYS3":    {"prefix": "SYS3",    "name": "System Arch Element",   "aspice": "SYS.3", "polarion": "sysArchElement",      "requirement": False},
         "HSI":     {"prefix": "HSI",     "name": "HW-SW Interface",       "aspice": "SYS.3", "polarion": "hsiSpec",             "requirement": True},
+        "HWE1":    {"prefix": "HWE1",    "name": "HW Requirement",        "aspice": "HWE.1", "polarion": "hardwareRequirement", "requirement": True},
+        "HWE2":    {"prefix": "HWE2",    "name": "HW Arch Block",         "aspice": "HWE.2", "polarion": "hwArchBlock",         "requirement": False},
+        "IF":      {"prefix": "IF",      "name": "Interface (block link)","aspice": "SYS.3/HWE.2/SWE.2", "polarion": "interface", "requirement": False},
+        "HWE3_TC": {"prefix": "HWE3-TC", "name": "HW Design Verification TC", "aspice": "HWE.3", "polarion": "hwTestCase",   "requirement": False},
+        "HWE4_TC": {"prefix": "HWE4-TC", "name": "HW Qualification TC",   "aspice": "HWE.4", "polarion": "hwQualTestCase",      "requirement": False},
         "SWE1":    {"prefix": "SWE1",    "name": "Software Requirement",  "aspice": "SWE.1", "polarion": "softwareRequirement", "requirement": True},
         "SWE2":    {"prefix": "SWE2",    "name": "SW Arch Element",       "aspice": "SWE.2", "polarion": "swArchElement",       "requirement": False},
         "SWE3":    {"prefix": "SWE3",    "name": "SW Unit Design",        "aspice": "SWE.3", "polarion": "swUnitDesign",        "requirement": False},
@@ -42,6 +46,16 @@ DEFAULT_CONFIG: dict = {
         {"src": "SYS2",    "role": "derives",    "dst": ["CRS"]},
         {"src": "SYS3",    "role": "satisfies",  "dst": ["SYS2"]},
         {"src": "HSI",     "role": "satisfies",  "dst": ["SYS2"]},
+        {"src": "HWE1",    "role": "refines",    "dst": ["SYS2"]},
+        {"src": "HWE1",    "role": "uses",       "dst": ["HSI"]},
+        {"src": "HWE2",    "role": "satisfies",  "dst": ["HWE1"]},
+        {"src": "HWE2",    "role": "refines",    "dst": ["SYS3"]},
+        {"src": "IF",      "role": "connects",   "dst": ["SYS3", "HWE2", "SWE2"]},
+        {"src": "IF",      "role": "uses",       "dst": ["HSI"]},
+        {"src": "HWE3_TC", "role": "verifies",   "dst": ["HWE2", "IF"]},
+        {"src": "HWE4_TC", "role": "verifies",   "dst": ["HWE1"]},
+        {"src": "SWE2",    "role": "controls",   "dst": ["HWE2"]},
+        {"src": "SWE3",    "role": "controls",   "dst": ["HWE2"]},
         {"src": "SWE1",    "role": "refines",    "dst": ["SYS2"]},
         {"src": "SWE1",    "role": "uses",       "dst": ["HSI"]},
         {"src": "SWE2",    "role": "allocates",  "dst": ["SWE1"]},
@@ -49,7 +63,7 @@ DEFAULT_CONFIG: dict = {
         {"src": "SWE4_TC", "role": "verifies",   "dst": ["SWE3"]},
         {"src": "SWE5_TC", "role": "verifies",   "dst": ["SWE2"]},
         {"src": "SWE6_TC", "role": "verifies",   "dst": ["SWE1"]},
-        {"src": "SYS4_TC", "role": "verifies",   "dst": ["SYS3", "HSI"]},
+        {"src": "SYS4_TC", "role": "verifies",   "dst": ["SYS3", "HSI", "IF"]},
         {"src": "SYS5_TC", "role": "verifies",   "dst": ["SYS2"]},
         {"src": "*",       "role": "relates",    "dst": ["*"]},
     ],
@@ -63,18 +77,26 @@ DEFAULT_CONFIG: dict = {
         {"type": "SWE1", "direction": "downstream", "role": "verifies",  "types": ["SWE6_TC"], "only_if_exists": True, "severity": "warn",  "msg": "SWE.1 을 검증하는 SW 검증 TC(SWE.6) 없음"},
         {"type": "SWE2", "direction": "downstream", "role": "verifies",  "types": ["SWE5_TC"], "only_if_exists": True, "severity": "warn",  "msg": "SWE.2 를 검증하는 통합 TC(SWE.5) 없음"},
         {"type": "HSI",  "direction": "downstream", "role": "verifies",  "types": ["SYS4_TC"], "only_if_exists": True, "severity": "warn",  "msg": "HSI 항목을 검증하는 시스템 통합 TC(SYS.4) 없음"},
+        {"type": "HWE1", "direction": "upstream",   "role": "refines",   "types": ["SYS2"],    "severity": "error", "msg": "HWE.1 이 시스템 요구사항(SYS.2)과 연결되지 않음 (고아 요구사항)"},
+        {"type": "HWE1", "direction": "downstream", "role": "satisfies", "types": ["HWE2"],    "only_if_exists": True, "severity": "error", "msg": "HWE.1 이 HW 블록(HWE.2)에 할당되지 않음"},
+        {"type": "HWE1", "direction": "downstream", "role": "verifies",  "types": ["HWE4_TC"], "only_if_exists": True, "severity": "warn",  "msg": "HWE.1 을 검증하는 HW 적격성 TC(HWE.4) 없음"},
+        {"type": "HWE2", "direction": "downstream", "role": "verifies",  "types": ["HWE3_TC"], "only_if_exists": True, "severity": "warn",  "msg": "HW 블록(HWE.2)을 검증하는 HW 설계 검증 TC(HWE.3) 없음"},
     ],
     # ASPICE stages shown in the UI (left-to-right on the V). `next` = stages this one can be deployed to.
     "stages": [
         {"id": "SYS1", "aspice": "SYS.1", "name": "고객 요구사항",       "short": "CRS",  "types": ["CRS"],           "next": ["SYS2"],                 "side": "spec"},
-        {"id": "SYS2", "aspice": "SYS.2", "name": "시스템 요구사항",     "short": "SRS",  "types": ["SYS2"],          "next": ["SYS3", "SWE1", "SYS5"], "side": "spec"},
-        {"id": "SYS3", "aspice": "SYS.3", "name": "시스템 아키텍처·HSI", "short": "SAD",  "types": ["SYS3", "HSI"],   "next": ["SWE1", "SYS4"],         "side": "spec"},
+        {"id": "SYS2", "aspice": "SYS.2", "name": "시스템 요구사항",     "short": "SRS",  "types": ["SYS2"],          "next": ["SYS3", "HWE1", "SWE1", "SYS5"], "side": "spec"},
+        {"id": "SYS3", "aspice": "SYS.3", "name": "시스템 아키텍처·HSI", "short": "SAD",  "types": ["SYS3", "HSI"],   "next": ["HWE2", "SWE1", "SYS4"], "side": "spec", "canvas": "SYS3"},
+        {"id": "HWE1", "aspice": "HWE.1", "name": "HW 요구사항",         "short": "HWRS", "types": ["HWE1"],          "next": ["HWE2", "HWE4"],         "side": "spec"},
+        {"id": "HWE2", "aspice": "HWE.2", "name": "HW 설계 (블록도)",    "short": "HWAD", "types": ["HWE2"],          "next": ["HWE3"],                 "side": "spec", "canvas": "HWE2"},
         {"id": "SWE1", "aspice": "SWE.1", "name": "SW 요구사항",         "short": "SWRS", "types": ["SWE1"],          "next": ["SWE2", "SWE6"],         "side": "spec"},
-        {"id": "SWE2", "aspice": "SWE.2", "name": "SW 아키텍처",         "short": "SWAD", "types": ["SWE2"],          "next": ["SWE3", "SWE5"],         "side": "spec"},
+        {"id": "SWE2", "aspice": "SWE.2", "name": "SW 아키텍처",         "short": "SWAD", "types": ["SWE2"],          "next": ["SWE3", "SWE5"],         "side": "spec", "canvas": "SWE2"},
         {"id": "SWE3", "aspice": "SWE.3", "name": "SW 상세설계",         "short": "SWDD", "types": ["SWE3"],          "next": ["SWE4"],                 "side": "spec"},
         {"id": "SWE4", "aspice": "SWE.4", "name": "유닛 검증",           "short": "UT",   "types": ["SWE4_TC"],       "next": [],                       "side": "verify", "verifies": "SWE3"},
         {"id": "SWE5", "aspice": "SWE.5", "name": "SW 통합 검증",        "short": "IT",   "types": ["SWE5_TC"],       "next": [],                       "side": "verify", "verifies": "SWE2"},
         {"id": "SWE6", "aspice": "SWE.6", "name": "SW 검증",             "short": "SWT",  "types": ["SWE6_TC"],       "next": [],                       "side": "verify", "verifies": "SWE1"},
+        {"id": "HWE3", "aspice": "HWE.3", "name": "HW 설계 검증",        "short": "HWDV", "types": ["HWE3_TC"],       "next": [],                       "side": "verify", "verifies": "HWE2"},
+        {"id": "HWE4", "aspice": "HWE.4", "name": "HW 적격성 시험",      "short": "HWQT", "types": ["HWE4_TC"],       "next": [],                       "side": "verify", "verifies": "HWE1"},
         {"id": "SYS4", "aspice": "SYS.4", "name": "시스템 통합 검증",    "short": "SIT",  "types": ["SYS4_TC"],       "next": [],                       "side": "verify", "verifies": "SYS3"},
         {"id": "SYS5", "aspice": "SYS.5", "name": "시스템 검증",         "short": "SYT",  "types": ["SYS5_TC"],       "next": [],                       "side": "verify", "verifies": "SYS2"},
     ],
@@ -100,6 +122,14 @@ DEFAULT_CONFIG: dict = {
         "MECH": ["기구부 및 커넥터"],
         "GEN":  ["TC364 MCU"],
     },
+    # SYS.2 domains whose requirements are refined into HW requirements (derive SYS2 → HWE1).
+    # A requirement also qualifies when it contains one of hwe1_keywords. MECH/MFG stay at SYS.2.
+    "hwe1_domains": ["PWR", "SAFE", "ENV", "HSI"],
+    "hwe1_keywords": ["전압", "전류", "회로", "PCB", "하드웨어", "비교기", "MOSFET", "게이트", "PMIC", "와치독", "ESD", "EMC",
+                      "트랜시버", "센서 전원", "단락", "접합 온도", "핀", "커넥터 핀", "Shut-off"],
+    # Signal classes of interfaces drawn on the block diagram (colour = categorical slot order)
+    "signal_classes": {"power": "전원", "pwm": "PWM·게이트", "spi": "SPI·디지털 버스", "can": "CAN / CAN-FD",
+                       "analog": "아날로그 피드백", "digital": "디지털 I/O·고장 신호", "mech": "기계·전력 출력"},
     # SWE.2 AUTOSAR components a SWE.1 requirement of a domain is allocated to (derive SWE1 → SWE2)
     "swe2_allocation": {
         "MOT":  [{"name": "SWC_PosCtrl", "layer": "ASW"}, {"name": "CDD_BldcDrv", "layer": "CDD", "if": ["PWM", "전류", "ADC", "GTM", "EVADC", "1ms", "100us"]}],
@@ -171,6 +201,12 @@ DEFAULT_CONFIG: dict = {
 }
 
 
+# list-valued keys: entries a newer version adds are appended to an older alm.json (by key) unless
+# the project sets "strict_lists": true. The project's own entries always win.
+_LIST_KEYS = {"stages": lambda e: e["id"], "link_rules": lambda e: (e["src"], e["role"]),
+              "coverage_rules": lambda e: (e["type"], e["direction"], e["role"], tuple(e["types"]))}
+
+
 def load_config(root: Path) -> dict:
     cfg = copy.deepcopy(DEFAULT_CONFIG)
     path = root / "alm.json"
@@ -179,6 +215,21 @@ def load_config(root: Path) -> dict:
         for k, v in user.items():
             if isinstance(v, dict) and isinstance(cfg.get(k), dict):
                 cfg[k].update(v)
+            elif k in _LIST_KEYS and isinstance(v, list) and not user.get("strict_lists"):
+                key = _LIST_KEYS[k]
+                have = {key(e) for e in v}
+                merged = list(v)
+                for i, e in enumerate(DEFAULT_CONFIG[k]):
+                    if key(e) not in have:
+                        merged.insert(min(i, len(merged)), copy.deepcopy(e))
+                if k == "stages":   # new stages must also be reachable from the project's own stages
+                    for s in merged:
+                        d = next((x for x in DEFAULT_CONFIG["stages"] if x["id"] == s["id"]), None)
+                        if d:
+                            s["next"] = list(dict.fromkeys(s.get("next", []) + [n for n in d["next"] if n not in s.get("next", [])]))
+                            if d.get("canvas") and "canvas" not in s:
+                                s["canvas"] = d["canvas"]
+                cfg[k] = merged
             else:
                 cfg[k] = v
     return cfg

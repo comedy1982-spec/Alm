@@ -15,7 +15,7 @@ from .blocks import Block
 from .classify import Analyzer, quantities
 from .db import Repo
 
-REQ_TYPES = {"CRS", "SYS2", "SWE1", "HSI"}
+REQ_TYPES = {"CRS", "SYS2", "SWE1", "HSI", "HWE1"}
 META_RE = re.compile(r"^\s*(ASIL\s+\S+\s*·\s*)?(검증|근거|비고)\s*[:：]")
 
 
