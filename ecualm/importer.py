@@ -20,7 +20,56 @@ META_RE = re.compile(r"^\s*(ASIL\s+\S+\s*·\s*)?(검증|근거|비고)\s*[:：]"
 
 
 # ---------------------------------------------------------------- parsing
+_OWN_ID_SPLIT = re.compile(r"\s*(?=\[[A-Z][A-Z0-9]{1,10}(?:[-_][A-Z0-9]{1,10}){0,3}[-_]\d{1,6}\])")
+
+
 def parse_any(path: Path) -> list[Block]:
+    return _normalize_blocks(_parse_raw(path))
+
+
+def _normalize_blocks(blocks: list[Block]) -> list[Block]:
+    """Repairs that PDF extraction typically needs (harmless for DOCX):
+    * a paragraph that swallowed the next bracketed requirement ("검증: HIL[REQ-X-002] ...") is split
+      so each "[ID] ..." statement is its own block;
+    * empty leading table rows (a header lost at a page edge) are dropped so the header is found."""
+    out: list[Block] = []
+    for b in blocks:
+        if b.kind == "para" and b.text:
+            parts = [p for p in _OWN_ID_SPLIT.split(b.text) if p.strip()]
+            if len(parts) > 1:
+                for p in parts:
+                    nb = Block(kind="para", text=p.strip(), loc=b.loc, style=b.style, list_level=b.list_level)
+                    out.append(nb)
+                continue
+        if b.kind == "table" and b.grid:
+            while len(b.grid) > 2 and all(not (c.get("t") or "").strip() for c in b.grid[0]):
+                b.grid = b.grid[1:]
+            _restore_lost_header(b)
+        out.append(b)
+    return out
+
+
+_ID_CELL = re.compile(r"^[A-Z][A-Z0-9]{1,10}(?:[-_][A-Z0-9]{1,10}){0,3}[-_]\d{1,6}$")
+
+
+def _restore_lost_header(b: Block) -> None:
+    """A requirement table whose header row was lost (page break in a PDF) starts directly with data
+    rows "REQ-X-001 | 문장 | ...". Put a synthetic header back so the table is still read row by row."""
+    rows = [r for r in b.grid if any((c.get("t") or "").strip() for c in r)]
+    if len(rows) < 2 or not _ID_CELL.match((b.grid[0][0].get("t") or "").strip()):
+        return
+    idlike = sum(1 for r in rows if _ID_CELL.match((r[0].get("t") or "").strip()))
+    if idlike < 0.6 * len(rows):
+        return
+    ncol = len(b.grid[0])
+    lens = [sum(len((r[k].get("t") or "")) for r in rows if k < len(r)) for k in range(ncol)]
+    text_col = max(range(1, ncol), key=lambda k: lens[k]) if ncol > 1 else 0
+    names = ["ID"] + [f"열{k + 1}" for k in range(1, ncol)]
+    names[text_col] = "요구사항"
+    b.grid = [[{"t": n, "rs": 1, "cs": 1} for n in names]] + b.grid
+
+
+def _parse_raw(path: Path) -> list[Block]:
     suffix = path.suffix.lower()
     if suffix == ".docx":
         from .parse_docx import parse_docx

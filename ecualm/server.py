@@ -11,7 +11,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, ops
+from . import arch, assistant, ops
 from .audit import run_audit, suggest_links
 from .config import load_config
 from .db import Repo
@@ -95,6 +95,8 @@ def make_handler(root: Path):
                         data = json.dumps(arch.export_arch(repo, self.cfg, sid), ensure_ascii=False, indent=2).encode()
                     return self._send(200, data, "application/json; charset=utf-8",
                                       {"Content-Disposition": f"attachment; filename={sid}_architecture.json"})
+                if path == "/api/ai/status":
+                    return self._send(200, assistant.status(self.cfg))
                 if path == "/api/audit":
                     with LOCK:
                         return self._send(200, run_audit(repo, self.cfg))
@@ -114,6 +116,11 @@ def make_handler(root: Path):
                 path = urllib.parse.urlparse(self.path).path
                 cfg = self.cfg
                 user = self.headers.get("X-User", "web")
+                if path == "/api/chat":     # read-only and possibly slow (LLM): do not hold the write lock
+                    b = self._json_body()
+                    return self._send(200, assistant.chat(repo, cfg, b.get("messages", []), b.get("context") or {}))
+                if path == "/api/ai/settings":
+                    return self._send(200, _save_ai_settings(root, self._json_body()))
                 with LOCK:
                     if path == "/api/import":
                         name = urllib.parse.unquote(self.headers.get("X-Filename", "upload.docx"))
@@ -178,6 +185,30 @@ def make_handler(root: Path):
                 return self._send(500, {"error": str(e)})
 
     return H
+
+
+def _save_ai_settings(root: Path, b: dict) -> dict:
+    """Provider / model / URL go to alm.json; the API key only to .alm/secrets.json (local, git-ignored)."""
+    from .config import write_default_config
+    from .llm import SECRETS
+    p = write_default_config(root)
+    data = json.loads(p.read_text(encoding="utf-8"))
+    llm = data.setdefault("llm", {})
+    prov = b.get("provider", llm.get("provider", "none"))
+    if prov not in ("none", "anthropic", "openai_compatible"):
+        raise ValueError("provider 는 none | anthropic | openai_compatible")
+    llm["provider"] = prov
+    for k in ("model", "base_url"):
+        if k in b:
+            llm[k] = str(b[k]).strip()
+    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    sec = root / SECRETS
+    if b.get("clear_key") and sec.exists():
+        sec.unlink()
+    elif b.get("api_key"):
+        sec.parent.mkdir(parents=True, exist_ok=True)
+        sec.write_text(json.dumps({"api_key": str(b["api_key"]).strip()}), encoding="utf-8")
+    return assistant.status(load_config(root))
 
 
 class _Server(ThreadingHTTPServer):

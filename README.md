@@ -31,6 +31,26 @@ ecualm stagedoc SYS2                            # 터미널에서 SRS 구조 보
 ecualm export docx SRS.docx --stage SYS2        # Word 로 내보내기
 ```
 
+### AI 어시스턴트 (대화창 · 새 창 모드)
+
+오른쪽 위 **AI** 버튼을 누르면 대화창이 열립니다. **새 창 ↗**을 누르면 대화창이 별도 창으로 떨어지고, 메인 창에서 보고 있는 단계와 선택한 아이템이 문맥으로 계속 전달됩니다. 두 창의 대화 기록은 자동으로 동기화됩니다.
+
+- **AI 모드**: ⚙에서 공급자를 고릅니다. Anthropic Claude API, 또는 사내 LLM(vLLM, Ollama, LM Studio 같은 OpenAI 호환 서버) 중 하나입니다. 질문을 보낼 때 현재 화면, 선택 아이템과 그 상·하위 추적, 질문과 관련된 요구사항을 문맥으로 함께 보냅니다. AI는 답변과 함께 **전개, 링크, 아이템 생성, 문장 수정, 상태 변경**을 제안할 수 있습니다. 제안은 버튼으로만 표시되고 사용자가 눌러야 실행됩니다. 문장 수정 제안은 바뀐 부분을 표시해 보여 줍니다.
+- **로컬 명령 모드**: 공급자를 연결하지 않았거나 호출이 실패하면 이 모드로 답합니다. `현황`, `감사`, `Suspect`, `FAIL`, `고아`, `모호`, ID(`SYS2-MOT-0003` 또는 원문 `REQ-ADAS-001`) 설명, `SYS2 → HWE1 전개`, 키워드 검색을 쓸 수 있습니다.
+- **API 키**: 화면에서 입력하면 프로젝트의 `.alm/secrets.json`에만 저장되고 Git에서 제외됩니다. 브라우저로 다시 보내지 않으며, 환경변수(`ANTHROPIC_API_KEY`)가 있으면 그것을 먼저 씁니다. 사내 문서를 밖으로 보내면 안 되는 환경이라면 사내 LLM을 쓰세요.
+
+### EPS 제어기 고객 요구사양서 샘플 (49페이지)
+
+`samples/CRS_EPS_ECU_rev1.0.pdf` / `.docx`는 컬럼 타입 EPS ECU 고객 요구사양서 예시입니다. 회사명과 사내 규격 번호는 가상입니다. 요구사항 200개(REQ-ASSIST/ADAS/SENS/SAFE/COM/DIAG/…)에 ASIL과 검증 방법이 달려 있고, 표 67개(요구사항 표, CAN 메시지·신호, UDS·DID·DTC, 커넥터 핀, 환경·EMC, 보조 토크 맵, 캘리브레이션 파라미터)와 그림 11개(시스템 경계, 블록도, 보조 토크 맵, 상태도, 디레이팅, TAS 이중 채널, FTTI, 네트워크, 스텝 응답, 커넥터)가 들어 있습니다.
+
+```bash
+ecualm import samples/CRS_EPS_ECU_rev1.0.pdf --doc CRS_EPS --rev 1.0 --mode crs   # 웹에서는 "요구사항 가져오기" → SYS.1
+ecualm derive SYS1 SYS2      # 고객 요구사항 → PAM 4.0 SRS 초안 (원문 ID 유지)
+python samples/make_eps_crs.py   # 문서 다시 생성 (LibreOffice 가 있으면 PDF 도 생성)
+```
+
+DOCX에서는 원문 ID 200개가 모두 인식되고, PDF에서는 199개가 인식됩니다. 나머지 1개는 페이지 경계에서 ID 칸이 잘린 경우인데, 문장은 정상으로 들어옵니다.
+
 ### HW 공정 (HWE.1 ~ HWE.4) 과 블록도
 
 V-모델에 HW 분기가 있습니다. **SYS.2 → HWE.1**(HW 요구사항) **→ HWE.2**(HW 블록) **⇄ HWE.3**(HW 설계 검증) / **HWE.4**(HW 적격성 시험)입니다.

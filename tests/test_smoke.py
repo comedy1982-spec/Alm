@@ -148,7 +148,53 @@ def test_config_merge_adds_new_stages():
         assert any(r["src"] == "HWE2" for r in cfg["link_rules"])
 
 
+def test_assistant_local_and_llm(monkeypatch=None):
+    """Chat panel back-end: offline commands work without a provider; with a provider the context carries
+    the selected item and invalid action proposals are dropped."""
+    from ecualm import assistant
+    from ecualm.stages import derive
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        write_default_config(root)
+        repo, cfg = Repo(root), load_config(root)
+        import_document(repo, cfg, SAMPLES / "SRS_BLDC_revA.docx", doc="CRS", rev="1.0", mode="crs")
+        derive(repo, cfg, "SYS1", "SYS2")
+        assert assistant.status(cfg)["mode"] == "local"
+        r = assistant.chat(repo, cfg, [{"role": "user", "content": "SYS.2 → SWE.1 전개"}])
+        assert r["mode"] == "local" and r["actions"][0] == {"type": "derive", "from": "SYS2", "to": "SWE1", "label": "SYS2 → SWE1 전개"}
+        sys2 = repo.items(type_="SYS2")[0]
+        r = assistant.chat(repo, cfg, [{"role": "user", "content": f"{sys2['id']} 설명"}])
+        assert sys2["id"] in r["reply"] and r["actions"][0]["type"] == "open"
+        assert "감사 결과" in assistant.chat(repo, cfg, [{"role": "user", "content": "감사"}])["reply"]
+
+        # LLM path with a stubbed transport
+        cfg["llm"].update(provider="openai_compatible", base_url="http://stub", model="stub")
+        seen = {}
+        def fake(cfg_, system, messages, **kw):
+            seen["ctx"] = messages[-1]["content"]
+            return ('{"reply":"ok","actions":[{"type":"edit","id":"%s","text":"새 문장"},'
+                    '{"type":"link","src":"NOPE","role":"refines","dst":"X"},{"type":"derive","from":"SYS2","to":"BAD"}]}' % sys2["id"])
+        orig = assistant.chat_call
+        assistant.chat_call = fake
+        try:
+            r = assistant.chat(repo, cfg, [{"role": "user", "content": "선택한 요구사항을 고쳐줘"}], {"selected": sys2["id"], "stage": "SYS2"})
+        finally:
+            assistant.chat_call = orig
+        assert r["mode"] == "llm" and [a["type"] for a in r["actions"]] == ["edit"]
+        assert f"[아이템 {sys2['id']}]" in seen["ctx"] and "SYS.2" in seen["ctx"]
+        # a failing provider falls back to local answers instead of erroring
+        def boom(*a, **k):
+            raise RuntimeError("no network")
+        assistant.chat_call = boom
+        try:
+            r = assistant.chat(repo, cfg, [{"role": "user", "content": "현황"}])
+        finally:
+            assistant.chat_call = orig
+        assert r["mode"] == "local" and "AI 호출 실패" in r["reply"]
+
+
 if __name__ == "__main__":
+    test_assistant_local_and_llm()
     test_revision_flow()
     test_pdf_tables_and_figures()
     test_stage_flow()

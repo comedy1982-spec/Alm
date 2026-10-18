@@ -10,13 +10,15 @@ build/
 venv/
 env/
 
-# ECU-ALM runtime data
+# ECU-ALM runtime data (project database, uploads, local API key)
+.alm/
 alm.json
 assets/
 *.db
 
 # Large generated files (keep sample docx, skip PDFs and full SRS)
 samples/*.pdf
+!samples/CRS_EPS_ECU_rev1.0.pdf
 samples/SRS_BLDC_Full_*.docx
 
 # OS / editor

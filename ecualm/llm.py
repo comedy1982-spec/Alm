@@ -43,10 +43,61 @@ Return JSON: {"summary": short Korean description,
             blocks and connections, messages) or "" if it is a photo or cannot be expressed}"""
 
 
+SECRETS = ".alm/secrets.json"
+
+
+def api_key(cfg: dict) -> str:
+    """API key: environment variable named in llm.api_key_env first, then the project-local
+    .alm/secrets.json written from the web UI (never stored in alm.json, never sent to the browser)."""
+    llm = cfg.get("llm", {})
+    k = os.environ.get(llm.get("api_key_env") or "ANTHROPIC_API_KEY", "")
+    if k:
+        return k
+    root = cfg.get("_root")
+    if root:
+        f = Path(root) / SECRETS
+        if f.exists():
+            try:
+                return json.loads(f.read_text(encoding="utf-8")).get("api_key", "")
+            except (ValueError, OSError):
+                return ""
+    return ""
+
+
+def chat_call(cfg: dict, system: str, messages: list[dict], max_tokens: int = 2048, timeout: int = 120) -> str:
+    """Multi-turn call used by the assistant panel. messages: [{"role": "user"|"assistant", "content": str}]."""
+    llm = cfg["llm"]
+    provider = llm.get("provider", "none")
+    key = api_key(cfg)
+    if provider == "anthropic":
+        if not key:
+            raise RuntimeError("API 키가 없습니다 (AI 설정에서 입력하거나 환경변수 " + (llm.get("api_key_env") or "ANTHROPIC_API_KEY") + ")")
+        body = {"model": llm["model"], "max_tokens": max_tokens, "system": system, "messages": messages}
+        url = (llm.get("base_url") or "https://api.anthropic.com").rstrip("/") + "/v1/messages"
+        req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
+            "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read())
+        return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+    if provider == "openai_compatible":
+        if not llm.get("base_url"):
+            raise RuntimeError("사내 LLM 서버 주소(base_url)가 없습니다")
+        body = {"model": llm["model"], "max_tokens": max_tokens, "messages": [{"role": "system", "content": system}, *messages]}
+        headers = {"content-type": "application/json"}
+        if key:
+            headers["authorization"] = f"Bearer {key}"
+        req = urllib.request.Request(llm["base_url"].rstrip("/") + "/v1/chat/completions", data=json.dumps(body).encode(),
+                                     method="POST", headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read())
+        return data["choices"][0]["message"]["content"]
+    raise RuntimeError("AI 공급자가 설정되지 않았습니다")
+
+
 def _call(cfg: dict, prompt: str, image: tuple[bytes, str] | None = None, max_tokens: int = 4096) -> str:
     llm = cfg["llm"]
     provider = llm.get("provider", "none")
-    key = os.environ.get(llm.get("api_key_env") or "ANTHROPIC_API_KEY", "")
+    key = api_key(cfg)
     if provider == "anthropic":
         content = []
         if image:

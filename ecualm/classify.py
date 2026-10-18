@@ -81,7 +81,11 @@ class Analyzer:
         return any(r.search(t) for r in self.req_res)
 
     def native_id(self, text: str) -> str:
-        m = self.native_re.search(text[:40])
+        # only an ID that opens the statement ("[REQ-PWR-001] ...", "REQ-PWR-001: ...") is the item's own ID;
+        # an ID in the middle of a sentence ("...코딩되며(REQ-EOL-004)...") is a reference to another requirement
+        t = text.lstrip()
+        t = t[1:] if t[:1] in "[(" else t
+        m = self.native_re.match(t)
         if not m:
             return ""
         nid = m.group(1)

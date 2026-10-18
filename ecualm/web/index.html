@@ -241,6 +241,34 @@ dialog input,dialog select{width:100%;border:1px solid var(--line);background:va
 .wave .lg i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:5px}
 .wave details{margin-top:8px;font-size:12px}.wave details table{font-family:var(--mono)}
 @media (max-width: 1000px){ .cvgrid{grid-template-columns:1fr} .insp{max-height:none} }
+/* AI assistant panel (docked / new window) */
+.ai{position:fixed;top:104px;right:0;bottom:0;width:min(420px,100%);background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:6;box-shadow:-6px 0 18px rgba(10,20,30,.08)}
+.ai[hidden]{display:none}
+@media (min-width: 1100px){ body.ai-open main{margin-right:420px} }
+.ai .ah{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.ai .ah b{font-size:14px}
+.ai .actx{font-size:11.5px;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ai .actx label{display:flex;gap:4px;align-items:center;cursor:pointer}
+.ai .msgs{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:94%;padding:8px 11px;border-radius:10px;font-size:13px;line-height:1.6;word-break:break-word}
+.msg.user{align-self:flex-end;background:var(--accent);color:#fff;white-space:pre-wrap}
+.msg.bot{align-self:flex-start;background:var(--soft)}
+.msg.bot .mode{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-bottom:2px}
+.msg ul{margin:4px 0;padding-left:18px}.msg li{margin:1px 0}
+.msg code{font-family:var(--mono);font-size:12px;background:var(--panel);padding:0 4px;border-radius:3px}
+.msg blockquote{margin:4px 0;padding:2px 0 2px 8px;border-left:3px solid var(--line);color:var(--muted)}
+.msg .rid{font-family:var(--mono);font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+.msg .acts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.msg .act{display:flex;flex-direction:column;gap:2px}
+.msg .act .pv{font-size:11.5px;color:var(--muted);padding-left:4px}
+.ai .sugg{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px 0}
+.ai .sugg button{font-size:12px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:3px 10px;cursor:pointer;color:var(--ink)}
+.ai .sugg button:hover{border-color:var(--accent)}
+.ai form{display:flex;gap:6px;padding:10px 12px;align-items:flex-end}
+.ai textarea{flex:1;min-height:42px;max-height:160px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--soft2);font-size:13px}
+.ai .typing{align-self:flex-start;color:var(--muted);font-size:12.5px}
+body.chatwin header,body.chatwin main,body.chatwin .drawer{display:none}
+body.chatwin .ai{top:0;width:100%;border-left:0;box-shadow:none}
 body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,body.win #btnHist{display:none}
 @media (max-width: 760px){ main{grid-template-columns:1fr} aside.left{display:none} .content{padding:14px 16px 60px} .hrow{gap:8px} .brand small{display:none} #btnXlsx{display:none} .strip .st{min-width:88px}}
 </style>
@@ -251,6 +279,7 @@ body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,
     <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <small id="proj"></small></div>
     <span class="muted" style="font-size:12.5px" id="crumb"></span>
     <div class="spacer"></div>
+    <button class="btn" id="btnAi" title="AI 어시스턴트 (질문·요약·전개·링크 제안)" aria-expanded="false">AI</button>
     <button class="btn" id="btnWb" title="두 단계를 나란히 놓고 드래그로 추적 링크 연결">링크 작업대</button>
     <button class="btn" id="btnAudit">감사 콘솔</button>
     <button class="btn" id="btnHist">이력·베이스라인</button>
@@ -261,6 +290,14 @@ body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,
 </header>
 <main id="main"><aside class="left" id="left"></aside><section class="content" id="content"></section></main>
 <div class="drawer" id="drawer"></div>
+<aside class="ai" id="ai" hidden aria-label="AI 어시스턴트">
+  <div class="ah"><b>AI 어시스턴트</b><span class="chip" id="aiMode">…</span><span class="spacer"></span>
+    <button class="btn sm" id="aiPop" title="새 창으로 열기">새 창 ↗</button><button class="btn sm" id="aiSet" title="AI 설정" aria-label="AI 설정">⚙</button><button class="btn sm" id="aiClear" title="대화 지우기">지우기</button><button class="btn sm" id="aiClose" aria-label="닫기">✕</button></div>
+  <div class="actx"><label><input type="checkbox" id="aiCtxOn" checked> 화면 문맥 포함</label><span id="aiCtx"></span></div>
+  <div class="msgs" id="aiMsgs" aria-live="polite"></div>
+  <div class="sugg" id="aiSugg"></div>
+  <form id="aiForm"><textarea id="aiIn" placeholder="질문 또는 명령 — Enter 전송 · Shift+Enter 줄바꿈" aria-label="메시지"></textarea><button class="btn primary" id="aiSend">전송</button></form>
+</aside>
 <div class="toast" id="toast"></div>
 
 <dialog id="dlgImport">
@@ -316,6 +353,16 @@ body.win header .strip,body.win #btnImport,body.win #btnXlsx,body.win #btnAudit,
   <label for="blkName">블록 이름</label><input id="blkName" placeholder="예: 게이트 드라이버 IC">
   <label for="blkText">설명</label><input id="blkText" placeholder="역할 한 줄">
   <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="blkClose">닫기</button><button class="btn primary" id="blkGo">추가</button></div>
+</dialog>
+<dialog id="dlgAi">
+  <h3 style="margin:0 0 4px">AI 설정</h3>
+  <div class="muted" style="font-size:12.5px">AI 모드는 질문과 함께 현재 화면·선택 아이템·관련 요구사항 일부를 선택한 공급자에게 보냅니다. 사내 문서를 밖으로 보내면 안 되면 사내 LLM(OpenAI 호환 서버)을 쓰세요. 연결하지 않으면 로컬 명령 모드로 동작합니다.</div>
+  <label for="aiProv">공급자</label><select id="aiProv"><option value="none">사용 안 함 (로컬 명령 모드)</option><option value="anthropic">Anthropic Claude API</option><option value="openai_compatible">사내 LLM (OpenAI 호환: vLLM · Ollama · LM Studio)</option></select>
+  <label for="aiModel">모델</label><input id="aiModel" placeholder="예: claude-sonnet-5-5 / llama3.1:70b">
+  <label for="aiUrl">서버 주소 (사내 LLM 또는 프록시)</label><input id="aiUrl" placeholder="예: http://llm.company.local:8000">
+  <label for="aiKey">API 키</label><input id="aiKey" type="password" autocomplete="off" placeholder="새 키를 입력할 때만 채우세요">
+  <div class="muted" style="font-size:12px;margin-top:4px" id="aiKeyNote"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="aiKeyDel">저장된 키 삭제</button><span class="spacer"></span><button class="btn" id="aiSetClose">닫기</button><button class="btn primary" id="aiSetGo">저장</button></div>
 </dialog>
 <dialog id="dlgJson">
   <div class="row"><h3 style="margin:0" id="jsonTitle">추적 JSON</h3><span class="spacer"></span><button class="btn sm" id="jsonCopy">복사</button><button class="btn sm" id="jsonClose">닫기</button></div>
@@ -382,7 +429,8 @@ function render(){
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
   $('#content').style.maxWidth=(view.kind==='wb'||(view.kind==='stage'&&stageTab==='canvas'))?'none':'';
   ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench})[view.kind]();
-  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';}
+  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';}
+  broadcastCtx();
 }
 
 // ---------------- chips / item rendering ----------------
@@ -699,7 +747,7 @@ function startWire(id,el){
   const up=e=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);ln.remove();clear();const t=tgt(e);if(t&&t!==el)openIfDialog(id,t.dataset.node);else refreshSel();};
   window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
 }
-function selectNode(id){CV.sel={kind:'node',id};refreshSel();}
+function selectNode(id){CV.sel={kind:'node',id};refreshSel();broadcastCtx();}
 function refreshSel(){drawEdges();renderInsp();}
 function openIfDialog(from,to){
   const a=S.byId[from],b=S.byId[to]; if(!a||!b) return;
@@ -842,10 +890,113 @@ function renderWave(host,tc,compact){
 }
 let _wvT; window.addEventListener('resize',()=>{clearTimeout(_wvT);_wvT=setTimeout(()=>{if(view.kind==='stage'&&stageTab==='canvas'){drawEdges();const t=CV.wave&&S.byId[CV.wave];if(t)renderWave($('#wave'),t);}},200);});
 
+// ---------------- AI ASSISTANT: docked panel + new-window mode ----------------
+const CHAT_KEY='ecualm-chat-v1';
+let AI={open:false,status:null,hist:[],busy:false,remoteCtx:null};
+const isChatWin=()=>document.body.classList.contains('chatwin');
+function aiLoad(){try{AI.hist=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]')||[];}catch(e){AI.hist=[];}}
+function aiSave(){try{localStorage.setItem(CHAT_KEY,JSON.stringify(AI.hist.slice(-60)));}catch(e){} try{BC&&BC.postMessage({type:'chat-sync'});}catch(e){}}
+function currentCtx(){
+  if(isChatWin()) return AI.remoteCtx||{};
+  const sel=view.kind==='stage'&&stageTab==='canvas'&&CV.sel?CV.sel.id:selected;
+  return {stage:view.kind==='stage'?view.sid:null,tab:view.kind==='stage'?stageTab:view.kind,selected:sel||null};
+}
+function broadcastCtx(){if(isChatWin())return;try{BC&&BC.postMessage({type:'ctx',ctx:currentCtx()});}catch(e){} if(AI.open) renderAiCtx();}
+function renderAiCtx(){
+  const c=currentCtx(),st=c.stage&&S?.stageById?.[c.stage];
+  $('#aiCtx').innerHTML=[st?`${esc(st.aspice)} ${esc(st.name)}`:(c.tab?esc({home:'V-모델',audit:'감사 콘솔',history:'이력',wb:'링크 작업대'}[c.tab]||c.tab):''),c.selected?`선택 <span class="mono">${esc(c.selected)}</span>`:''].filter(Boolean).join(' · ')||(isChatWin()?'메인 창의 화면을 따라갑니다':'');
+}
+function renderAiMode(){
+  const s=AI.status, el=$('#aiMode');
+  if(!s){el.textContent='…';return;}
+  el.textContent=s.mode==='llm'?`AI · ${s.model||s.provider}`:'로컬 명령';
+  el.title=s.mode==='llm'?`${s.provider} ${s.base_url||''}`:'AI 공급자 미연결 — ⚙ 에서 설정';
+  el.className='chip '+(s.mode==='llm'?'approved':'');
+  const llm=s.mode==='llm';
+  const q=llm?['현황을 요약하고 다음에 할 일을 알려줘','선택한 요구사항을 원자적·검증 가능한 문장으로 고쳐줘','선택한 아이템의 상위·하위 추적이 충분한지 검토해줘','ASIL D 요구사항 중 검증 기준이 약한 것을 찾아줘','감사 결과를 요약해줘']
+             :['현황','감사','Suspect','FAIL','고아','모호','도움말'];
+  $('#aiSugg').innerHTML=q.map(t=>`<button type="button">${esc(t)}</button>`).join('');
+  $('#aiSugg').querySelectorAll('button').forEach(b=>b.onclick=()=>aiSend(b.textContent));
+}
+function mdLite(t){
+  const idre=/\b((?:CRS|SYS[1-5]|HSI|HWE[1-4]|SWE[1-6]|IF)(?:-TC)?-(?:[A-Z]{2,5}-)?\d{4})\b/g;
+  const inl=x=>esc(x).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(idre,m=>`<span class="rid" data-open="${m}" role="link" tabindex="0">${m}</span>`);
+  let out='',inList=false;
+  for(const line of String(t||'').split('\n')){
+    const li=line.match(/^\s*[-•*]\s+(.*)/);
+    if(li){if(!inList){out+='<ul>';inList=true;}out+=`<li>${inl(li[1])}</li>`;continue;}
+    if(inList){out+='</ul>';inList=false;}
+    if(/^\s*>\s?/.test(line)) out+=`<blockquote>${inl(line.replace(/^\s*>\s?/,''))}</blockquote>`;
+    else if(line.trim()==='') out+='<div style="height:6px"></div>';
+    else out+=`<div>${inl(line)}</div>`;
+  }
+  return out+(inList?'</ul>':'');
+}
+function actPreview(a){
+  if(a.type==='edit'){const cur=S?.byId?.[a.id];return cur?`<div class="pv">${wordDiff(cur.text,a.text)}</div>`:`<div class="pv">→ ${esc(a.text)}</div>`;}
+  if(a.type==='create') return `<div class="pv">${esc(a.item_type)}${a.domain?' · '+esc(a.domain):''}: ${esc(a.text)}</div>`;
+  if(a.type==='derive') return `<div class="pv">${esc(RULES[`${a.from}>${a.to}`]||'')}</div>`;
+  return '';
+}
+function renderAiMsgs(){
+  const box=$('#aiMsgs');
+  if(!AI.hist.length){box.innerHTML=`<div class="msg bot">${mdLite('무엇을 도와드릴까요? 현재 화면과 선택한 아이템을 문맥으로 함께 봅니다.\n- 요약·검색·설명: **현황**, **REQ-ADAS-001 설명**, 키워드\n- 실행 제안: **SYS2 → HWE1 전개**, 링크·문장 수정 제안 (버튼을 눌러야 실행됩니다)')}</div>`;return;}
+  box.innerHTML=AI.hist.map((m,mi)=>m.role==='user'?`<div class="msg user">${esc(m.content)}</div>`:
+    `<div class="msg bot"><div class="mode">${m.mode==='llm'?'AI':m.mode==='error'?'오류':'로컬 명령'}</div>${mdLite(m.content)}${(m.actions||[]).length?`<div class="acts">${m.actions.map((a,ai)=>`<div class="act"><button class="btn sm ${a.done?'':'primary'}" data-act="${mi}|${ai}" ${a.done||STATIC?'disabled':''}>${a.done?'✓ ':''}${esc(a.label)}</button>${a.done?'':actPreview(a)}</div>`).join('')}</div>`:''}</div>`).join('')+(AI.busy?'<div class="typing">답변 작성 중…</div>':'');
+  box.querySelectorAll('[data-open]').forEach(e=>{e.onclick=()=>openInMain(e.dataset.open);e.onkeydown=ev=>{if(ev.key==='Enter')openInMain(e.dataset.open);};});
+  box.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const [mi,ai]=b.dataset.act.split('|').map(Number);runAction(AI.hist[mi].actions[ai],b);});
+  box.scrollTop=box.scrollHeight;
+}
+function openInMain(id){if(isChatWin()){try{BC&&BC.postMessage({type:'open',id});}catch(e){} toast(`메인 창에서 ${id} 를 열었습니다`);} else openItem(id);}
+async function runAction(a,btn){
+  if(STATIC){toast('읽기 전용 스냅샷입니다');return;}
+  btn.disabled=true; let msg='';
+  try{
+    if(a.type==='open'){openInMain(a.id);btn.disabled=false;return;}
+    if(a.type==='audit'){if(isChatWin()){try{BC.postMessage({type:'nav',kind:'audit'});}catch(e){}}else{view={kind:'audit'};render();}btn.disabled=false;return;}
+    if(a.type==='derive'){const r=await api('/api/derive',{from:a.from,to:a.to});msg=`${r.from} → ${r.to}: 신규 ${r.created.length}건 · 링크 ${r.links}건 · 건너뜀 ${r.skipped.length}건`;}
+    else if(a.type==='link'){await api('/api/link',{src:a.src,role:a.role,dst:a.dst});msg=`${a.src} —${a.role}→ ${a.dst}`;}
+    else if(a.type==='create'){const it=await api('/api/item',{type:a.item_type,text:a.text,domain:a.domain||null});a.created=it.id;msg=`${it.id} 생성`;}
+    else if(a.type==='edit'){await api('/api/item/'+encodeURIComponent(a.id),{text:a.text});msg=`${a.id} 수정 (v+1, 하위 Suspect)`;}
+    else if(a.type==='status'){await api('/api/item/'+encodeURIComponent(a.id),{status:a.status});msg=`${a.id} → ${a.status}`;}
+    a.done=true; aiSave(); await load(); notifyOthers(); renderAiMsgs(); toast(msg);
+  }catch(e){toast('실행 실패: '+e.message);btn.disabled=false;}
+}
+async function aiSend(text){
+  text=String(text||'').trim(); if(!text||AI.busy) return;
+  if(STATIC){toast('읽기 전용 스냅샷에서는 대화를 쓸 수 없습니다');return;}
+  AI.hist.push({role:'user',content:text}); AI.busy=true; renderAiMsgs(); $('#aiIn').value='';
+  try{
+    const r=await api('/api/chat',{messages:AI.hist.map(m=>({role:m.role,content:m.content})),context:$('#aiCtxOn').checked?currentCtx():{}});
+    AI.hist.push({role:'assistant',content:r.reply,actions:r.actions||[],mode:r.mode});
+  }catch(e){AI.hist.push({role:'assistant',content:'⚠ '+e.message,actions:[],mode:'error'});}
+  AI.busy=false; aiSave(); renderAiMsgs();
+}
+async function aiRefreshStatus(){if(STATIC)return;try{AI.status=await api('/api/ai/status');}catch(e){AI.status={mode:'local'};} renderAiMode();}
+function aiToggle(open){
+  AI.open=open??!AI.open; $('#ai').hidden=!AI.open; document.body.classList.toggle('ai-open',AI.open&&!isChatWin());
+  $('#btnAi').setAttribute('aria-expanded',String(AI.open)); $('#btnAi').classList.toggle('primary',AI.open);
+  if(AI.open){aiLoad();renderAiMsgs();renderAiCtx();aiRefreshStatus();setTimeout(()=>$('#aiIn').focus(),0);}
+}
+$('#btnAi').onclick=()=>aiToggle();
+$('#aiClose').onclick=()=>{if(isChatWin()) window.close(); else aiToggle(false);};
+$('#aiClear').onclick=()=>{AI.hist=[];aiSave();renderAiMsgs();};
+$('#aiPop').onclick=()=>{window.open(location.pathname+'#chat','ecualm-chat','width=480,height=880');aiToggle(false);setTimeout(broadcastCtx,800);toast('AI 대화창을 새 창으로 띄웠습니다. 이 창의 화면·선택이 문맥으로 전달됩니다.');};
+$('#aiForm').onsubmit=ev=>{ev.preventDefault();aiSend($('#aiIn').value);};
+$('#aiIn').onkeydown=ev=>{if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){ev.preventDefault();aiSend($('#aiIn').value);}};
+$('#aiSet').onclick=async()=>{await aiRefreshStatus();const s=AI.status||{};
+  $('#aiProv').value=s.provider||'none';$('#aiModel').value=s.model||'';$('#aiUrl').value=s.base_url||'';$('#aiKey').value='';
+  $('#aiKeyNote').textContent=s.has_key?'저장된 키가 있습니다 (내용은 표시하지 않습니다). 바꿀 때만 새 키를 입력하세요.':'저장된 키가 없습니다. 키는 이 프로젝트 폴더의 .alm/secrets.json 에만 저장되고 Git 에서 제외됩니다.';
+  $('#dlgAi').showModal();};
+$('#aiSetClose').onclick=()=>$('#dlgAi').close();
+$('#aiSetGo').onclick=async()=>{try{const b={provider:$('#aiProv').value,model:$('#aiModel').value.trim(),base_url:$('#aiUrl').value.trim()};const k=$('#aiKey').value.trim();if(k)b.api_key=k;
+  AI.status=await api('/api/ai/settings',b);$('#aiKey').value='';renderAiMode();$('#dlgAi').close();try{BC&&BC.postMessage({type:'ai-status'});}catch(e){} toast(AI.status.mode==='llm'?`AI 모드: ${AI.status.model}`:'로컬 명령 모드 (공급자/키 확인)');}catch(e){toast(e.message);}};
+$('#aiKeyDel').onclick=async()=>{try{AI.status=await api('/api/ai/settings',{clear_key:true});renderAiMode();$('#aiKeyNote').textContent='저장된 키를 삭제했습니다.';}catch(e){toast(e.message);}};
+
 // ---------------- drawer ----------------
 function wordDiff(a,b){const A=a.split(/(\s+)/),B=b.split(/(\s+)/);if(A.length*B.length>250000)return esc(b);const n=A.length,m=B.length,dp=Array.from({length:n+1},()=>new Int32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=A[i]===B[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);let i=0,j=0,o='';while(i<n&&j<m){if(A[i]===B[j]){o+=esc(A[i]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){o+=`<del>${esc(A[i])}</del>`;i++;}else{o+=`<ins>${esc(B[j])}</ins>`;j++;}}while(i<n)o+=`<del>${esc(A[i++])}</del>`;while(j<m)o+=`<ins>${esc(B[j++])}</ins>`;return o;}
 async function openItem(id){
-  selected=id; document.querySelectorAll('.req.sel').forEach(e=>e.classList.remove('sel')); document.querySelector(`.req[data-id="${CSS.escape(id)}"]`)?.classList.add('sel');
+  selected=id; setTimeout(broadcastCtx,0); document.querySelectorAll('.req.sel').forEach(e=>e.classList.remove('sel')); document.querySelector(`.req[data-id="${CSS.escape(id)}"]`)?.classList.add('sel');
   let it=S.byId[id], hist=it?.history||[];
   if(!STATIC){try{const r=await api('/api/item/'+encodeURIComponent(id));it=r.item;hist=r.history;}catch(e){toast(e.message);return;}}
   if(!it) return;
@@ -891,7 +1042,14 @@ async function openItem(id){
 // ---------------- LINK WORKBENCH: tiled panes / new window, drag & drop ----------------
 let WB={panes:[],src:null};
 const BC=('BroadcastChannel' in window)?new BroadcastChannel('ecualm'):null;
-if(BC) BC.onmessage=async(ev)=>{ if(ev.data?.type==='reload'&&!STATIC){ await load(); } };
+if(BC) BC.onmessage=async(ev)=>{ const d=ev.data||{};
+  if(d.type==='reload'&&!STATIC){ await load(); if(AI.open) renderAiMsgs(); }
+  else if(d.type==='ctx'&&isChatWin()){ AI.remoteCtx=d.ctx; renderAiCtx(); }
+  else if(d.type==='chat-sync'){ aiLoad(); if(AI.open) renderAiMsgs(); }
+  else if(d.type==='ai-status'){ aiRefreshStatus(); }
+  else if(d.type==='open'&&!isChatWin()){ openItem(d.id); }
+  else if(d.type==='nav'&&!isChatWin()&&d.kind==='audit'){ view={kind:'audit'}; render(); }
+  else if(d.type==='ctx-req'&&!isChatWin()){ broadcastCtx(); } };
 function notifyOthers(){ try{BC&&BC.postMessage({type:'reload'});}catch(e){} }
 function rolesBetween(srcType,dstType){ return [...new Set(S.link_rules.filter(r=>(r.src===srcType||r.src==='*')&&(r.dst.includes(dstType)||r.dst.includes('*'))).map(r=>r.role))]; }
 function linkPlan(aId,bId){
@@ -952,6 +1110,7 @@ async function doLink(a,b){
   catch(e){ toast(e.message); }
 }
 $('#btnWb').onclick=()=>{view={kind:'wb'};render();};
+(function initChatWin(){ if(location.hash==='#chat'){ document.body.classList.add('chatwin'); document.title='ECU ALM — AI'; setTimeout(()=>{aiToggle(true);try{BC&&BC.postMessage({type:'ctx-req'});}catch(e){}},0); } })();
 (function initFromHash(){ const m=location.hash.match(/^#wb=?([A-Z0-9,]*)/i); if(m){ document.body.classList.add('win'); WB.panes=(m[1]?m[1].split(','):['SWE1']).map(sid=>({sid,q:'',dom:'',only:false})); view={kind:'wb'}; } else { const s=location.hash.match(/^#stage=([A-Z0-9]+)/); if(s) view={kind:'stage',sid:s[1]}; } })();
 
 // ---------------- import with preview (concept E) ----------------
