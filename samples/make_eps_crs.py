@@ -216,14 +216,14 @@ _CACHE: dict = {}
 
 # ============================================================================ document helpers
 class Doc:
-    def __init__(self, rev: str):
+    def __init__(self, rev: str, doc_no: str = DOC_NO, product: str = "Column-type EPS ECU"):
         self.d = Document()
         st = self.d.styles["Normal"]; st.font.name = "Malgun Gothic"; st.element.rPr.rFonts.set(qn("w:eastAsia"), "Malgun Gothic")
         st.font.size = Pt(10.5); st.paragraph_format.line_spacing = 1.32; st.paragraph_format.space_after = Pt(5)
         for s in ("Heading 1", "Heading 2", "Heading 3", "Title"):
             self.d.styles[s].font.name = "Malgun Gothic"; self.d.styles[s].element.rPr.rFonts.set(qn("w:eastAsia"), "Malgun Gothic")
         sec = self.d.sections[0]; sec.left_margin = sec.right_margin = Cm(2.3); sec.top_margin = sec.bottom_margin = Cm(2.1)
-        sec.header.paragraphs[0].text = f"{DOC_NO}   |   Column-type EPS ECU 고객 요구사양서   |   ACME Motors 대외비"
+        sec.header.paragraphs[0].text = f"{doc_no}   |   {product} 고객 요구사양서   |   ACME Motors 대외비"
         sec.footer.paragraphs[0].text = f"ACME Motors 샤시전자개발팀  ·  Rev {rev}  ·  본 문서의 무단 복제 및 제3자 제공을 금한다."
         self.n = {"fig": 0, "tbl": 0}; self.cnt: dict[str, int] = {}; self.reqs = 0
 

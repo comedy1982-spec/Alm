@@ -51,6 +51,18 @@ python samples/make_eps_crs.py   # 문서 다시 생성 (LibreOffice 가 있으�
 
 DOCX에서는 원문 ID 200개가 모두 인식되고, PDF에서는 199개가 인식됩니다. 나머지 1개는 페이지 경계에서 ID 칸이 잘린 경우인데, 문장은 정상으로 들어옵니다.
 
+### eLSD 제어기 고객 요구사양서 샘플 (49페이지, AUTOSAR 포함)
+
+`samples/CRS_eLSD_ECU_rev1.0.pdf` / `.docx`는 후륜 전자식 차동제한장치(eLSD) ECU 고객 요구사양서 예시입니다(가상 회사·규격). 요구사항 178개(REQ-LOCK/YAW/MODE/CLU/THERM/SENS/COM/DIAG/SAFE/AR/NVM/SEC/UPD/ELEC/ENV/PERF/EOL), 표 86개, 그림 12개가 들어 있습니다. 9장 AUTOSAR 아키텍처에는 플랫폼·계층 구조, SWC·포트 인터페이스, OS 태스크·멀티코어 할당, BSW 모듈 구성, Dem→DTC→FiM 매핑, BswM 모드 규칙, NvM 블록, 타이밍 체인, FFI, 변형 관리·보안 BSW, ARXML·A2L 산출물 요구사항이 있습니다.
+
+```bash
+ecualm import samples/CRS_eLSD_ECU_rev1.0.pdf --doc CRS_eLSD --rev 1.0 --mode crs
+ecualm derive SYS1 SYS2
+python samples/make_elsd_crs.py
+```
+
+DOCX와 PDF 모두 원문 ID 178개가 전부 인식됩니다.
+
 ### HW 공정 (HWE.1 ~ HWE.4) 과 블록도
 
 V-모델에 HW 분기가 있습니다. **SYS.2 → HWE.1**(HW 요구사항) **→ HWE.2**(HW 블록) **⇄ HWE.3**(HW 설계 검증) / **HWE.4**(HW 적격성 시험)입니다.

@@ -108,7 +108,8 @@ DEFAULT_CONFIG: dict = {
     "native_domain_map": {"PWR": "PWR", "ENV": "ENV", "MECH": "MECH", "MOT": "MOT", "SAFE": "SAFE", "ARCH": "ARCH", "CTRL": "MOT", "CAL": "MOT",
                           "MODE": "PWR", "COM": "COM", "CAN": "COM", "DIAG": "DIAG", "UDS": "DIAG", "FDET": "SAFE", "NVM": "NVM", "UPD": "SEC",
                           "SEC": "SEC", "TIME": "TIME", "STAT": "DIAG", "EOL": "MFG", "MFG": "MFG", "ELEC": "PWR", "HSI": "HSI", "HW": "MECH", "SW": "GEN",
-                          "ASSIST": "MOT", "ADAS": "MOT", "SENS": "MOT", "PERF": "MOT", "THERM": "PWR"},
+                          "ASSIST": "MOT", "ADAS": "MOT", "SENS": "MOT", "PERF": "MOT", "THERM": "PWR",
+                          "LOCK": "MOT", "YAW": "MOT", "CLU": "MOT", "AR": "ARCH", "AUTOSAR": "ARCH"},
     # Section titles that decide the level in an integrated SRS (strong hint)
     "level_section_hints": {"SYS2": ["시스템 요구사항", "system requirement", "하드웨어 요구사항", "기구", "환경"],
                             "SWE1": ["소프트웨어 요구사항", "software requirement", "SW 요구사항"]},
