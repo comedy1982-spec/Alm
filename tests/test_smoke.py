@@ -361,6 +361,90 @@ def test_test_sessions_and_evidence():
         assert wb.sheetnames == ["요약", "TC 결과", "증빙"] and wb["증빙"]["D2"].value == e["sha256"]
 
 
+def test_sup_processes():
+    from ecualm import sup as U, testruns as T
+    from ecualm.stages import derive
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root); T.init(repo); U.init(repo)
+        import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.docx", doc="CRS", rev="1.0", mode="crs")
+        derive(repo, cfg, "SYS1", "SYS2"); derive(repo, cfg, "SYS2", "SWE1"); derive(repo, cfg, "SWE1", "SWE6")
+        eng = {"username": "kim", "name": "김", "role": "engineer"}
+        eng2 = {"username": "lee", "name": "이", "role": "engineer"}
+        pm = {"username": "pm", "name": "PM", "role": "manager"}
+        s = T.create_session(repo, cfg, {"name": "r1", "stage": "SWE6", "q": "COM"}, eng)
+        tc = s["cases"][0]["tc"]
+        T.record(repo, cfg, s["id"], {"tc": tc, "status": "FAIL", "actual": "x"}, eng)
+        # SUP.9: problem from failed test, guarded workflow
+        p = U.problem_from_test(repo, cfg, s["id"], tc, eng)
+        assert {x["role"] for x in p["items"]} == {"found_by", "verify", "affects"}
+        assert T.session(repo, cfg, s["id"])["cases"][0]["defect"] == p["id"]
+        U.transition(repo, cfg, p["id"], "analyzing", "", eng)
+        try:
+            U.transition(repo, cfg, p["id"], "resolving", "", eng); assert False
+        except ValueError:
+            pass
+        U.update(repo, cfg, p["id"], {"fields": {"root_cause_cat": "코드", "root_cause": "rc", "corrective": "fix", "verification": "TS"}}, eng)
+        U.transition(repo, cfg, p["id"], "resolving", "", eng)
+        U.transition(repo, cfg, p["id"], "verifying", "", eng)
+        try:
+            U.transition(repo, cfg, p["id"], "closed", "", eng); assert False      # verify TC still FAIL
+        except ValueError:
+            pass
+        # SUP.10: CR from the problem, impact analysis, CCB by manager only, close after retest PASS
+        cr = U.cr_from_problem(repo, cfg, p["id"], eng)
+        assert p["id"] in cr["refs"] and cr["id"] in U.get(repo, p["id"])["refs"]
+        U.transition(repo, cfg, cr["id"], "analyzing", "", eng)
+        try:
+            U.transition(repo, cfg, cr["id"], "review", "", eng); assert False
+        except ValueError:
+            pass
+        cr = U.save_impact(repo, cfg, cr["id"], eng)
+        imp = cr["fields"]["impact"]
+        assert imp["rows"][0]["action"] == "modify" and tc in imp["retest"]
+        U.transition(repo, cfg, cr["id"], "review", "", eng)
+        U.update(repo, cfg, cr["id"], {"fields": {"decision": "ok"}}, pm)
+        try:
+            U.transition(repo, cfg, cr["id"], "approved", "", eng); assert False
+        except ValueError:
+            pass
+        U.transition(repo, cfg, cr["id"], "approved", "", pm)
+        U.transition(repo, cfg, cr["id"], "implementing", "", eng); U.transition(repo, cfg, cr["id"], "verifying", "", eng)
+        U.update(repo, cfg, cr["id"], {"fields": {"verification": "retest"}}, eng)
+        s2 = T.create_session(repo, cfg, {"name": "retest", "stage": "SWE6", "tcs": imp["retest"]}, eng)
+        for t in imp["retest"]:
+            T.record(repo, cfg, s2["id"], {"tc": t, "status": "PASS"}, eng)
+        U.transition(repo, cfg, cr["id"], "closed", "요구사항 문구 변경 없음 (코드 수정)", eng)
+        U.transition(repo, cfg, p["id"], "closed", "", eng)
+        # SUP.1: checklist auto evaluation, findings, independence of verification
+        qa = U.create(repo, cfg, "QA", {"title": "SWE1", "fields": {"check_type": "산출물 점검", "target": "SWE1"}}, pm)
+        qa = U.evaluate_checklist(repo, cfg, qa["id"], pm)
+        assert any(c["result"] == "NOK" for c in qa["fields"]["checklist"])
+        qf = U.findings_from_checklist(repo, cfg, qa["id"], pm)["created"][0]
+        U.update(repo, cfg, qf, {"fields": {"corrective": "c"}}, eng); U.transition(repo, cfg, qf, "resolved", "", eng)
+        try:
+            U.transition(repo, cfg, qf, "verified", "", eng); assert False
+        except ValueError:
+            pass
+        U.transition(repo, cfg, qf, "verified", "", pm)
+        try:
+            U.transition(repo, cfg, qa["id"], "done", "", pm); assert False     # summary + manual item missing
+        except ValueError:
+            pass
+        # SUP.8: release checks, baseline, backup/restore
+        rel = U.create(repo, cfg, "REL", {"title": "B", "fields": {"sw_version": "0.4.1", "git_commit": "abc", "sessions": s2["id"]}}, pm)
+        assert {c["key"] for c in rel["checks"]} >= {"audit_errors", "open_cr", "commit"}
+        rel = U.transition(repo, cfg, rel["id"], "released", "데모", pm)
+        assert repo.baseline(rel["fields"]["item_baseline"]) is not None
+        assert U.baseline_diff(repo, rel["fields"]["item_baseline"], None)["rows"] == []
+        z = U.backup(repo, root / "b.zip")
+        dst = root / "restored"
+        U.restore(dst, z)
+        assert Repo(dst).get(tc) is not None
+        U.summary(repo, cfg)
+        assert any(f["rule"] == "cr_without_impact" for f in U.audit_findings(repo, cfg)) is False
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -371,4 +455,5 @@ if __name__ == "__main__":
     test_login_roles_and_plan()
     test_work_product_tables()
     test_test_sessions_and_evidence()
+    test_sup_processes()
     print("OK")

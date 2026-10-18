@@ -428,6 +428,17 @@ def cmd_plan(args):
         print(schedule.set_baseline(repo, args.arg or "", "", admin))
 
 
+def cmd_backup(args):
+    from . import sup
+    repo, cfg = _ctx(args)
+    print(sup.backup(repo, Path(args.out)))
+
+
+def cmd_restore(args):
+    from . import sup
+    print(sup.restore(_root(args), Path(args.zip), args.force))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="ecualm", description="ECU ALM — ASPICE PAM 4.0 요구사항 관리 도구",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
@@ -487,6 +498,10 @@ def main(argv=None):
     p.add_argument("action", choices=["list", "add", "passwd", "role", "disable", "enable", "token"])
     p.add_argument("username", nargs="?"); p.add_argument("--name"); p.add_argument("--role", choices=["viewer", "engineer", "manager", "admin"])
     p.add_argument("--password", help="(비권장) 프롬프트 대신 인자로 전달"); p.set_defaults(fn=cmd_user)
+    p = sub.add_parser("backup", help="프로젝트 데이터(.alm DB·증빙·이미지·alm.json) zip 백업"); p.add_argument("out")
+    p.set_defaults(fn=cmd_backup)
+    p = sub.add_parser("restore", help="백업 zip 복원 (기존 .alm 은 .alm.bak 으로 이동)"); p.add_argument("zip")
+    p.add_argument("--force", action="store_true"); p.set_defaults(fn=cmd_restore)
     p = sub.add_parser("plan", help="MAN.3 일정·공수: template [시작일] | list | export [파일] | baseline <이름>")
     p.add_argument("action", choices=["template", "list", "export", "baseline"]); p.add_argument("arg", nargs="?")
     p.add_argument("--replace", action="store_true", help="template: 기존 작업 지우고 다시 생성"); p.set_defaults(fn=cmd_plan)

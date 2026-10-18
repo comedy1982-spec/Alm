@@ -141,6 +141,10 @@ def run_audit(repo: Repo, cfg: dict) -> dict:
         st = active.get(f["item"], {}).get("status")
         add("warn" if st in ("review", "approved") else "info", f["rule"], f["item"], f["msg"])
 
+    from .sup import audit_findings as sup_findings
+    for f in sup_findings(repo, cfg):      # SUP.9 / SUP.10 records: overdue, open safety problems, CR without impact
+        add(f["sev"], f["rule"], f["item"], f["msg"], f["related"])
+
     status_count = defaultdict(lambda: defaultdict(int))
     for i in active.values():
         status_count[i["type"]][i["status"]] += 1

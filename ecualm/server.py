@@ -7,12 +7,13 @@ import mimetypes
 import sys
 import tempfile
 import threading
+import time
 import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, ops, schedule, testruns, workproducts
+from . import arch, assistant, ops, schedule, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -49,6 +50,7 @@ def make_handler(root: Path):
     schedule.init(repo)
     workproducts.init(repo)
     testruns.init(repo)
+    sup.init(repo)
     auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
@@ -165,6 +167,39 @@ def make_handler(root: Path):
                         return self._send(200, out.read_bytes(),
                                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                           {"Content-Disposition": "attachment; filename=project_plan_MAN3.xlsx"})
+                if path.startswith("/api/sup") or path in ("/api/baseline/diff", "/api/backup"):
+                    qs = urllib.parse.parse_qs(p.query)
+                    g = lambda k, d="": qs.get(k, [d])[0]
+                    with LOCK:
+                        if path == "/api/sup":
+                            return self._send(200, sup.summary(repo, self.cfg))
+                        if path == "/api/sup/impact":
+                            return self._send(200, sup.impact(repo, self.cfg, [x for x in g("ids").split(",") if x]))
+                        if path.startswith("/api/sup/item/"):
+                            return self._send(200, {"records": sup.for_item(repo, urllib.parse.unquote(path[len("/api/sup/item/"):]))})
+                        if path.startswith("/api/sup/export/"):
+                            kind = path.rsplit("/", 1)[1]
+                            with tempfile.TemporaryDirectory() as td:
+                                out = sup.export_xlsx(repo, self.cfg, kind, Path(td) / "x.xlsx")
+                                return self._send(200, out.read_bytes(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                  {"Content-Disposition": f"attachment; filename={kind}_records.xlsx"})
+                        if path == "/api/baseline/diff":
+                            return self._send(200, sup.baseline_diff(repo, g("a"), g("b") or None))
+                        if path == "/api/backup":
+                            if rank(user["role"]) < rank("admin"):
+                                return self._send(403, {"error": "백업은 관리자만 받을 수 있습니다"})
+                            with tempfile.TemporaryDirectory() as td:
+                                out = sup.backup(repo, Path(td) / "b.zip")
+                                return self._send(200, out.read_bytes(), "application/zip",
+                                                  {"Content-Disposition": f"attachment; filename=ecualm_backup_{time.strftime('%Y%m%d_%H%M')}.zip"})
+                        if path.startswith("/api/sup/"):
+                            rid = urllib.parse.unquote(path[len("/api/sup/"):])
+                            if rid.endswith("/8d"):
+                                with tempfile.TemporaryDirectory() as td:
+                                    out = sup.export_8d(repo, self.cfg, rid[:-3], Path(td) / "8d.docx")
+                                    return self._send(200, out.read_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                                      {"Content-Disposition": f"attachment; filename={rid[:-3]}_8D.docx"})
+                            return self._send(200, sup.detail(repo, self.cfg, rid))
                 if path.startswith("/api/tests/") or path.startswith("/api/evidence/"):
                     qs = urllib.parse.parse_qs(p.query)
                     with LOCK:
@@ -350,6 +385,31 @@ def make_handler(root: Path):
                                                              float(b.get("min", 0.2)), int(b.get("top", 2))))
                     if path == "/api/derive":
                         return self._send(200, derive(repo, cfg, b["from"], b["to"], b.get("ids"), user))
+                    if path.startswith("/api/sup/"):
+                        a = path[len("/api/sup/"):]
+                        if a == "create":
+                            return self._send(200, sup.create(repo, cfg, b.get("kind", ""), b, who))
+                        if a == "update":
+                            return self._send(200, sup.update(repo, cfg, b["id"], b, who))
+                        if a == "transition":
+                            return self._send(200, sup.transition(repo, cfg, b["id"], b["to"], b.get("comment", ""), who))
+                        if a == "comment":
+                            return self._send(200, sup.comment(repo, cfg, b["id"], b.get("text", ""), who))
+                        if a == "escalate":
+                            return self._send(200, sup.escalate(repo, cfg, b["id"], b.get("to", ""), b.get("comment", ""), who))
+                        if a == "impact/save":
+                            return self._send(200, sup.save_impact(repo, cfg, b["id"], who))
+                        if a == "qa/evaluate":
+                            return self._send(200, sup.evaluate_checklist(repo, cfg, b["id"], who))
+                        if a == "qa/check":
+                            return self._send(200, sup.set_check(repo, cfg, b["id"], int(b["idx"]), b.get("result", ""), b.get("comment", ""), who))
+                        if a == "qa/findings":
+                            return self._send(200, sup.findings_from_checklist(repo, cfg, b["id"], who))
+                        if a == "from-test":
+                            return self._send(200, sup.problem_from_test(repo, cfg, b["session"], b["tc"], who, b))
+                        if a == "cr-from-pr":
+                            return self._send(200, sup.cr_from_problem(repo, cfg, b["id"], who))
+                        return self._send(404, {"error": "not found"})
                     if path == "/api/tests/session":
                         return self._send(200, testruns.create_session(repo, cfg, b, who))
                     if path == "/api/tests/session/update":

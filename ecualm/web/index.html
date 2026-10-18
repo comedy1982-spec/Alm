@@ -470,6 +470,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
     <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <small id="proj"></small></div>
     <span class="muted" style="font-size:12.5px" id="crumb"></span>
     <div class="spacer"></div>
+    <button class="btn" id="btnSup" title="SUP.1 품질 보증 · SUP.8 형상·릴리스 · SUP.9 문제 · SUP.10 변경 요청">지원(SUP)</button>
     <button class="btn" id="btnTests" title="테스트 세션 · 결과 · 증빙 · 시험 대시보드">시험</button>
     <button class="btn" id="btnPlan" title="ASPICE MAN.3 일정·공수 (WBS · 간트 · 공수 부하 · EVM)">일정·공수</button>
     <button class="btn" id="btnAi" title="AI 어시스턴트 (질문·요약·전개·링크 제안)" aria-expanded="false">AI</button>
@@ -666,15 +667,15 @@ function renderStrip(){
   const last=$('#strip').querySelectorAll('.st'); if(last.length) last[last.length-1].classList.add('last');
   $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>goStage(b.dataset.sid));
   $('#strip').querySelector('[data-home]').onclick=()=>{view={kind:'home'};render();};
-  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':view.kind==='tests'?'시험 세션 · 결과 · 증빙':'';
+  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':view.kind==='tests'?'시험 세션 · 결과 · 증빙':view.kind==='sup'?'지원 프로세스 (SUP)':'';
 }
 function goStage(sid){view={kind:'stage',sid};stageTab=S.stageById[sid]?.canvas&&sid==='HWE2'?'canvas':'doc';render();}
 function render(){
   renderStrip();
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
-  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||view.kind==='tests'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
-  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan,tests:viewTests})[view.kind]();
-  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';$('#btnTests').style.display='none';}
+  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||view.kind==='tests'||view.kind==='sup'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
+  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan,tests:viewTests,sup:viewSup})[view.kind]();
+  if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';$('#btnTests').style.display='none';$('#btnSup').style.display='none';}
   else if(ME&&ME.role==='viewer'){$('#btnImport').style.display='none';}
   broadcastCtx();
 }
@@ -1271,6 +1272,10 @@ async function openItem(id){
    <div class="sec"><b>이력</b>${hist.slice().reverse().map((h,k,arr)=>`<div class="hist"><b>v${h.version}</b> ${esc(h.change)} <span class="muted">${new Date(h.at*1000).toLocaleString()} · ${esc(h.by)}</span>${arr[k+1]&&arr[k+1].text!==h.text?`<div>${wordDiff(arr[k+1].text,h.text)}</div>`:''}</div>`).join('')}</div>`;
   $('#drawer').classList.add('open');
   if(a.result?.waveform&&$('#drWave')) renderWave($('#drWave'),it,true);
+  if(!STATIC) api('/api/sup/item/'+encodeURIComponent(id)).then(x=>{ if(!x.records.length||selected!==id) return; const sec=document.createElement('div'); sec.className='sec';
+    sec.innerHTML=`<b>문제 · 변경 요청 · QA</b>${x.records.map(r=>`<div class="lk"><span class="id" data-rec="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</span><span class="t">${esc(r.title)}</span><span class="chip">${esc(r.status)}</span><span class="muted" style="font-size:11px">${esc(r.roles.join(', '))}</span></div>`).join('')}`;
+    const hs=[...$('#drawer').querySelectorAll('.sec')].pop(); $('#drawer').insertBefore(sec,hs);
+    sec.querySelectorAll('[data-rec]').forEach(e=>e.onclick=()=>{$('#drawer').classList.remove('open');view={kind:'sup',rid:e.dataset.rec};render();}); }).catch(()=>{});
   $('#cls').onclick=()=>{$('#drawer').classList.remove('open');selected=null;document.querySelectorAll('.req.sel').forEach(e=>e.classList.remove('sel'));};
   $('#drawer').querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>openItem(e.dataset.open));
   if(ro) return;
@@ -1519,6 +1524,160 @@ function formDlg({title,desc='',fields,ok='확인'}){
   });
 }
 
+// ---------------- SUP.1 · SUP.8 · SUP.9 · SUP.10 ----------------
+const SP={data:null,tab:'overview',flt:{},q:''};
+const SUP_TABS=[['overview','개요'],['PR','문제 · SUP.9'],['CR','변경 요청 · SUP.10'],['QA','품질 보증 · SUP.1'],['REL','형상·릴리스 · SUP.8']];
+$('#btnSup').onclick=()=>{view={kind:'sup'};render();};
+function viewSup(){ if(view.rid) return viewRecord(view.rid); return viewSupList(); }
+const stCls=(k,s)=>({closed:'approved',verified:'approved',released:'approved',done:'approved',rejected:'deleted',duplicate:'deleted',deferred:'warn',approved:'review',review:'review'}[s]||(['new','submitted','open','planned','draft'].includes(s)?'draft':'review'));
+async function viewSupList(){
+  const c=$('#content');
+  if(!SP.data) c.innerHTML='<div class="empty">불러오는 중…</div>';
+  try{ SP.data=await api('/api/sup'); }catch(e){ c.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const D=SP.data;
+  c.innerHTML=`<div class="bar"><h1>지원 프로세스</h1><span class="sub">SUP.1 품질 보증 · SUP.8 형상 관리 · SUP.9 문제 해결 · SUP.10 변경 요청</span></div>
+   <div class="tabs">${SUP_TABS.map(([k,n])=>`<button class="${SP.tab===k?'on':''}" data-st="${k}">${n}</button>`).join('')}</div><div id="supBody"></div>`;
+  c.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{SP.tab=b.dataset.st;SP.q='';viewSupList();});
+  if(SP.tab==='overview') supOverview(); else if(SP.tab==='QA') { supList('QA'); } else if(SP.tab==='REL') supRelease(); else supList(SP.tab);
+}
+function supOverview(){
+  const D=SP.data, R=D.records, K=D.kinds, open=k=>R.filter(r=>r.kind===k&&!K[k].terminal.includes(r.status));
+  const od=R.filter(r=>r.overdue), saf=open('PR').filter(r=>(r.safety||'').startsWith('예'));
+  const card=(v,cls,l,sub,tab)=>`<div class="card ${cls}" ${tab?`data-go="${tab}" style="cursor:pointer"`:''}><span class="lbl">${l}</span><b>${v}</b><small>${sub}</small></div>`;
+  const lastRel=R.filter(r=>r.kind==='REL'&&r.status==='released')[0];
+  $('#supBody').innerHTML=`<div class="cards">${card(open('PR').length,open('PR').length?'warn':'','미해결 문제',`SUP.9 · MTTR ${D.pr.mttr_days==null?'—':D.pr.mttr_days+'일'}`,'PR')}${card(saf.length,saf.length?'err':'','미해결 안전 문제','ASIL 관련','PR')}
+     ${card(open('CR').length,'','진행 중 변경 요청',`CCB 대기 ${R.filter(r=>r.kind==='CR'&&r.status==='review').length}`,'CR')}${card(open('QF').length,open('QF').length?'warn':'','열린 QA 지적',`점검 ${R.filter(r=>r.kind==='QA').length}건`,'QA')}
+     ${card(od.length,od.length?'err':'','기한 초과','모든 SUP 기록')}${card(lastRel?esc(lastRel.sw_version||lastRel.id):'—','','최근 릴리스',lastRel?esc(lastRel.title):'릴리스 기록 없음','REL')}</div>
+   <div class="dgrid"><div class="pnl"><h3>주별 접수·종결</h3><div class="sub">문제(PR)와 변경 요청(CR)</div><div id="spTrend"></div></div>
+    <div class="pnl"><h3>문제 원인 분류</h3><div class="sub">SUP.9 근본 원인 분석 결과 (공정 개선 근거)</div>${(()=>{const m=Math.max(1,...D.pr.by_cause.map(x=>x[1]));return D.pr.by_cause.map(([k,n])=>`<div class="srow" style="grid-template-columns:120px 1fr 40px"><span class="n">${esc(k)}</span><div class="sbar" style="background:transparent"><i class="pd" style="width:${n*100/m}%;background:var(--accent);border-radius:0 4px 4px 0" data-tip="${esc(k)}: ${n}건"></i></div><span class="v">${n}</span></div>`).join('')||'<div class="muted" style="font-size:12.5px">문제 기록 없음</div>';})()}
+     ${D.pr.age_open.length?`<div style="margin-top:12px;font-size:12px;color:var(--muted)">오래된 미해결 문제</div>${D.pr.age_open.map(([id,d])=>`<div class="lk"><span class="id" data-rec="${id}" style="cursor:pointer">${id}</span><span class="t">${esc(R.find(r=>r.id===id)?.title||'')}</span><span class="mono">${d}일</span></div>`).join('')}`:''}</div>
+    <div class="pnl wide"><h3>기한 초과 · 안전 관련</h3>${[...od,...saf.filter(x=>!od.includes(x))].length?supTable([...od,...saf.filter(x=>!od.includes(x))]):'<div class="muted" style="font-size:12.5px">없음</div>'}</div></div>`;
+  supTrend(D.trend); bindTips($('#supBody'));
+  $('#supBody').querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>{SP.tab=e.dataset.go;viewSupList();});
+  bindRec($('#supBody'));
+}
+function supTrend(T){
+  const el=$('#spTrend'); const weeks=[...new Set(T.map(x=>x.week))].sort().slice(-12);
+  if(!weeks.length){el.innerHTML='<div class="muted" style="font-size:12.5px">기록 없음</div>';return;}
+  const v=(k,w,f)=>(T.find(x=>x.kind===k&&x.week===w)||{})[f]||0, mx=Math.max(1,...weeks.flatMap(w=>[v('PR',w,'opened'),v('PR',w,'closed'),v('CR',w,'opened'),v('CR',w,'closed')]));
+  el.innerHTML=`<div style="display:flex;gap:10px;align-items:flex-end;height:130px;padding-top:8px;overflow-x:auto">${weeks.map(w=>`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:44px"><div style="display:flex;gap:2px;align-items:flex-end;height:100px">${[['PR','opened','var(--w1)'],['PR','closed','var(--w3)'],['CR','opened','var(--w2)'],['CR','closed','var(--muted)']].map(([k,f,c])=>{const n=v(k,w,f);return `<i style="display:block;width:8px;height:${Math.max(n?3:0,n*100/mx)}px;background:${c};border-radius:3px 3px 0 0" data-tip="${w} 주 · ${k} ${f==='opened'?'접수':'종결'} ${n}"></i>`;}).join('')}</div><span class="mono muted" style="font-size:10.5px">${w.slice(5)}</span></div>`).join('')}</div>
+   <div class="lgd"><span><i style="background:var(--w1)"></i>문제 접수</span><span><i style="background:var(--w3)"></i>문제 종결</span><span><i style="background:var(--w2)"></i>CR 접수</span><span><i style="background:var(--muted)"></i>CR 종결</span></div>`;
+}
+function supTable(rows){
+  const K=SP.data.kinds;
+  return `<div style="overflow-x:auto"><table class="lt"><tr><th>ID</th><th>제목</th><th>상태</th><th>구분</th><th>담당</th><th>기한</th><th>갱신</th></tr>${rows.map(r=>`<tr class="click" data-rec="${esc(r.id)}"><td class="mono">${esc(r.id)}</td><td>${esc(r.title)}${(r.safety||'').startsWith('예')?' <span class="chip err">안전</span>':''}</td>
+    <td><span class="chip ${stCls(r.kind,r.status)}">${esc(r.status_label)}</span></td>
+    <td style="font-size:12px">${esc([r.severity,r.source,r.priority,r.process,r.sw_version].filter(Boolean).join(' · '))}${r.root_cause_cat?` · 원인 ${esc(r.root_cause_cat)}`:''}</td>
+    <td>${esc(r.owner||'—')}</td><td class="mono" style="white-space:nowrap">${esc(r.due||'')}${r.overdue?' <span class="chip err">초과</span>':''}</td><td class="muted" style="white-space:nowrap">${fmtT(r.updated)}</td></tr>`).join('')}</table></div>`;
+}
+function bindRec(root){ root.querySelectorAll('[data-rec]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();view={kind:'sup',rid:e.dataset.rec};render();}); bindOpen(root); }
+function supList(kind){
+  const D=SP.data, K=D.kinds, kinds=kind==='QA'?['QA','QF']:[kind];
+  const f=SP.flt[kind]||(kind==='REL'?'all':'open'), q=SP.q.toLowerCase();
+  let html='';
+  for(const k of kinds){
+    const kk=K[k]; let rows=D.records.filter(r=>r.kind===k);
+    const n={open:rows.filter(r=>!kk.terminal.includes(r.status)).length,all:rows.length};
+    rows=rows.filter(r=>(f==='all'||(f==='open'?!kk.terminal.includes(r.status):kk.terminal.includes(r.status)))&&(!q||(r.id+' '+r.title+' '+(r.owner||'')).toLowerCase().includes(q)));
+    html+=`<div class="pnl" style="margin-bottom:14px"><div class="row"><h3>${kk.process} ${esc(kk.label)}</h3><span class="muted" style="font-size:12px">미결 ${n.open} / 전체 ${n.all}</span><span class="spacer"></span>
+      ${atLeast(kk.create_role)?`<button class="btn primary sm" data-new="${k}">새 ${esc(kk.label)}</button>`:''}<a class="btn sm" href="/api/sup/export/${k}">Excel</a></div>
+      ${rows.length?supTable(rows):`<div class="muted" style="font-size:12.5px;padding:10px 0">${n.all?'조건에 맞는 기록 없음':kindEmpty(k)}</div>`}</div>`;
+  }
+  $('#supBody').innerHTML=`<div class="filters"><div class="fchips">${[['open','미결'],['closed','종결'],['all','전체']].map(([v,l])=>`<button data-fl="${v}" class="${f===v?'on':''}" aria-pressed="${f===v}">${l}</button>`).join('')}</div><input id="spQ" placeholder="검색 (ID, 제목, 담당)" value="${esc(SP.q)}" style="flex:1;min-width:160px"></div>${html}`;
+  $('#supBody').querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{SP.flt[kind]=b.dataset.fl;supList(kind);});
+  $('#spQ').oninput=e=>{SP.q=e.target.value;clearTimeout(SP._t);SP._t=setTimeout(()=>{supList(kind);const i=$('#spQ');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250);};
+  $('#supBody').querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>newRecord(b.dataset.new));
+  bindRec($('#supBody'));
+}
+const kindEmpty=k=>({PR:'문제 기록이 없습니다. 테스트 세션의 FAIL 행에서 "문제 등록"을 누르거나 여기서 새로 만드세요.',CR:'변경 요청이 없습니다. 문제 기록에서 "변경 요청 만들기"를 누르거나 새로 만드세요.',QA:'QA 점검이 없습니다. 단계(SYS2, SWE1 …)나 프로세스(SUP.8, MAN.3 …)를 대상으로 점검을 만들면 체크리스트가 자동으로 채워집니다.',QF:'QA 지적이 없습니다. 점검 체크리스트의 NOK 항목에서 만들 수 있습니다.',REL:'릴리스 기록이 없습니다.'}[k]);
+async function newRecord(kind,preset={}){
+  const kk=SP.data.kinds[kind], req=kk.fields.filter(f=>f.required||['target_release','due'].includes(f.key));
+  const fs=[{k:'title',label:'제목',value:preset.title||'',req:true},...req.map(f=>f.type==='enum'?{k:'f_'+f.key,label:f.label,type:'select',value:f.options[0],options:f.options.map(o=>[o,o])}:{k:'f_'+f.key,label:f.label+(f.help?` — ${f.help}`:''),type:f.type==='long'?'textarea':f.type==='num'?'number':f.type==='date'?'date':'text',value:'',req:f.required&&f.type!=='num'}),
+    {k:'owner',label:'담당',value:''},{k:'due',label:'기한',type:'date',value:''}];
+  if(kind==='QA') fs.splice(1,0);
+  const v=await formDlg({title:`새 ${kk.label} (${kk.process})`,desc:kind==='QA'?'대상이 단계면 산출물 점검, SUP.8·SUP.9·SUP.10·MAN.3 이면 프로세스 점검 체크리스트가 만들어집니다.':'',ok:'만들기',fields:fs});
+  if(!v) return;
+  const fields={}; for(const [k,x] of Object.entries(v)) if(k.startsWith('f_')) fields[k.slice(2)]=x;
+  try{ const r=await api('/api/sup/create',{kind,title:v.title,owner:v.owner,due:v.due,fields,items:preset.items||[],refs:preset.refs||[]}); toast(`${r.id} 생성`); view={kind:'sup',rid:r.id}; render(); }catch(e){ toast(e.message); }
+}
+async function viewRecord(rid){
+  const c=$('#content');
+  let r; try{ r=await api('/api/sup/'+encodeURIComponent(rid)); if(!SP.data) SP.data=await api('/api/sup'); }catch(e){ c.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const K=SP.data.kinds[r.kind], canEdit=atLeast('engineer')&&(!K.terminal.includes(r.status)||atLeast('manager'));
+  const groups=[...new Set(K.fields.map(f=>f.group||''))];
+  const fld=f=>{const v=r.fields[f.key]??'', id='rf_'+f.key, dis=canEdit?'':'disabled', lock=r.kind==='CR'&&f.key==='decision'&&!atLeast('manager')?'disabled title="PM·관리자 입력"':'';
+    const lab=`<label for="${id}">${esc(f.label)}${f.required?' *':''}${f.help?` <span class="muted" style="font-weight:400">— ${esc(f.help)}</span>`:''}</label>`;
+    if(f.type==='enum') return lab+`<select id="${id}" ${dis} ${lock}><option value=""></option>${f.options.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+    if(f.type==='long') return lab+`<textarea id="${id}" ${dis} ${lock}>${esc(v)}</textarea>`;
+    return lab+`<input id="${id}" type="${f.type==='num'?'number':f.type==='date'?'date':'text'}" step="0.5" value="${esc(v)}" ${dis} ${lock}>`;};
+  const gname={'':'기본 정보','분석':'원인 분석','조치':'조치','검증':'검증','종결':'종결','8D':'8D','영향 분석':'영향 분석','CCB':'CCB 결정','결과':'결과','에스컬레이션':'에스컬레이션','릴리스':'릴리스'};
+  const roles=Object.entries(K.item_roles);
+  const imp=r.fields.impact;
+  c.innerHTML=`<div class="bar"><div><h1>${esc(r.id)} ${esc(r.title)}</h1><div class="sub">${K.process} ${esc(K.label)} · 접수 ${fmtT(r.created)} ${esc(r.created_by)} · 갱신 ${fmtT(r.updated)} ${esc(r.updated_by)}</div></div><span class="spacer"></span>
+    <button class="btn" id="rcBack">← 목록</button>
+    ${r.kind==='PR'?`<a class="btn" href="/api/sup/${encodeURIComponent(r.id)}/8d">8D 보고서</a>${canEdit&&!r.ref_rows.some(x=>x.kind==='CR')?'<button class="btn" id="rcCr">변경 요청 만들기</button>':''}`:''}
+    ${r.kind==='CR'&&canEdit&&['submitted','analyzing','review','deferred'].includes(r.status)?'<button class="btn" id="rcImp">영향 분석 실행·저장</button>':''}
+    ${r.kind==='QA'&&atLeast('manager')?'<button class="btn" id="rcEval">자동 판정</button><button class="btn" id="rcFind">NOK → 지적 생성</button>':''}
+    ${r.kind==='QF'&&canEdit&&!K.terminal.includes(r.status)?'<button class="btn" id="rcEsc">에스컬레이션</button>':''}
+    ${canEdit||atLeast('manager')?r.next.map(n=>`<button class="btn ${['closed','approved','released','verified','done'].includes(n.to)?'primary':''}" data-to="${n.to}">→ ${esc(n.label)}</button>`).join(''):''}</div>
+   <div class="cards"><div class="card"><span class="lbl">상태</span><b style="font-size:18px;padding:5px 0">${esc(r.status_label)}</b><small>${r.overdue?'<span style="color:var(--err)">⚠ 기한 초과</span>':r.due?'기한 '+esc(r.due):'기한 없음'}</small></div>
+     <div class="card" style="flex:1;min-width:240px"><span class="lbl">진행 단계</span><div class="row" style="gap:4px;margin-top:8px;flex-wrap:wrap">${Object.entries(K.statuses).filter(([s])=>!K.terminal.includes(s)||s===r.status||['closed','verified','released','done'].includes(s)).map(([s,l])=>`<span class="chip ${s===r.status?stCls(r.kind,s):''}" style="${s===r.status?'font-weight:700':''}">${esc(l)}</span>`).join('<span class="muted">›</span>')}</div></div></div>
+   <div class="dgrid"><div class="pnl" style="min-width:0"><form class="pf" id="rcForm">
+     <div class="g2"><div><label for="rf_title">제목</label><input id="rf_title" value="${esc(r.title)}" ${canEdit?'':'disabled'}></div><div class="g2"><div><label for="rf_owner">담당</label><input id="rf_owner" value="${esc(r.owner)}" ${canEdit?'':'disabled'}></div><div><label for="rf_due">기한</label><input type="date" id="rf_due" value="${esc(r.due)}" ${canEdit?'':'disabled'}></div></div></div>
+     ${groups.map(g=>`<h3 style="margin:16px 0 0;font-size:13px;color:var(--muted)">${esc(gname[g]||g)}</h3>${K.fields.filter(f=>(f.group||'')===g).map(fld).join('')}`).join('')}
+     ${canEdit?'<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">저장</button></div>':''}</form></div>
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+     ${roles.length?`<div class="pnl"><h3>연결 항목</h3><div class="sub">${roles.map(([k,l])=>esc(l)).join(' · ')}</div>${r.item_rows.map((x,i)=>`<div class="lk"><span class="chip">${esc(K.item_roles[x.role]||x.role)}</span><span class="id" data-open="${esc(x.id)}" style="cursor:pointer;--c:${tcolor(x.type)}">${esc(x.id)}</span><span class="t">${esc(x.title)}</span>${x.result?`<span class="chip ${x.result}">${esc(x.result)}</span>`:`<span class="chip ${x.status}">${esc(x.status)}</span>`}${canEdit?`<button class="btn sm" data-rmi="${i}" aria-label="연결 해제">✕</button>`:''}</div>`).join('')||'<div class="muted" style="font-size:12.5px">없음</div>'}
+       ${canEdit?`<div class="row" style="margin-top:8px"><select id="rcRole" class="btn">${roles.map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('')}</select><input id="rcItem" class="btn" list="allIds" placeholder="항목 ID" style="flex:1;min-width:120px"><button class="btn" id="rcAddI">연결</button></div>`:''}</div>`:''}
+     <div class="pnl"><h3>관련 기록</h3>${r.ref_rows.map(x=>`<div class="lk"><span class="id" data-rec="${esc(x.id)}" style="cursor:pointer">${esc(x.id)}</span><span class="t">${esc(x.title)}</span><span class="chip">${esc(x.status)}</span></div>`).join('')||'<div class="muted" style="font-size:12.5px">없음</div>'}
+       ${canEdit?`<div class="row" style="margin-top:8px"><input id="rcRef" class="btn" placeholder="기록 ID (예: PR-001, CR-002)" style="flex:1"><button class="btn" id="rcAddR">연결</button></div>`:''}</div>
+     ${r.kind==='CR'?`<div class="pnl"><h3>영향 분석</h3>${imp?`<div class="sub">${fmtT(imp.at)} · ${esc(imp.by)} — 범위 ${imp.scope.length} · 영향 ${imp.rows.length}건 (검토 ${imp.review.length} · 재시험 ${imp.retest.length}) · ASIL ${imp.asil.join(', ')||'없음'} · 추정 ${imp.suggested_effort} MD</div>
+        <div class="row" style="gap:6px;margin-bottom:8px">${Object.entries(imp.by_stage).map(([s,n])=>`<span class="chip">${esc(s)} ${n}</span>`).join('')}</div>
+        <div style="max-height:320px;overflow:auto"><table class="lt"><tr><th>항목</th><th>조치</th><th>단계</th><th>ASIL</th><th>현재</th></tr>${imp.rows.map(x=>{const cur=S.byId[x.id];const ch=cur&&cur.version>x.version;const res=cur?.attrs?.result?.status;return `<tr><td style="padding-left:${6+x.depth*12}px"><span class="id" data-open="${esc(x.id)}" style="cursor:pointer;--c:${tcolor(x.type)}">${esc(x.id)}</span><div class="muted" style="font-size:11px">${esc(x.title)}</div></td><td><span class="chip ${x.action==='modify'?'err':x.action==='retest'?'warn':''}">${{modify:'변경',review:'검토',retest:'재시험'}[x.action]}</span></td><td class="mono">${esc(x.stage)}</td><td>${esc(x.asil)}</td><td style="font-size:11.5px">${x.action==='retest'?(res?`<span class="chip ${res}">${res}</span>`:'미실행'):ch?`<span class="chip new">v${x.version}→v${cur.version}</span>`:'변경 없음'}</td></tr>`;}).join('')}</table></div>
+        ${imp.tasks.length?`<div style="margin-top:8px;font-size:12px"><b>관련 일정 작업</b> ${imp.tasks.map(t=>`${esc(t.wbs)} ${esc(t.name)} (~${esc(t.finish)})`).join(' · ')}</div>`:''}`
+       :'<div class="muted" style="font-size:12.5px">아직 실행하지 않았습니다. 변경 대상 항목을 연결한 뒤 “영향 분석 실행·저장”을 누르면 하위 산출물·재시험 TC·ASIL 항목·관련 일정과 추정 공수를 계산해 근거로 저장합니다.</div>'}</div>`:''}
+     ${r.kind==='QA'?`<div class="pnl"><h3>체크리스트</h3><div class="sub">${r.fields.evaluated_at?'자동 판정 '+fmtT(r.fields.evaluated_at):'자동 판정 전'} · 자동 항목은 ALM 데이터로 판정, 나머지는 점검자가 판정</div><table class="lt"><tr><th>점검 항목</th><th>측정</th><th>판정</th><th>메모</th></tr>${(r.fields.checklist||[]).map((x,i)=>`<tr><td>${esc(x.q)}${x.auto?' <span class="chip">자동</span>':''}</td><td class="muted" style="font-size:12px">${esc(x.value||'')}</td>
+        <td><select data-ck="${i}" ${atLeast('manager')?'':'disabled'} aria-label="판정"><option value=""></option>${['OK','NOK','N/A'].map(o=>`<option ${x.result===o?'selected':''}>${o}</option>`).join('')}</select></td><td><input data-cm="${i}" class="ci" value="${esc(x.comment||'')}" ${atLeast('manager')?'':'disabled'} style="border:1px solid var(--line);border-radius:5px;padding:3px 5px;width:100%"></td></tr>`).join('')}</table></div>`:''}
+     ${r.kind==='REL'?`<div class="pnl"><h3>릴리스 검사</h3><div class="sub">${r.status==='released'?`릴리스 ${fmtT(r.fields.released_at)} · ${esc(r.fields.released_by)} · 베이스라인 <b>${esc(r.fields.item_baseline)}</b>`:'릴리스 시 오류 항목은 막고(예외 사유 필요), 경고 항목은 기록만 합니다'}</div>
+        ${(r.checks||r.fields.checks||[]).map(x=>`<div class="lk"><span class="chip ${x.ok?'approved':x.sev==='error'?'err':'warn'}">${x.ok?'통과':x.sev==='error'?'오류':'경고'}</span><span style="flex:1">${esc(x.label)}</span><span class="mono" style="font-size:12px">${esc(x.value)}</span></div>`).join('')}</div>`:''}
+     <div class="pnl"><h3>이력</h3><div style="max-height:320px;overflow:auto">${r.history.slice().reverse().map(h=>`<div class="hist"><span class="muted">${fmtT(h.at)} · ${esc(h.by)}</span> <b>${esc({created:'생성',status:'상태',edited:'수정',comment:'코멘트',impact:'영향 분석',evaluated:'자동 판정',escalated:'에스컬레이션'}[h.action]||h.action)}</b> ${h.to_status?`${esc(K.statuses[h.from_status]||'')} → ${esc(K.statuses[h.to_status]||h.to_status)}`:''}
+        ${h.comment?`<div>${esc(h.comment)}</div>`:''}${h.action==='edited'?`<div style="font-size:12px">${Object.entries(h.changes).map(([k,v])=>`${esc((K.fields.find(f=>f.key===k)||{}).label||k)}: <del>${esc(String(v[0]??'').slice(0,80))}</del> → <ins>${esc(String(v[1]??'').slice(0,80))}</ins>`).join('<br>')}</div>`:''}</div>`).join('')}</div>
+       ${atLeast('engineer')?'<div class="row" style="margin-top:8px"><input id="rcCmt" class="btn" placeholder="코멘트" style="flex:1"><button class="btn" id="rcCmtGo">남기기</button></div>':''}</div>
+    </div></div>`;
+  const C=$('#content'); bindRec(C); bindOpen(C);
+  $('#rcBack').onclick=()=>{view={kind:'sup'};SP.tab=r.kind==='QF'?'QA':r.kind;render();};
+  const reload=()=>viewRecord(rid);
+  const call=async(p,b,msg)=>{try{await api(p,b);if(msg)toast(msg);SP.data=null;reload();}catch(e){toast(e.message);}};
+  if($('#rcForm')) $('#rcForm').onsubmit=ev=>{ev.preventDefault();const fields={};for(const f of K.fields){const el=$('#rf_'+f.key);if(el&&!el.disabled)fields[f.key]=f.type==='num'?(el.value===''?null:Number(el.value)):el.value;}
+    call('/api/sup/update',{id:rid,title:$('#rf_title').value,owner:$('#rf_owner').value,due:$('#rf_due').value,fields},'저장');};
+  C.querySelectorAll('[data-to]').forEach(b=>b.onclick=async()=>{const to=b.dataset.to;const v=await formDlg({title:`${rid} → ${K.statuses[to]}`,desc:'전환 사유나 근거를 남기세요 (이력에 기록). 조건이 맞지 않으면 무엇이 부족한지 알려 드립니다.',ok:'전환',fields:[{k:'c',label:'코멘트',type:'textarea',value:''}]});if(v) call('/api/sup/transition',{id:rid,to,comment:v.c},`${K.statuses[to]}(으)로 전환`);});
+  C.querySelectorAll('[data-rmi]').forEach(b=>b.onclick=()=>{const it=r.items.filter((_,i)=>i!==+b.dataset.rmi);call('/api/sup/update',{id:rid,items:it},'연결 해제');});
+  if($('#rcAddI')) $('#rcAddI').onclick=()=>{const id=$('#rcItem').value.trim();if(!id)return;call('/api/sup/update',{id:rid,items:[...r.items,{id,role:$('#rcRole').value}]},'연결');};
+  if($('#rcAddR')) $('#rcAddR').onclick=()=>{const id=$('#rcRef').value.trim().toUpperCase();if(!id)return;call('/api/sup/update',{id:rid,refs:[...r.refs,id]},'연결');};
+  if($('#rcCmtGo')) $('#rcCmtGo').onclick=()=>call('/api/sup/comment',{id:rid,text:$('#rcCmt').value},'코멘트');
+  if($('#rcImp')) $('#rcImp').onclick=()=>call('/api/sup/impact/save',{id:rid},'영향 분석 저장');
+  if($('#rcCr')) $('#rcCr').onclick=async()=>{try{const x=await api('/api/sup/cr-from-pr',{id:rid});toast(`${x.id} 생성`);view={kind:'sup',rid:x.id};render();}catch(e){toast(e.message);}};
+  if($('#rcEval')) $('#rcEval').onclick=()=>call('/api/sup/qa/evaluate',{id:rid},'자동 판정 완료');
+  if($('#rcFind')) $('#rcFind').onclick=async()=>{try{const x=await api('/api/sup/qa/findings',{id:rid});toast(x.created.length?`지적 ${x.created.join(', ')} 생성`:'새로 만들 NOK 지적이 없습니다');reload();}catch(e){toast(e.message);}};
+  if($('#rcEsc')) $('#rcEsc').onclick=async()=>{const v=await formDlg({title:`${rid} 에스컬레이션`,desc:'기한 안에 해결되지 않는 지적을 상위 관리자에게 올립니다 (SUP.1).',ok:'에스컬레이션',fields:[{k:'to',label:'대상 (이름·직책)',value:'',req:true},{k:'c',label:'사유',type:'textarea',value:''}]});if(v) call('/api/sup/escalate',{id:rid,to:v.to,comment:v.c},'에스컬레이션 기록');};
+  C.querySelectorAll('[data-ck]').forEach(s=>s.onchange=()=>call('/api/sup/qa/check',{id:rid,idx:+s.dataset.ck,result:s.value,comment:C.querySelector(`[data-cm="${s.dataset.ck}"]`).value}));
+  C.querySelectorAll('[data-cm]').forEach(s=>s.onchange=()=>call('/api/sup/qa/check',{id:rid,idx:+s.dataset.cm,result:C.querySelector(`[data-ck="${s.dataset.cm}"]`).value,comment:s.value}));
+}
+async function supRelease(){
+  const D=SP.data, bl=D.baselines;
+  supList('REL'); const rel=$('#supBody').innerHTML;
+  $('#supBody').innerHTML=rel+`<div class="pnl" style="margin-bottom:14px"><h3>베이스라인 비교</h3><div class="sub">두 베이스라인(또는 베이스라인과 현재)의 추가·변경·삭제 항목 — 형상 상태 보고</div>
+     <div class="row"><select id="blA" class="btn">${bl.map(b=>`<option>${esc(b.name)}</option>`).join('')||'<option value="">베이스라인 없음</option>'}</select><span>→</span><select id="blB" class="btn"><option value="">현재</option>${bl.map(b=>`<option>${esc(b.name)}</option>`).join('')}</select><button class="btn" id="blGo" ${bl.length?'':'disabled'}>비교</button></div><div id="blOut" style="margin-top:10px"></div></div>
+   <div class="pnl"><h3>백업</h3><div class="sub">DB 일관성 사본 + 증빙 + 이미지 + alm.json 을 zip 으로 받습니다. API 키는 넣지 않습니다. 복원: <span class="mono">ecualm --root &lt;폴더&gt; restore 백업.zip</span></div>${atLeast('admin')?'<a class="btn" href="/api/backup">백업 받기 (zip)</a>':'<span class="muted" style="font-size:12.5px">관리자만 받을 수 있습니다.</span>'}</div>`;
+  $('#supBody').querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>newRecord(b.dataset.new)); bindRec($('#supBody'));
+  $('#supBody').querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{SP.flt.REL=b.dataset.fl;supRelease();});
+  $('#spQ').oninput=e=>{SP.q=e.target.value;clearTimeout(SP._t);SP._t=setTimeout(()=>{supRelease();const i=$('#spQ');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250);};
+  if($('#blGo')) $('#blGo').onclick=async()=>{ try{ const d=await api(`/api/baseline/diff?a=${encodeURIComponent($('#blA').value)}&b=${encodeURIComponent($('#blB').value)}`);
+    const L={added:['추가','new'],modified:['변경','warn'],removed:['삭제','err']};
+    $('#blOut').innerHTML=`<div class="row" style="gap:6px;margin-bottom:8px"><span class="chip new">추가 ${d.counts.added||0}</span><span class="chip warn">변경 ${d.counts.modified||0}</span><span class="chip err">삭제 ${d.counts.removed||0}</span><span class="chip">링크 +${d.links_added} / −${d.links_removed}</span></div>`+
+      (d.rows.length?`<div style="max-height:360px;overflow:auto"><table class="lt"><tr><th>항목</th><th>변경</th><th>내용</th></tr>${d.rows.map(x=>`<tr><td><span class="id" data-open="${esc(x.id)}" style="cursor:pointer;--c:${tcolor(x.type)}">${esc(x.id)}</span></td><td><span class="chip ${L[x.change][1]}">${L[x.change][0]}</span>${x.version?` <span class="mono muted" style="font-size:11px">v${x.version[0]}→v${x.version[1]}</span>`:''}</td><td style="font-size:12px">${x.prev&&x.prev!==x.text?wordDiff(x.prev,x.text):esc(x.text)}</td></tr>`).join('')}</table></div>`:'<div class="muted" style="font-size:12.5px">차이 없음</div>');
+    bindOpen($('#blOut')); }catch(e){ toast(e.message); } };
+}
 // ---------------- test sessions · results · evidence · dashboard ----------------
 const TS={dash:null,cur:null,filter:'',q:'',open:new Set()};
 const RS={PASS:'PASS',FAIL:'FAIL',BLOCKED:'BLOCKED',NOT_RUN:'미실행',N_A:'해당 없음'};
@@ -1652,7 +1811,7 @@ function drawSession(keep){
      <td>${r.verifies.map(v=>`<span class="id" data-open="${esc(v)}" style="cursor:pointer;font-size:11.5px;--c:${tcolor(S.byId[v]?.type)}">${esc(v)}</span>`).join('<br>')}</td>
      <td><span class="rbtn" role="group" aria-label="${esc(r.tc)} 결과">${['PASS','FAIL','BLOCKED','N_A'].map(x=>`<button class="${x} ${r.status===x?'on':''}" data-st="${x}" aria-pressed="${r.status===x}" ${canRun?'':'disabled'}>${x==='N_A'?'N/A':x==='BLOCKED'?'BLK':x}</button>`).join('')}</span></td>
      <td><input class="ci" data-fld="actual" value="${esc(r.actual)}" placeholder="${r.status==='FAIL'?'필수: 관찰한 실제 결과':'관찰 내용'}" ${canRun?'':'disabled'} aria-label="실제 결과"></td>
-     <td><input class="ci" data-fld="defect" value="${esc(r.defect)}" placeholder="예: JIRA-123" style="min-width:90px" ${canRun?'':'disabled'} aria-label="결함 번호"></td>
+     <td style="min-width:130px">${/^PR-\d+$/.test(r.defect)?`<span class="id" data-rec="${esc(r.defect)}" style="cursor:pointer">${esc(r.defect)}</span>`:`<input class="ci" data-fld="defect" value="${esc(r.defect)}" placeholder="예: JIRA-123" style="min-width:90px" ${canRun?'':'disabled'} aria-label="결함 번호">`}${(r.status==='FAIL'||r.status==='BLOCKED')&&!/^PR-\d+$/.test(r.defect)&&atLeast('engineer')?`<button class="btn sm" data-pr="${esc(r.tc)}" title="SUP.9 문제 기록으로 등록" style="margin-top:4px">문제 등록</button>`:''}</td>
      <td style="white-space:nowrap">${r.evidence.length?`<span class="chip">📎 ${r.evidence.length}</span>`:''}${s.status!=='aborted'&&atLeast('engineer')?` <label class="btn sm" style="cursor:pointer">올리기<input type="file" data-up="${esc(r.tc)}" multiple hidden></label>`:''}</td>
      <td class="muted" style="font-size:11.5px;white-space:nowrap">${r.executed_at?esc(r.executed_by)+'<br>'+fmtT(r.executed_at):'—'}</td></tr>
      ${op?`<tr class="det"><td></td><td colspan="7"><div class="kv" style="grid-template-columns:90px 1fr"><span>절차</span><span>${esc(r.text)}</span><span>사전 조건</span><span>${esc(r.pre_condition||'—')}</span><span>기대 결과</span><span>${esc(r.expected||'—')}</span><span>합격 기준</span><span>${esc(r.pass_criteria||'—')}</span><span>이력</span><span>${r.history.map(h=>`<span class="chip ${h.status}" title="${esc(h.by)} ${fmtT(h.at)}">${h.status}</span>`).join(' ')||'—'}</span></div><div class="evl">${r.evidence.map(evHTML).join('')}</div></td></tr>`:''}`;}).join('')||'<tr><td colspan="8" class="muted" style="padding:16px">해당하는 TC 가 없습니다</td></tr>'}</table></div>
@@ -1663,6 +1822,11 @@ function drawSession(keep){
   $('#tsQ').oninput=e=>{TS.q=e.target.value;clearTimeout(TS._t);TS._t=setTimeout(()=>{drawSession(true);const i=$('#tsQ');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250);};
   C.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>{const t=b.dataset.tg;TS.open.has(t)?TS.open.delete(t):TS.open.add(t);drawSession(true);});
   bindOpen(C); bindTips(C);
+  C.querySelectorAll('[data-rec]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();view={kind:'sup',rid:e.dataset.rec};render();});
+  C.querySelectorAll('[data-pr]').forEach(b=>b.onclick=async()=>{ const tc=b.dataset.pr;
+    const v=await formDlg({title:`${tc} — 문제 등록 (SUP.9)`,desc:'시험 조건·기대 결과·실제 결과로 문제 기록을 만들고, 이 TC 를 발견·확인 TC 로, 검증 대상 요구사항을 영향 항목으로 연결합니다. 결함 칸에 문제 번호가 들어갑니다.',ok:'등록',
+      fields:[{k:'severity',label:'심각도',type:'select',value:'Major',options:[['Critical','Critical'],['Major','Major'],['Minor','Minor']]},{k:'reproducibility',label:'재현성',type:'select',value:'항상',options:[['항상','항상'],['간헐','간헐'],['1회','1회']]},{k:'owner',label:'담당',value:''},{k:'due',label:'기한',type:'date',value:''}]});
+    if(!v) return; try{ const p=await api('/api/sup/from-test',{session:s.id,tc,...v}); toast(`${p.id} 등록`); await viewSession(s.id,true); }catch(e){ toast(e.message); } });
   C.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>sessionAction(b.dataset.act));
   if($('#tsEdit')) $('#tsEdit').onclick=editSession;
   if($('#tsAdd')) $('#tsAdd').onclick=addCases;
