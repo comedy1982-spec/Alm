@@ -501,6 +501,29 @@ def test_revision_change_analysis():
         assert out.exists()
 
 
+def test_source_side_by_side():
+    from ecualm import sources as SR
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root); SR.init(repo)
+        a = import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.pdf", doc="E", rev="1.0", mode="crs")
+        b = import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.1.pdf", doc="E", rev="1.1", mode="crs")
+        assert SR.source_file(repo, a["import_id"]).name == "CRS_eLSD_ECU_rev1.0.pdf"      # each revision kept
+        m = SR.meta(repo, b["import_id"])
+        assert m["kind"] == "pdf" and len(m["pages"]) > 40
+        La, Lb = SR.locate(repo, a["import_id"]), SR.locate(repo, b["import_id"])
+        reqs = [i for i in Lb["items"] if i["type"] == "CRS"]
+        assert sum(1 for i in reqs if i["id"] in Lb["locs"]) >= len(reqs) - 1
+        clu = next(i for i in Lb["items"] if i["native_id"] == "REQ-CLU-001")
+        old = next(i for i in La["items"] if i["id"] == clu["id"])
+        assert "100ms" in clu["text"] and "120ms" in old["text"]                       # text as of each revision
+        assert clu["change"] == "modified" and clu["id"] in La["locs"] and clu["id"] in Lb["locs"]
+        assert not any(i["native_id"] == "REQ-LOCK-012" for i in Lb["items"])          # withdrawn in 1.1
+        assert SR.page_png(repo, b["import_id"], 0)[:4] == b"\x89PNG"
+        h = SR.html(repo, b["import_id"])
+        assert "data-items" in h["html"]
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -513,4 +536,5 @@ if __name__ == "__main__":
     test_test_sessions_and_evidence()
     test_sup_processes()
     test_revision_change_analysis()
+    test_source_side_by_side()
     print("OK")

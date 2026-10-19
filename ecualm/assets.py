@@ -12,7 +12,17 @@ WEB_OK = {"png", "jpg", "jpeg", "gif", "svg", "webp"}
 
 
 def _soffice() -> str | None:
-    return shutil.which("soffice") or shutil.which("libreoffice")
+    found = shutil.which("soffice") or shutil.which("libreoffice")
+    if found:
+        return found
+    import os
+    for base in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+                 "/Applications/LibreOffice.app/Contents/MacOS"):
+        for exe in ("soffice.exe", "soffice"):
+            p = Path(base) / ("LibreOffice/program" if "Program" in base else "") / exe
+            if p.is_file():
+                return str(p)
+    return None
 
 
 def convert_with_soffice(src: Path, fmt: str, outdir: Path) -> Path | None:

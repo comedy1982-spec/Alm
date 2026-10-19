@@ -13,7 +13,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, changes, ops, schedule, sup, testruns, workproducts
+from . import arch, assistant, changes, ops, schedule, sources, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -52,6 +52,7 @@ def make_handler(root: Path):
     testruns.init(repo)
     sup.init(repo)
     changes.init(repo)
+    sources.init(repo)
     auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
@@ -123,7 +124,8 @@ def make_handler(root: Path):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
+            if "Cache-Control" not in (headers or {}):
+                self.send_header("Cache-Control", "no-store")
             for k, v in (headers or {}).items():
                 self.send_header(k, v)
             self.end_headers()
@@ -168,6 +170,30 @@ def make_handler(root: Path):
                         return self._send(200, out.read_bytes(),
                                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                           {"Content-Disposition": "attachment; filename=project_plan_MAN3.xlsx"})
+                if path.startswith("/api/source/"):
+                    qs = urllib.parse.parse_qs(p.query)
+                    parts = path[len("/api/source/"):].split("/")
+                    with LOCK:
+                        if parts[0] == "list":
+                            return self._send(200, {"sources": sources.sources_for(repo, qs.get("doc", [""])[0])})
+                        iid = parts[0]
+                        what = parts[1] if len(parts) > 1 else "meta"
+                        if what == "meta":
+                            return self._send(200, sources.meta(repo, iid))
+                        if what == "locs":
+                            return self._send(200, sources.locate(repo, iid))
+                        if what == "html":
+                            return self._send(200, sources.html(repo, iid))
+                        if what == "page" and len(parts) > 2:
+                            return self._send(200, sources.page_png(repo, iid, int(parts[2]), int(qs.get("dpi", ["110"])[0])),
+                                              "image/png", {"Cache-Control": "private, max-age=86400"})
+                        if what == "file":
+                            f = sources.source_file(repo, iid)
+                            if not f:
+                                return self._send(404, {"error": "원문 없음"})
+                            return self._send(200, f.read_bytes(), "application/octet-stream",
+                                              {"Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(f.name)}"})
+                    return self._send(404, {"error": "not found"})
                 if path == "/api/changes" or path.startswith("/api/changes/"):
                     with LOCK:
                         if path == "/api/changes":
@@ -364,6 +390,12 @@ def make_handler(root: Path):
                 if path == "/api/ai/settings":
                     return self._send(200, _save_ai_settings(root, self._json_body()))
                 with LOCK:
+                    if path.startswith("/api/source/") and path.endswith("/attach"):
+                        n = int(self.headers.get("Content-Length") or 0)
+                        if n > 80 * 1024 * 1024:
+                            return self._send(413, {"error": "파일이 너무 큽니다"})
+                        return self._send(200, sources.attach(repo, path.split("/")[3], urllib.parse.unquote(self.headers.get("X-Filename", "")),
+                                                              self.rfile.read(n)))
                     if path == "/api/evidence":
                         n = int(self.headers.get("Content-Length") or 0)
                         if n > testruns.MAX_EVIDENCE:

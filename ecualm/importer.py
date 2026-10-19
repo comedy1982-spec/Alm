@@ -482,4 +482,6 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
         repo.record_import(import_id, doc, rev, path, {k: (len(v) if isinstance(v, list) else v)
                                                       for k, v in summary.items() if k != "details"})
         repo.commit()
+        from .sources import keep_source
+        keep_source(repo, import_id, path)
     return summary
