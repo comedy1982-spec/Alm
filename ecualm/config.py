@@ -65,6 +65,7 @@ DEFAULT_CONFIG: dict = {
         {"src": "SWE6_TC", "role": "verifies",   "dst": ["SWE1"]},
         {"src": "SYS4_TC", "role": "verifies",   "dst": ["SYS3", "HSI", "IF"]},
         {"src": "SYS5_TC", "role": "verifies",   "dst": ["SYS2"]},
+        {"src": "*",       "role": "refers",     "dst": ["FIG", "TBL"]},
         {"src": "*",       "role": "relates",    "dst": ["*"]},
     ],
     # Audit coverage rules. upstream: the item must link to one of these types with this role.

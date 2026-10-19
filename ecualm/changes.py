@@ -116,6 +116,55 @@ def _asil(attrs: dict) -> str:
     return str(v).replace("ASIL", "").strip()
 
 
+def _chart_points(text: str) -> dict:
+    """'최대 토크: 0=12, 1000=12' lines of a chart's data text -> {(series, category): value}."""
+    out = {}
+    for line in (text or "").splitlines()[1:]:
+        if ":" not in line or line.startswith("X:"):
+            continue
+        name, rest = line.split(":", 1)
+        for m in re.finditer(r"\(([^,()]+),\s*([^()]+)\)|([^,=]+)=([^,]*)", rest):
+            k, v = (m.group(1), m.group(2)) if m.group(1) is not None else (m.group(3), m.group(4))
+            out[(name.strip(), k.strip())] = v.strip()
+    return out
+
+
+def _table_cells(text: str) -> tuple[list, dict]:
+    rows = [[c.strip() for c in r.split(" | ")] for r in (text or "").splitlines() if r.strip()]
+    if not rows:
+        return [], {}
+    return rows[0], {r[0]: r for r in rows[1:] if r}
+
+
+def media_changes(d: dict) -> list[str]:
+    """What changed inside a table or chart, cell by cell ("90 ~ 110°C · 허용 토크 (%): 80 → 70")."""
+    prev, new = d.get("prev_text", "") or "", d.get("text", "") or ""
+    out = []
+    if d.get("type") == "FIG" and "차트]" in prev + new:
+        a, b = _chart_points(prev), _chart_points(new)
+        for k in list(a) + [k for k in b if k not in a]:
+            if a.get(k) != b.get(k):
+                out.append(f"{k[0]} @{k[1]}: {a.get(k, '—') or '—'} → {b.get(k, '—') or '—'}")
+    elif d.get("type") == "TBL":
+        ha, ra = _table_cells(prev)
+        hb, rb = _table_cells(new)
+        for key in list(ra) + [k for k in rb if k not in ra]:
+            x, y = ra.get(key), rb.get(key)
+            if x is None:
+                out.append(f"행 추가: {' | '.join(y)}")
+            elif y is None:
+                out.append(f"행 삭제: {' | '.join(x)}")
+            else:
+                for j in range(max(len(x), len(y))):
+                    u, v = (x[j] if j < len(x) else ""), (y[j] if j < len(y) else "")
+                    if u != v:
+                        col = hb[j] if j < len(hb) else (ha[j] if j < len(ha) else f"{j + 1}열")
+                        out.append(f"{key} · {col}: {u or '—'} → {v or '—'}")
+    if d.get("image_changed"):
+        out.append("이미지 교체")
+    return out[:12]
+
+
 def classify(d: dict) -> dict:
     ch = d["change"]
     prev, new = d.get("prev_text", "") or "", d.get("text", "") or ""
@@ -124,7 +173,10 @@ def classify(d: dict) -> dict:
         # requirement rows inside tables are analysed as their own items; the table itself is context only
         added, removed, ratio = _token_diff(prev, new)
         d["_added"], d["_removed"] = added, removed
-        return {"kinds": ["table" if d["type"] == "TBL" else "figure"], "numbers": [], "notes": []}
+        notes = media_changes(d) if ch == "modified" else []
+        if notes:
+            d["_added"] = []
+        return {"kinds": ["table" if d["type"] == "TBL" else "figure"], "numbers": [], "notes": notes}
     if ch == "new":
         kinds.append("added")
         nums = [{"dim": q["dim"], "from": "", "to": _fmt(q), "direction": "added"} for q in quantities(new)]
@@ -202,7 +254,8 @@ def _severity(kinds: set, item_asil: str, imp: dict, d: dict) -> str:
                                (safety and any(n.get("direction") in ("threshold", "changed") for n in nums))):
         return "high"
     if kinds & {"table", "figure"}:
-        return "low"
+        # a figure / table a requirement points at ("그림 3 참조") is part of that requirement
+        return "medium" if d.get("change") == "modified" and d.get("ref_reqs") else "low"
     if kinds & {"numeric", "scope", "added", "removed", "verification", "attribute", "restored", "table", "figure"}:
         return "medium"
     return "low"
@@ -214,7 +267,11 @@ def _actions(kinds: set, sev: str, d: dict, imp: dict) -> list[str]:
         out.append("SYS.2 로 전개해 시스템 요구사항·검증 기준을 만드세요")
     if "removed" in kinds:
         out.append("하위 요구사항·TC 를 폐기 또는 재할당할지 결정하세요" if (d.get("dependents") or imp["review"]) else "하위 연결 없음 — 삭제 확인만 하면 됩니다")
-    if imp["review"]:
+    if kinds & {"table", "figure"} and d.get("ref_reqs"):
+        what = "표를" if "table" in kinds else "그림을"
+        deps = d["ref_reqs"]
+        out.append(f"이 {what} 참조하는 요구사항 {len(deps)}건 재검토 ({', '.join(deps[:4])}{' …' if len(deps) > 4 else ''}) — 링크 Suspect 표시됨")
+    elif imp["review"]:
         out.append(f"하위 항목 {len(imp['review'])}건 재검토" + ("" if "removed" in kinds else " (Suspect 표시됨)"))
     if imp["retest"]:
         out.append(f"관련 TC {len(imp['retest'])}건 폐기·수정 검토" if "removed" in kinds else

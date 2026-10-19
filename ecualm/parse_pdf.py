@@ -283,7 +283,8 @@ def parse_pdf(path: str | Path, render_dpi: int = 150) -> list[Block]:
             if any(abs(r[3] - l["top"]) < 60 or abs(r[1] - l["bottom"]) < 60 for r in img_rects):
                 continue
             if drawings is None:
-                drawings = [d["rect"] for d in page.get_drawings() if d["rect"].width * d["rect"].height > 4]
+                drawings = [d["rect"] for d in page.get_drawings()      # areas, and lines (grid / axes / curves)
+                            if d["rect"].width * d["rect"].height > 4 or max(d["rect"].width, d["rect"].height) > 8]
             # look above the caption first, then below
             for region in (_region_above(lines, i, found, h), _region_below(lines, i, found, h)):
                 vec = [d for d in drawings if region.intersects(d) and not any(_inside(tuple(d), tb) for tb in found)]
@@ -354,7 +355,12 @@ def _region_below(lines, i, tables, h):
 def _is_body(o) -> bool:
     """Long lines or sentences are body text; short fragments are probably diagram labels."""
     t = o["text"]
-    return len(t) >= 30 or bool(SENT_END.search(t)) or bool(HEADING_NUM.match(t)) or bool(CAPTION_TBL.match(t))
+    if len(t) >= 30 or bool(CAPTION_TBL.match(t)) or re.search(r"[가-힣](다|요|함|음|됨)[.。]?\s*$", t) and len(t) >= 4:
+        return True
+    words = re.findall(r"[^\W\d_]{2,}", t)          # chart ticks "0 1000 2000", axis labels "(rpm)" are not body
+    m = HEADING_NUM.match(t)
+    sent = bool(SENT_END.search(t)) and len(t) >= (20 if t.rstrip()[-1:] in ")]" else 8) and len(words) >= 2
+    return sent or bool(m and re.search(r"[^\W\d_]{2,}", m.group(2)))
 
 
 def group_paragraphs(lines: list[dict], body: float) -> list[dict]:

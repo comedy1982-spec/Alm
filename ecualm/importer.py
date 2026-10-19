@@ -302,14 +302,24 @@ def build_candidates(blocks: list[Block], cfg: dict, mode: str, repo: Repo, doc:
                         cands.append(it)
         elif b.kind == "figure":
             attrs = {"caption": b.caption, "labels": b.text, "render": b.style}
+            text = b.caption or ""
             if b.image:
                 attrs.update(save_asset(repo.assets, b.image, b.image_ext))
                 fp_src = attrs["sha"]
             else:
                 attrs["missing_image"] = True
                 fp_src = b.text or b.caption
+            if b.meta.get("chart"):
+                # a native chart: its data is the content (the SVG is only our drawing of it)
+                from .charts import data_text, grid as chart_grid
+                ch = b.meta["chart"]
+                attrs.update(chart=ch, grid=chart_grid(ch), render="chart")
+                text = (text + "\n" + data_text(ch)).strip()
+                fp_src = data_text(ch)
+            elif b.text and b.style in ("smartart", "vector-shapes"):
+                text = (text + "\n" + b.text).strip()
             cands.append({"kind": "fig", "type": "FIG", "domain": "GEN", "title": b.caption or "그림",
-                          "text": b.caption or "", "attrs": attrs, "section": section_path(),
+                          "text": text, "attrs": attrs, "section": section_path(),
                           "source_loc": b.loc, "fp_src": fp_src})
             _tag(cands[-1], b)
     for i, c in enumerate(cands):
@@ -385,7 +395,86 @@ def match(cands: list[dict], olds: list[dict], threshold: float) -> dict[int, st
         for o in by_kind.get("fig", []):
             if o["id"] not in used and o["status"] != "deleted" and o["attrs"].get("caption") == c["attrs"]["caption"]:
                 result[i] = o["id"]; used.add(o["id"]); break
+    # 5) uncaptioned pictures: the same requirement's picture, else the k-th unmatched picture of the same section
+    owner_of = {}
+    for i, c in enumerate(cands):
+        if c["kind"] == "req" and i in result:
+            owner_of.setdefault(c["source_loc"], result[i])
+    old_owner = {}
+    for o in olds:
+        if o["type"] not in kind_of:
+            old_owner.setdefault(o["source_loc"], o["id"])
+    by_loc_old = {}
+    for o in by_kind.get("fig", []):
+        if o["status"] != "deleted":
+            by_loc_old.setdefault(old_owner.get(o["source_loc"]), []).append(o)
+    left: dict = {}
+    for i, c in enumerate(cands):
+        if i in result or c["kind"] != "fig":
+            continue
+        own = owner_of.get(c["source_loc"])
+        hit = next((o for o in by_loc_old.get(own, []) if own and o["id"] not in used), None)
+        if hit:
+            result[i] = hit["id"]; used.add(hit["id"]); continue
+        left.setdefault(c["section"], []).append(i)
+    for sec, idx in left.items():
+        olds_here = [o for o in by_kind.get("fig", []) if o["id"] not in used and o["status"] != "deleted"
+                     and o["section"] == sec and not o["attrs"].get("caption")]
+        for i, o in zip([i for i in idx if not cands[i]["attrs"].get("caption")], olds_here):
+            result[i] = o["id"]; used.add(o["id"])
     return result
+
+
+# ---------------------------------------------------------------- figures / tables referenced by requirements
+REF_RE = re.compile(r"(그림|Figure|Fig\.|Fig|표|Table|Tab\.)\s*(\d+(?:[-.‐–]\d+)*)", re.I)
+CAP_NUM = re.compile(r"^\s*\[?(그림|Figure|Fig\.|Fig|표|Table|Tab\.)\s*(\d+(?:[-.‐–]\d+)*)", re.I)
+AUTO_NOTE = ("원문 참조", "원문 위치")
+
+
+def _media_key(word: str, num: str) -> tuple[str, str]:
+    kind = "TBL" if word.lower().startswith(("표", "tab")) else "FIG"
+    return kind, re.sub(r"[-‐–]", ".", num).rstrip(".")
+
+
+def link_media(repo: Repo, cfg: dict, doc: str, cands: list[dict]) -> int:
+    """Requirement --refers--> figure / table, from the document itself:
+    * the text names it ("그림 3 참조", "표 4-2 에 따른다", "see Figure 5") and a caption with that number exists;
+    * the picture / chart sits inside the requirement (same paragraph, same requirement-table row, same ReqIF object).
+    Links made this way are kept in step with each revision; links a user drew by hand are never touched.
+    A changed figure then makes the referring requirement's link Suspect, like any other upstream change."""
+    from .audit import allowed_roles
+    by_num: dict = {}
+    for c in cands:
+        if c["type"] in ("FIG", "TBL") and c.get("_id"):
+            m = CAP_NUM.match(c["attrs"].get("caption") or "")
+            if m:
+                by_num.setdefault(_media_key(m.group(1), m.group(2)), c["_id"])
+    want: dict = {}
+    req_at: dict = {}
+    for c in cands:
+        if c["type"] in REQ_TYPES | {"INFO"} and c.get("_id"):     # explanatory text ("그림 3은 …") links too
+            if c["type"] != "INFO":
+                req_at.setdefault(c["source_loc"], c["_id"])
+            for m in REF_RE.finditer(c["text"]):
+                tid = by_num.get(_media_key(m.group(1), m.group(2)))
+                if tid:
+                    want.setdefault((c["_id"], tid), f"원문 참조: {m.group(0)}")
+    for c in cands:
+        loc = c["source_loc"]
+        own = (c["type"] == "FIG" and loc.startswith("para ")) or (c["type"] in ("FIG", "TBL") and loc.startswith("obj "))
+        if own and c.get("_id") and loc in req_at:
+            want.setdefault((req_at[loc], c["_id"]), "원문 위치: 요구사항 안의 " + ("표" if c["type"] == "TBL" else "그림"))
+    types = {i["id"]: i["type"] for i in repo.items(doc=doc, include_deleted=True)}
+    for l in repo.links():
+        if l["role"] == "refers" and l["src"] in types and (l["note"] or "").startswith(AUTO_NOTE) \
+                and (l["src"], l["dst"]) not in want:
+            repo.remove_link(l["src"], "refers", l["dst"])
+    n = 0
+    for (src, dst), note in want.items():
+        if "refers" in allowed_roles(cfg, types.get(src, ""), types.get(dst, "")):
+            repo.add_link(src, "refers", dst, state="confirmed", note=note)
+            n += 1
+    return n
 
 
 # ---------------------------------------------------------------- main entry
@@ -444,6 +533,7 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
             for keep in ("custom",):
                 if keep in o["attrs"]:
                     merged_attrs[keep] = o["attrs"][keep]
+            c["_id"] = oid
             if o["status"] == "deleted":
                 repo.update(oid, {**base, "attrs": merged_attrs, "status": "draft"}, change="restored", import_id=import_id, by=user)
                 summary["restored"].append(oid)
@@ -465,11 +555,15 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
                             "section": c["section"], "was_approved": o["status"] == "approved",
                             "native_id": c["attrs"].get("native_id") or o["attrs"].get("native_id", ""),
                             "attrs_before": _attr_sig(o["attrs"]), "attrs_after": _attr_sig(c["attrs"]),
-                            "dependents": [l["src"] for l in repo.links(oid) if l["dst"] == oid]})
+                            "dependents": [l["src"] for l in repo.links(oid) if l["dst"] == oid],
+                            "image_changed": "prev_file" in prev and c["attrs"].get("render") != "chart",
+                            "ref_reqs": [l["src"] for l in repo.links(oid) if l["dst"] == oid and l["role"] == "refers"
+                                         and (repo.get(l["src"]) or {}).get("type") in REQ_TYPES]})
         else:
             tdef = cfg["types"][typ]
             fmt = id_fmt if ((typ in REQ_TYPES or typ.endswith("_TC")) and c["domain"] != typ) else cfg["id_format_no_domain"]
             new_id = repo.next_id(fmt, tdef["prefix"], c["domain"], cfg)
+            c["_id"] = new_id
             repo.insert({"id": new_id, "type": typ, "domain": c["domain"], "doc": doc, **base},
                         import_id=import_id, by=user)
             summary["new"].append(new_id)
@@ -495,6 +589,7 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
             elif it["type"] == tgt["type"]:
                 repo.add_link(it["id"], "relates", tgt["id"], state="confirmed", note="원문 참조"); ref_links += 1
     summary["ref_links"] = ref_links
+    summary["media_links"] = link_media(repo, cfg, doc, cands)
 
     matched_ids = set(matches.values())
     # where a withdrawn requirement's ID still appears in the new revision (e.g. "shall" softened to "should",

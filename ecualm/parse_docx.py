@@ -15,7 +15,12 @@ NS = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "v": "urn:schemas-microsoft-com:vml",
+    "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+    "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
+    "dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
 }
+M_T = "{%s}t" % NS["m"]
+M_MATH = "{%s}oMath" % NS["m"]
 R_EMBED = "{%s}embed" % NS["r"]
 R_ID = "{%s}id" % NS["r"]
 
@@ -46,11 +51,60 @@ def _style_outline_level(style) -> int | None:
     return None
 
 
+def _omml(el) -> str:
+    """Office Math -> linear text: fractions (a)/(b), sub/superscripts a_b a^b, roots √(x), delimiters (x)."""
+    def m(t):
+        return "{%s}%s" % (NS["m"], t)
+
+    def kid(e, t):
+        return e.find(m(t))
+
+    def lin(e) -> str:
+        if e is None:
+            return ""
+        tag = e.tag
+        if tag == m("t"):
+            return e.text or ""
+        if tag == m("f"):
+            num, den = lin(kid(e, "num")), lin(kid(e, "den"))
+            wrap = lambda x: x if re.fullmatch(r"[\w.]+", x) else f"({x})"
+            return f"{wrap(num)}/{wrap(den)}"
+        if tag == m("sSub"):
+            return f"{lin(kid(e, 'e'))}_{lin(kid(e, 'sub'))}"
+        if tag == m("sSup"):
+            return f"{lin(kid(e, 'e'))}^{lin(kid(e, 'sup'))}"
+        if tag == m("sSubSup"):
+            return f"{lin(kid(e, 'e'))}_{lin(kid(e, 'sub'))}^{lin(kid(e, 'sup'))}"
+        if tag == m("rad"):
+            deg = lin(kid(e, "deg"))
+            return f"{'' if not deg else deg}√({lin(kid(e, 'e'))})"
+        if tag == m("d"):
+            pr = kid(e, "dPr")
+            beg = pr.find(m("begChr")).get(m("val")) if pr is not None and pr.find(m("begChr")) is not None else "("
+            end = pr.find(m("endChr")).get(m("val")) if pr is not None and pr.find(m("endChr")) is not None else ")"
+            return beg + ", ".join(lin(x) for x in e.findall(m("e"))) + end
+        if tag == m("nary"):
+            pr = kid(e, "naryPr")
+            ch = pr.find(m("chr")).get(m("val")) if pr is not None and pr.find(m("chr")) is not None else "∫"
+            sub, sup = lin(kid(e, "sub")), lin(kid(e, "sup"))
+            return f"{ch}{'_' + sub if sub else ''}{'^' + sup if sup else ''} {lin(kid(e, 'e'))}"
+        if tag in (m("rPr"), m("ctrlPr"), m("fPr"), m("sSubPr"), m("sSupPr"), m("radPr"), m("dPr"), m("naryPr")):
+            return ""
+        return "".join(lin(c) for c in e)
+    return lin(el)
+
+
 def _para_text(p_el) -> str:
     parts = []
+    skip = set()
     for node in p_el.iter():
         tag = node.tag
-        if tag == qn("w:t"):
+        if node in skip:
+            continue
+        if tag == M_MATH:                        # an equation (OMML), kept inline as linear text
+            parts.append(_omml(node))
+            skip.update(node.iter())
+        elif tag == qn("w:t"):
             parts.append(node.text or "")
         elif tag == qn("w:tab"):
             parts.append("\t")
@@ -64,8 +118,14 @@ def _para_text(p_el) -> str:
 def _para_text_main(p_el) -> str:
     """Paragraph text without text-box content (text boxes are captured separately)."""
     parts = []
+    skip = set()
     for node in p_el.iter():
-        if node.tag == qn("w:t"):
+        if node in skip:
+            continue
+        if node.tag == M_MATH:
+            parts.append(_omml(node))
+            skip.update(node.iter())
+        elif node.tag == qn("w:t"):
             # skip runs living inside drawings/text boxes
             anc = node.getparent()
             inside_box = False
@@ -98,6 +158,46 @@ def _images_in(el, part) -> list[tuple[bytes, str]]:
         ct = getattr(ipart, "content_type", "")
         ext = EXT_BY_CT.get(ct) or Path(str(ipart.partname)).suffix.lstrip(".").lower() or "bin"
         out.append((ipart.blob, ext))
+    return out
+
+
+def _charts_in(el, part) -> list[dict]:
+    """Native Word charts (c:chart) and SmartArt (dgm:relIds) inside an element -> [{"chart"| "smartart": ...}]."""
+    from .charts import parse_chart
+    out = []
+    for c in el.iter("{%s}chart" % NS["c"]):
+        rid = c.get(R_ID)
+        try:
+            ch = parse_chart(part.related_parts[rid].blob)
+        except (KeyError, AttributeError):
+            ch = None
+        if ch:
+            out.append({"chart": ch})
+    for d in el.iter("{%s}relIds" % NS["dgm"]):
+        rid = d.get("{%s}dm" % NS["r"])
+        try:
+            from lxml import etree
+            data = etree.fromstring(part.related_parts[rid].blob)
+        except Exception:
+            continue
+        labels = []
+        for t in data.iter("{%s}t" % NS["a"]):
+            if t.text and t.text.strip() and t.text.strip() not in labels:
+                labels.append(t.text.strip())
+        out.append({"smartart": labels})
+    return out
+
+
+def _media_blocks(el, part, loc: str, style: str = "") -> list[Block]:
+    """Pictures, charts and SmartArt inside an element as figure blocks."""
+    out = [Block(kind="figure", image=blob, image_ext=ext, style=style, loc=loc) for blob, ext in _images_in(el, part)]
+    from .charts import svg
+    for m in _charts_in(el, part):
+        if "chart" in m:
+            out.append(Block(kind="figure", image=svg(m["chart"]), image_ext="svg", style="chart", loc=loc,
+                             caption=m["chart"].get("title", ""), meta={"chart": m["chart"]}))
+        else:
+            out.append(Block(kind="figure", text=" | ".join(m["smartart"]), style="smartart", loc=loc))
     return out
 
 
@@ -169,9 +269,10 @@ def parse_docx(path: str | Path) -> list[Block]:
                 grid = _table_grid(el)
                 if grid:
                     blocks.append(Block(kind="table", grid=grid, loc=f"para {pidx}"))
-                    # images inside table cells become figures right after the table
-                    for blob, ext in _images_in(el, part):
-                        blocks.append(Block(kind="figure", image=blob, image_ext=ext, loc=f"para {pidx}"))
+                    # pictures / charts inside table cells become figures right after the table; the row is kept in
+                    # the location so a picture in a requirement row is linked to that requirement
+                    for ri, tr in enumerate(el.findall(qn("w:tr"))):
+                        blocks.extend(_media_blocks(tr, part, f"para {pidx} row {ri + 1}"))
                 continue
             if tag != qn("w:p"):
                 continue
@@ -211,9 +312,9 @@ def parse_docx(path: str | Path) -> list[Block]:
                                     loc=f"para {pidx}"))
             elif text:
                 blocks.append(Block(kind="para", text=text, style=style, loc=f"para {pidx}", list_level=list_level))
-            imgs = _images_in(el, part)
-            for blob, ext in imgs:
-                blocks.append(Block(kind="figure", image=blob, image_ext=ext, style=style, loc=f"para {pidx}"))
+            media = _media_blocks(el, part, f"para {pidx}", style)
+            imgs = [b for b in media if b.image is not None or b.style == "smartart"]
+            blocks.extend(media)
             # Diagrams drawn with Word shapes have no bitmap: keep them as a figure carrying the shape labels
             if not imgs and (any(True for _ in el.iter("{http://schemas.microsoft.com/office/word/2010/wordprocessingShape}wsp"))
                              or any(True for _ in el.iter("{http://schemas.microsoft.com/office/word/2010/wordprocessingGroup}wgp"))):

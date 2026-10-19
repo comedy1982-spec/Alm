@@ -104,6 +104,17 @@ table.g tr:first-child td{background:var(--soft);font-weight:600}
 figure{margin:12px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
 figure img{max-width:100%;max-height:480px;background:#fff;border-radius:4px}
 figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
+.mref{color:var(--accent);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.mrefs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.mthumb{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:4px 8px 4px 4px;background:var(--soft2);cursor:pointer;font-size:12px;color:var(--muted);max-width:320px}
+.mthumb:hover{border-color:var(--accent)}
+.mthumb img{width:72px;height:44px;object-fit:contain;background:#fff;border-radius:4px;flex:none}
+.mthumb .tk{width:44px;height:44px;display:grid;place-items:center;background:var(--soft);border-radius:4px;flex:none;font-weight:600;color:var(--ink)}
+.mthumb.sus{border-color:var(--warn)}
+.mthumb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.figrefs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px;font-size:12px;color:var(--muted)}
+figure details{margin-top:8px;text-align:left}
+figure details summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
 pre.code{text-align:left;background:var(--soft);padding:8px;border-radius:6px;font:12px/1.4 var(--mono);overflow:auto;white-space:pre}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.10);overflow:auto;padding:18px 20px;transform:translateX(100%);transition:transform .18s;z-index:7}
 .drawer.open{transform:none}
@@ -738,12 +749,34 @@ function specHTML(a){
 function itemHTML(it){
   const sel=selected===it.id?' sel':'';
   if(it.type==='HDG'){const l=Math.min(4,(it.attrs.level||1)+1);return `<h${l} id="h-${esc(it.id)}">${esc(it.text)}</h${l}>`;}
-  if(it.type==='INFO') return `<p class="info${it.attrs.list_level>=0?' li':''}">${it.attrs.list_level>=0?'• ':''}${esc(it.text)}</p>`;
-  if(it.type==='TBL') return `<div class="tblwrap" data-id="${esc(it.id)}"><div class="tblcap"><span class="id">${esc(it.id)}</span>${esc(it.attrs.caption||'')}<span class="chip">${esc(it.attrs.table_kind||'')}</span></div>${tableHTML(it.attrs.grid||[])}</div>`;
-  if(it.type==='FIG') return `<figure data-id="${esc(it.id)}">${it.attrs.file?`<img loading="lazy" src="${asset(it.attrs.file)}" alt="${esc(it.attrs.caption||it.id)}">`:`<div class="empty" style="padding:16px">이미지 없음 — 라벨: ${esc(it.attrs.labels||'')}</div>`}<figcaption><span class="id">${esc(it.id)}</span> ${esc(it.attrs.caption||'')}${it.attrs.converted?` <span class="chip">${esc(it.attrs.orig_ext)}→png</span>`:''}</figcaption>${it.attrs.diagram_code?`<pre class="code">${esc(it.attrs.diagram_code)}</pre>`:''}</figure>`;
+  if(it.type==='INFO') return `<p class="info${it.attrs.list_level>=0?' li':''}">${it.attrs.list_level>=0?'• ':''}${refText(it)}</p>`;
+  if(it.type==='TBL'){const refs=(S.down[it.id]||[]).filter(l=>l.role==='refers');
+    return `<div class="tblwrap" data-id="${esc(it.id)}"><div class="tblcap"><span class="id">${esc(it.id)}</span>${esc(it.attrs.caption||'')}<span class="chip">${esc(it.attrs.table_kind||'')}</span>${refs.length?`<span class="muted" style="font-size:12px;margin-left:auto">참조: ${refs.map(l=>`<span class="id" data-open="${esc(l.src)}" style="cursor:pointer">${esc(l.src)}</span>`).join(' ')}</span>`:''}</div>${tableHTML(it.attrs.grid||[])}</div>`;}
+  if(it.type==='FIG') return figHTML(it);
   const f=it.attrs.fields?Object.entries(it.attrs.fields).map(([k,v])=>`<b>${esc(k)}</b> ${esc(v)}`).join(' · '):'';
   const vc=(it.attrs.verification_criteria||it.attrs.verification_method||it.attrs.rationale)?`<div class="fields">${it.attrs.verification_method?`<b>검증</b> ${esc(it.attrs.verification_method)} · `:''}${it.attrs.rationale?`<b>근거</b> ${esc(it.attrs.rationale)} · `:''}${it.attrs.verification_criteria?`<b>검증 기준</b> ${esc(it.attrs.verification_criteria)}`:''}</div>`.replace(/ · <\/div>$/,'</div>'):'';
-  return `<div class="req${sel}" style="--c:${tcolor(it.type)}" data-id="${esc(it.id)}"><div class="top">${chipsFor(it)}</div><div>${esc(it.text)}</div>${specHTML(it.attrs)}${f?`<div class="fields">${f}</div>`:''}${vc}</div>`;
+  return `<div class="req${sel}" style="--c:${tcolor(it.type)}" data-id="${esc(it.id)}"><div class="top">${chipsFor(it)}</div><div>${refText(it)}</div>${mediaRefs(it)}${specHTML(it.attrs)}${f?`<div class="fields">${f}</div>`:''}${vc}</div>`;
+}
+// figures / tables a requirement refers to (links with role "refers")
+function mediaLinks(it){return (S.up[it.id]||[]).filter(l=>l.role==='refers'&&S.byId[l.dst]&&S.byId[l.dst].status!=='deleted');}
+function refText(it){
+  const ls=mediaLinks(it); let h=esc(it.text);
+  for(const l of ls){const m=/원문 참조: (.+)$/.exec(l.note||''); if(!m) continue;
+    const lab=esc(m[1]); h=h.split(lab).join(`<span class="mref" data-open="${esc(l.dst)}" title="${esc(l.dst)} 열기">${lab}</span>`);}
+  return h;
+}
+function mediaRefs(it){
+  const ls=mediaLinks(it); if(!ls.length) return '';
+  return `<div class="mrefs">${ls.map(l=>{const f=S.byId[l.dst], cap=f.attrs.caption||`${f.type==='TBL'?'표':'그림'} ${f.id}`;
+    const th=f.type==='FIG'&&f.attrs.file?`<img loading="lazy" src="${asset(f.attrs.file)}" alt="">`:`<i class="tk">${f.type==='TBL'?'표':'그림'}</i>`;
+    return `<button type="button" class="mthumb${l.suspect?' sus':''}" data-open="${esc(f.id)}" title="${esc(l.note||'')}${l.suspect?' — 그림/표가 바뀜 (Suspect)':''}">${th}<span>${esc(cap)}</span>${l.suspect?'<span class="chip warn">변경</span>':''}</button>`;}).join('')}</div>`;
+}
+function figHTML(it){
+  const a=it.attrs, refs=(S.down[it.id]||[]).filter(l=>l.role==='refers');
+  const kind=a.render==='chart'?'차트':a.render==='smartart'?'SmartArt':a.render==='vector-shapes'?'도형':'';
+  const img=a.file?`<img loading="lazy" src="${asset(a.file)}" alt="${esc(a.caption||it.id)}">`:`<div class="empty" style="padding:16px">이미지 없음${a.labels?` — 라벨: ${esc(a.labels)}`:''}</div>`;
+  const data=a.chart&&a.grid?`<details><summary>차트 데이터 (${a.chart.series.length}개 계열)</summary>${tableHTML(a.grid)}</details>`:'';
+  return `<figure data-id="${esc(it.id)}">${img}<figcaption><span class="id">${esc(it.id)}</span> ${esc(a.caption||'')}${kind?` <span class="chip">${kind}</span>`:''}${a.converted?` <span class="chip">${esc(a.orig_ext)}→png</span>`:''}</figcaption>${data}${a.diagram_code?`<pre class="code">${esc(a.diagram_code)}</pre>`:''}${refs.length?`<div class="figrefs">참조: ${refs.map(l=>`<span class="id" data-open="${esc(l.src)}" style="cursor:pointer">${esc(l.src)}</span>`).join(' ')}</div>`:''}</figure>`;
 }
 function bindOpen(root){root.querySelectorAll('[data-id]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.id);});root.querySelectorAll('[data-open]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.open);});}
 
@@ -1291,7 +1324,7 @@ async function openItem(id){
   const t=S.types[it.type]||{}; const ups=S.up[id]||[], downs=S.down[id]||[]; const ro=STATIC;
   const roleOpts=[...new Set(S.link_rules.filter(r=>r.src===it.type||r.src==='*').map(r=>r.role))];
   const linkRow=(l,other,dir)=>`<div class="lk ${l.state==='proposed'?'prop':''}"><span class="muted" style="width:72px">${dir} ${esc(l.role)}</span><span class="id" data-open="${esc(other)}" style="--c:${tcolor(S.byId[other]?.type||'')}">${esc(other)}</span>${l.suspect?'<span class="chip sus">SUSPECT</span>':''}${l.state==='proposed'?'<span class="chip">제안</span>':''}<span class="t">${esc(S.byId[other]?.text||'')}</span>${ro?'':`${l.state==='proposed'?`<button class="btn sm" data-ok="${esc(l.src)}|${esc(l.role)}|${esc(l.dst)}">✓</button>`:''}${l.suspect?`<button class="btn sm" data-clr="${esc(l.src)}|${esc(l.dst)}">검토완료</button>`:''}<button class="btn sm" data-del="${esc(l.src)}|${esc(l.role)}|${esc(l.dst)}">✕</button>`}</div>`;
-  const a=it.attrs; const hide=['grid','quantities','prev_text','prev_file','fields','labels','file','sha','orig_ext','converted','render','level','number','list_level','level_confidence','table_row','table_caption','caption','native_id','spec','custom','derived_from','plantuml','rte_ports','result','results','canvas_layout','hw','canvas','from','to','signal_class','signals','block_kind','asil','kind','tool','boundary','pass_criteria'];
+  const a=it.attrs; const hide=['grid','chart','reqif_id','reqif_parent','reqif_type','reqif_supplier','quantities','prev_text','prev_file','fields','labels','file','sha','orig_ext','converted','render','level','number','list_level','level_confidence','table_row','table_caption','caption','native_id','spec','custom','derived_from','plantuml','rte_ports','result','results','canvas_layout','hw','canvas','from','to','signal_class','signals','block_kind','asil','kind','tool','boundary','pass_criteria'];
   const extra=Object.entries(a).filter(([k])=>!hide.includes(k));
   $('#drawer').innerHTML=`<div class="row"><h3 style="--c:${tcolor(it.type)};color:var(--c)">${esc(it.id)}</h3><span class="spacer"></span><button class="btn sm" id="cls">닫기</button></div>
    <div class="row" style="margin:4px 0 8px"><span class="chip">${esc(it.type)} · ${esc(t.aspice||'')} · ${esc(t.polarion||'')}</span><span class="chip">${esc(it.domain)}</span><span class="chip ${it.status}">${esc(it.status)}</span><span class="chip">v${it.version}</span>${a.derived_from?`<span class="chip" data-open="${esc(a.derived_from)}" style="cursor:pointer">← ${esc(a.derived_from)} 에서 전개</span>`:''}</div>
@@ -1299,14 +1332,14 @@ async function openItem(id){
    ${a.spec?`<div class="sec"><b>SWE.1 템플릿</b>${specHTML(a)}</div>`:a.kind||a.autosar_layer||a.function_signature?`<div class="sec"><b>설계·검증 속성</b>${specHTML(a)}</div>`:''}
    ${!ro&&REQ(it.type)&&!String(it.type).endsWith('_TC')?`<div class="sec"><b>검증 기준</b><textarea id="vc" style="min-height:56px">${esc(a.verification_criteria||'')}</textarea><button class="btn sm" id="saveVc" style="margin-top:6px">검증 기준 저장</button></div>`:a.verification_criteria?`<div class="sec"><b>검증 기준</b><div style="font-size:13px">${esc(a.verification_criteria)}</div></div>`:''}
    ${it.lint.length?`<div class="sec"><b>품질 점검</b>${it.lint.map(f=>`<div class="lint ${f.sev}">● ${esc(f.msg)}</div>`).join('')}</div>`:''}
-   ${a.prev_text&&it.type!=='FIG'?`<div class="sec"><b>직전 개정 대비 변경</b><div style="font-size:13px">${wordDiff(a.prev_text,it.text)}</div></div>`:''}
+   ${a.prev_text&&(it.type!=='FIG'||a.chart)?`<div class="sec"><b>직전 개정 대비 변경</b><div style="font-size:13px">${wordDiff(a.prev_text,it.text)}</div></div>`:''}
    ${a.prev_file?`<div class="sec"><b>이전 개정 그림</b><img src="${asset(a.prev_file)}" style="max-width:100%;background:#fff;opacity:.85"></div>`:''}
    <div class="sec"><b>속성</b><div class="kv"><span>문서</span><span>${esc(it.doc)} rev ${esc(it.doc_rev)}</span><span>원문 위치</span><span>${esc(it.source_loc)}</span><span>섹션</span><span>${esc(it.section)}</span>${a.native_id?`<span>원문 ID</span><span>${esc(a.native_id)}</span>`:''}${a.level_confidence!==undefined?`<span>분류 신뢰도</span><span>${a.level_confidence}</span>`:''}${(a.quantities||[]).length?`<span>수치</span><span>${a.quantities.map(q=>esc(q.raw)).join(', ')}</span>`:''}${Object.entries(a.fields||{}).map(([k,v])=>`<span>${esc(k)}</span><span>${esc(v)}</span>`).join('')}${extra.map(([k,v])=>`<span>${esc(k)}</span><span>${esc(typeof v==='object'?JSON.stringify(v):v)}</span>`).join('')}</div></div>
    ${a.hw?`<div class="sec"><b>HW 속성</b><div class="kv"><span>부품</span><span>${esc(a.hw.part_number||'—')}</span><span>인터페이스</span><span>${esc(a.hw.interfaces||'—')}</span><span>안전 메커니즘</span><span>${esc(a.hw.safety_mechanism||'—')}</span><span>ASIL</span><span>${esc(a.asil||'QM')}</span></div></div>`:''}
    ${it.type==='IF'?`<div class="sec"><b>인터페이스</b><div class="kv"><span>연결</span><span><span class="id" data-open="${esc(a.from)}" style="cursor:pointer">${esc(a.from)}</span> → <span class="id" data-open="${esc(a.to)}" style="cursor:pointer">${esc(a.to)}</span></span><span>신호 분류</span><span>${esc(S.signal_classes[a.signal_class]||a.signal_class)}</span><span>신호</span><span class="mono">${esc((a.signals||[]).join(', ')||'—')}</span><span>블록도</span><span>${esc(a.canvas)}</span></div></div>`:''}
    ${a.result?`<div class="sec"><b>시험 결과</b>${resultHead(a.result)}${a.result.waveform?'<div id="drWave"></div>':''}${(a.results||[]).length>1?`<div style="margin-top:8px">${a.results.slice().reverse().map(r=>`<div class="lk"><span class="res ${r.status}">${resLabel(r.status)}</span><span class="mono" style="font-size:11.5px">${esc(r.run_id||'-')}</span><span class="t">${esc(fmtAt(r.at))} · ${esc(r.tool||'')}</span></div>`).join('')}</div>`:''}</div>`:''}
    ${a.plantuml?`<div class="sec"><b>PlantUML</b><pre class="code">${esc(a.plantuml)}</pre></div>`:''}
-   ${it.type==='TBL'?`<div class="sec"><b>표</b><div class="tblwrap">${tableHTML(a.grid||[])}</div></div>`:''}${it.type==='FIG'&&a.file?`<div class="sec"><b>그림</b><img src="${asset(a.file)}" style="max-width:100%;background:#fff"></div>`:''}
+   ${it.type==='TBL'?`<div class="sec"><b>표</b><div class="tblwrap">${tableHTML(a.grid||[])}</div></div>`:''}${it.type==='FIG'&&a.file?`<div class="sec"><b>그림</b><img src="${asset(a.file)}" style="max-width:100%;background:#fff"></div>`:''}${a.chart&&a.grid?`<div class="sec"><b>차트 데이터</b><div class="tblwrap">${tableHTML(a.grid)}</div></div>`:''}
    <div class="sec"><b>추적 링크</b>${ups.map(l=>linkRow(l,l.dst,'↑')).join('')}${downs.map(l=>linkRow(l,l.src,'↓')).join('')||(ups.length?'':'<div class="muted">링크 없음</div>')}
    ${ro?'':`<div class="row" style="margin-top:8px"><select id="lrole" class="btn">${roleOpts.map(r=>`<option>${r}</option>`).join('')}</select><input id="ldst" class="btn" list="allIds" placeholder="상위 아이템 ID" style="flex:1;min-width:120px"><button class="btn" id="ladd">링크 추가</button></div><datalist id="allIds">${S.items.filter(i=>REQ(i.type)&&i.status!=='deleted'&&i.id!==id).slice(0,3000).map(i=>`<option value="${esc(i.id)}">${esc(i.text.slice(0,60))}</option>`).join('')}</datalist>`}</div>
    ${ro||!REQ(it.type)?'':`<div class="sec"><b>재분류</b><div class="row"><select id="rtype" class="btn">${Object.keys(S.types).filter(REQ).map(k=>`<option ${k===it.type?'selected':''}>${k}</option>`).join('')}</select><button class="btn" id="rgo">타입 변경 (새 ID 발급)</button></div></div>`}

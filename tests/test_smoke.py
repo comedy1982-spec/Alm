@@ -576,6 +576,41 @@ def test_reqif_exchange():
         assert reqif.export(repo, cfg, stage="SYS2")[2]["objects"] == 186
 
 
+def test_figures_tables_charts_linked():
+    """Non-text content: native charts (data + SVG), equations, pictures in a requirement / table row, and
+    requirement --refers--> figure/table links that turn Suspect when the figure or table changes."""
+    from ecualm import changes as C, sup as U
+    r1, r2 = SAMPLES / "CRS_media_demo_rev1.docx", SAMPLES / "CRS_media_demo_rev2.docx"
+    if not r2.exists():
+        import subprocess, sys
+        subprocess.run([sys.executable, str(SAMPLES / "make_media_sample.py")], check=True, capture_output=True)
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root); U.init(repo)
+        a = import_document(repo, cfg, r1, doc="M", rev="1", mode="crs")
+        assert a["by_type"]["FIG"] == 4 and a["by_type"]["TBL"] == 1 and a["media_links"] == 4
+        nat = {i["attrs"].get("native_id"): i for i in repo.items(doc="M") if i["type"] == "CRS"}
+        assert "I_ref=T_req/K_t" in nat["REQ-TRQ-003"]["text"]                       # equation kept as text
+        figs = {i["attrs"].get("caption", ""): i for i in repo.items(doc="M", type_="FIG")}
+        chart = figs["그림 1 토크-속도 한계 곡선"]
+        assert chart["attrs"]["render"] == "chart" and chart["attrs"]["file"].endswith(".svg")
+        assert chart["attrs"]["chart"]["series"][0]["name"] == "최대 토크" and len(chart["attrs"]["grid"]) == 7
+        refs = {(l["src"], l["dst"]) for l in repo.links() if l["role"] == "refers"}
+        tbl = repo.items(doc="M", type_="TBL")[0]
+        assert (nat["REQ-TRQ-001"]["id"], chart["id"]) in refs and (nat["REQ-TRQ-002"]["id"], tbl["id"]) in refs
+        pic = next(l["dst"] for l in repo.links() if l["src"] == nat["REQ-TRQ-004"]["id"] and l["role"] == "refers")
+        assert any(l["src"] == nat["REQ-IF-001"]["id"] for l in repo.links() if l["role"] == "refers")   # table-row picture
+
+        b = import_document(repo, cfg, r2, doc="M", rev="2", mode="crs")
+        assert not b["new"] and not b["deleted"] and pic in b["modified"]           # redrawn picture = same figure
+        sus = {(l["src"], l["dst"]) for l in repo.links() if l["suspect"]}
+        assert (nat["REQ-TRQ-001"]["id"], chart["id"]) in sus and (nat["REQ-TRQ-002"]["id"], tbl["id"]) in sus
+        rows = {r["id"]: r for r in C.analyze(repo, cfg, b)["rows"]}
+        assert rows[chart["id"]]["severity"] == "medium" and "최대 토크 @2000: 11.5 → 11" in rows[chart["id"]]["detail"]
+        assert "90 ~ 110°C · 허용 토크 (%): 80 → 70" in rows[tbl["id"]]["detail"]
+        assert "이미지 교체" in rows[pic]["detail"] and any("참조하는 요구사항" in x for x in rows[pic]["actions"])
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -590,4 +625,5 @@ if __name__ == "__main__":
     test_revision_change_analysis()
     test_source_side_by_side()
     test_reqif_exchange()
+    test_figures_tables_charts_linked()
     print("OK")
