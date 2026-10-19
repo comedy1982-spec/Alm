@@ -13,7 +13,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, ops, schedule, sup, testruns, workproducts
+from . import arch, assistant, changes, ops, schedule, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -51,6 +51,7 @@ def make_handler(root: Path):
     workproducts.init(repo)
     testruns.init(repo)
     sup.init(repo)
+    changes.init(repo)
     auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
@@ -167,6 +168,17 @@ def make_handler(root: Path):
                         return self._send(200, out.read_bytes(),
                                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                           {"Content-Disposition": "attachment; filename=project_plan_MAN3.xlsx"})
+                if path == "/api/changes" or path.startswith("/api/changes/"):
+                    with LOCK:
+                        if path == "/api/changes":
+                            return self._send(200, {"reports": changes.reports(repo)})
+                        rid = path[len("/api/changes/"):]
+                        if rid.endswith("/xlsx"):
+                            with tempfile.TemporaryDirectory() as td:
+                                out = changes.export_xlsx(changes.report(repo, rid[:-5]), Path(td) / "c.xlsx")
+                                return self._send(200, out.read_bytes(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                  {"Content-Disposition": f"attachment; filename=change_analysis_{rid[:-5]}.xlsx"})
+                        return self._send(200, changes.report(repo, rid))
                 if path.startswith("/api/sup") or path in ("/api/baseline/diff", "/api/backup"):
                     qs = urllib.parse.parse_qs(p.query)
                     g = lambda k, d="": qs.get(k, [d])[0]
@@ -333,6 +345,19 @@ def make_handler(root: Path):
                         if path == "/api/plan/meta":
                             return self._send(200, schedule.set_meta(repo, b, user))
                     return self._send(404, {"error": "not found"})
+                if path == "/api/changes/analyze":     # local analysis under the lock, the slow AI part outside it
+                    b = self._json_body()
+                    with LOCK:
+                        rep = changes.analyze_local(repo, cfg, b.get("summary") or {})
+                    rep = changes.enrich(cfg, rep, bool(b.get("ai", True)))
+                    if b.get("save") and not rep.get("dry_run"):
+                        with LOCK:
+                            changes.save(repo, rep, user)
+                    return self._send(200, rep)
+                if path == "/api/changes/cr":
+                    b = self._json_body()
+                    with LOCK:
+                        return self._send(200, changes.to_cr(repo, cfg, b["import_id"], b.get("ids") or [], who, b.get("title", "")))
                 if path == "/api/chat":     # read-only and possibly slow (LLM): do not hold the write lock
                     b = self._json_body()
                     return self._send(200, assistant.chat(repo, cfg, b.get("messages", []), b.get("context") or {}))

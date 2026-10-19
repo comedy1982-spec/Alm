@@ -445,6 +445,62 @@ def test_sup_processes():
         assert any(f["rule"] == "cr_without_impact" for f in U.audit_findings(repo, cfg)) is False
 
 
+def test_revision_change_analysis():
+    import json as _json
+    from ecualm import changes as C, llm, sup as U
+    from ecualm.stages import derive
+    sys_path = SAMPLES / "CRS_eLSD_ECU_rev1.1.docx"
+    if not sys_path.exists():
+        import subprocess, sys
+        subprocess.run([sys.executable, str(SAMPLES / "make_elsd_rev.py")], check=True, capture_output=True)
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root); U.init(repo)
+        import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.docx", doc="CRS", rev="1.0", mode="crs")
+        derive(repo, cfg, "SYS1", "SYS2"); derive(repo, cfg, "SYS2", "SWE1"); derive(repo, cfg, "SWE1", "SWE6")
+        prev = import_document(repo, cfg, sys_path, doc="CRS", rev="1.1", mode="crs", dry_run=True)
+        rep = C.analyze(repo, cfg, prev)
+        by = {r["native_id"]: r for r in rep["rows"] if r["native_id"]}
+        assert by["REQ-CLU-001"]["numbers"][0]["direction"] == "stricter" and by["REQ-CLU-001"]["severity"] == "high"
+        assert by["REQ-YAW-003"]["numbers"][0]["direction"] == "threshold"
+        assert by["REQ-MODE-014"]["numbers"][0]["direction"] == "looser" and by["REQ-MODE-014"]["severity"] == "medium"
+        assert "asil" in by["REQ-THERM-003"]["kinds"]                      # table ASIL column only
+        assert "obligation" in by["REQ-LOCK-010"]["kinds"]                  # shall -> should (ID still in the doc)
+        assert by["REQ-LOCK-012"]["kinds"] == ["removed"]
+        assert "negation" in by["REQ-DIAG-003"]["kinds"] and "obligation" not in by["REQ-DIAG-003"]["kinds"]
+        assert by["REQ-ENV-001"]["kinds"] == ["editorial"] and by["REQ-ENV-001"]["severity"] == "low"
+        assert by["REQ-SEC-007"]["change"] == "new"
+        assert rep["mode"] == "local" and rep["counts"]["retest"] > 0
+        # LLM enrichment (stubbed): explanation merged, risk can only go up, failure keeps local report
+        cfg["llm"].update(provider="openai_compatible", base_url="http://stub", model="stub")
+        orig = llm.chat_call
+        llm.chat_call = lambda *a, **k: _json.dumps({"summary": ["요약"], "questions": ["Q1"],
+                                                     "items": {by["REQ-ENV-001"]["id"]: {"explain": "표현", "risk": "medium"}}})
+        try:
+            rep2 = C.analyze(repo, cfg, prev)
+        finally:
+            llm.chat_call = orig
+        r2 = next(r for r in rep2["rows"] if r["native_id"] == "REQ-ENV-001")
+        assert rep2["mode"] == "llm" and r2["ai"] == "표현" and r2["severity"] == "medium" and rep2["questions"] == ["Q1"]
+        llm.chat_call = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down"))
+        try:
+            rep3 = C.analyze(repo, cfg, prev)
+        finally:
+            llm.chat_call = orig
+        assert rep3["mode"] == "local" and "AI 호출 실패" in rep3["ai_status"]
+        cfg["llm"]["provider"] = "none"
+        # real import -> save report -> change request with impact
+        real = import_document(repo, cfg, sys_path, doc="CRS", rev="1.1", mode="crs")
+        rep = C.analyze(repo, cfg, real)
+        C.save(repo, rep, "t")
+        assert C.reports(repo)[0]["import_id"] == real["import_id"]
+        pick = [r["id"] for r in rep["rows"] if r["severity"] == "high" and r["change"] == "modified"]
+        cr = C.to_cr(repo, cfg, real["import_id"], pick, {"username": "t", "name": "t", "role": "engineer"})
+        assert cr["fields"]["reason"] == "고객 요구 변경" and cr["fields"]["impact"]["scope"] == pick
+        out = C.export_xlsx(rep, root / "c.xlsx")
+        assert out.exists()
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -456,4 +512,5 @@ if __name__ == "__main__":
     test_work_product_tables()
     test_test_sessions_and_evidence()
     test_sup_processes()
+    test_revision_change_analysis()
     print("OK")

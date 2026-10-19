@@ -569,6 +569,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
   <div id="impStep2" hidden>
     <div class="row"><h3 style="margin:0" id="pvTitle">변경 미리보기</h3><span class="chip warn" style="margin-left:auto">아직 저장되지 않음</span></div>
     <div class="cards" id="pvCards" style="margin-top:12px"></div>
+    <div id="pvAi"></div>
     <div id="pvList" style="max-height:46vh;overflow:auto"></div>
     <div class="row" style="margin-top:14px"><span class="muted" style="font-size:12.5px" id="pvNote"></span><span class="spacer"></span>
       <button class="btn" id="impBack">뒤로</button><button class="btn primary" id="impGo">가져오기</button></div>
@@ -667,14 +668,14 @@ function renderStrip(){
   const last=$('#strip').querySelectorAll('.st'); if(last.length) last[last.length-1].classList.add('last');
   $('#strip').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>goStage(b.dataset.sid));
   $('#strip').querySelector('[data-home]').onclick=()=>{view={kind:'home'};render();};
-  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':view.kind==='tests'?'시험 세션 · 결과 · 증빙':view.kind==='sup'?'지원 프로세스 (SUP)':'';
+  $('#crumb').textContent=view.kind==='wb'?'링크 작업대 — 드래그&드롭으로 추적 연결':view.kind==='stage'?`${S.stageById[view.sid].aspice} ${S.stageById[view.sid].name}`:view.kind==='audit'?'SUP.1 · SUP.8 · SUP.10':view.kind==='history'?'이력 · 베이스라인':view.kind==='plan'?'MAN.3 프로젝트 관리':view.kind==='tests'?'시험 세션 · 결과 · 증빙':view.kind==='sup'?'지원 프로세스 (SUP)':view.kind==='changes'?'요구사양서 변경 분석':'';
 }
 function goStage(sid){view={kind:'stage',sid};stageTab=S.stageById[sid]?.canvas&&sid==='HWE2'?'canvas':'doc';render();}
 function render(){
   renderStrip();
   $('#main').classList.toggle('full', view.kind!=='stage'||stageTab!=='doc');
-  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||view.kind==='tests'||view.kind==='sup'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
-  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan,tests:viewTests,sup:viewSup})[view.kind]();
+  $('#content').style.maxWidth=(view.kind==='wb'||view.kind==='plan'||view.kind==='tests'||view.kind==='sup'||view.kind==='changes'||(view.kind==='stage'&&(stageTab==='canvas'||stageTab==='table')))?'none':'';
+  ({home:viewHome,stage:viewStage,audit:viewAudit,history:viewHistory,wb:viewWorkbench,plan:viewPlan,tests:viewTests,sup:viewSup,changes:viewChanges})[view.kind]();
   if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';$('#btnTests').style.display='none';$('#btnSup').style.display='none';}
   else if(ME&&ME.role==='viewer'){$('#btnImport').style.display='none';}
   broadcastCtx();
@@ -861,9 +862,10 @@ async function viewAudit(){
 }
 function viewHistory(){
   const fmt=t=>new Date(t*1000).toLocaleString();
-  $('#content').innerHTML=`<div class="bar"><h1>이력 · 베이스라인 (SUP.8 / SUP.10)</h1></div><h3>임포트 이력</h3><table class="list"><tr><th>시각</th><th>문서</th><th>개정</th><th>파일</th><th>신규</th><th>변경</th><th>동일</th><th>삭제</th></tr>${S.imports.slice().reverse().map(i=>`<tr><td>${fmt(i.at)}</td><td>${esc(i.doc)}</td><td>${esc(i.rev)}</td><td class="muted">${esc(i.summary.file)}</td><td>${i.summary.new}</td><td>${i.summary.modified}</td><td>${i.summary.unchanged}</td><td>${i.summary.deleted}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">없음</td></tr>'}</table>
+  $('#content').innerHTML=`<div class="bar"><h1>이력 · 베이스라인 (SUP.8 / SUP.10)</h1><span class="spacer"></span>${STATIC?'':'<button class="btn" id="goCh">요구사양서 변경 분석 보고서</button>'}</div><h3>임포트 이력</h3><table class="list"><tr><th>시각</th><th>문서</th><th>개정</th><th>파일</th><th>신규</th><th>변경</th><th>동일</th><th>삭제</th></tr>${S.imports.slice().reverse().map(i=>`<tr><td>${fmt(i.at)}</td><td>${esc(i.doc)}</td><td>${esc(i.rev)}</td><td class="muted">${esc(i.summary.file)}</td><td>${i.summary.new}</td><td>${i.summary.modified}</td><td>${i.summary.unchanged}</td><td>${i.summary.deleted}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">없음</td></tr>'}</table>
    <h3 style="margin-top:22px">베이스라인</h3>${STATIC?'':'<div class="row" style="margin-bottom:8px"><input id="blname" class="btn" placeholder="BL_v1.0"><button class="btn" id="blgo">베이스라인 생성</button></div>'}
    <table class="list"><tr><th>이름</th><th>시각</th><th>메모</th></tr>${S.baselines.map(b=>`<tr><td>${esc(b.name)}</td><td>${fmt(b.at)}</td><td>${esc(b.note)}</td></tr>`).join('')||'<tr><td colspan=3 class="muted">없음</td></tr>'}</table>`;
+  if($('#goCh')) $('#goCh').onclick=()=>{view={kind:'changes'};render();};
   if($('#blgo')) $('#blgo').onclick=async()=>{const n=$('#blname').value.trim();if(!n)return;try{await api('/api/baseline',{name:n});await load();toast('베이스라인 생성');}catch(e){toast(e.message)}};
 }
 
@@ -1384,7 +1386,7 @@ $('#impPreview').onclick=async()=>{
       :det.map(d=>`<div class="diffrow"><div class="l"><span class="id" style="--c:${tcolor(d.type)}">${esc(d.id)}</span><span><span class="tag ${d.change}">${{modified:'변경',new:'신규',deleted:'삭제',restored:'복원'}[d.change]}</span></span>${d.was_approved?'<span class="muted" style="font-size:11px">승인 → 초안으로 되돌림</span>':''}${d.dependents?.length?`<span class="muted" style="font-size:11px">하위 ${d.dependents.length}건 Suspect 예정</span>`:''}</div>
          <div class="c"><small>이전</small>${d.prev_text?esc(d.prev_text):'<span class="muted">없음</span>'}</div><div class="c"><small>새 개정</small>${d.text?(d.prev_text?wordDiff(d.prev_text,d.text):esc(d.text)):'<span class="muted">rev에서 찾지 못함 → ID 폐기</span>'}</div></div>`).join('')||'<div class="muted">변경 없음</div>';
     $('#pvNote').textContent=$('#impMode').value==='crs'&&$('#impDerive').checked?'가져온 뒤 SYS.1 → SYS.2 전개를 실행해 SRS 초안을 만듭니다.':'';
-    $('#impStep1').hidden=true;$('#impStep2').hidden=false;
+    $('#impStep1').hidden=true;$('#impStep2').hidden=false; analyzePreview(s);
   }catch(e){toast('실패: '+e.message);} $('#impPreview').disabled=false;
 };
 $('#impGo').onclick=async()=>{
@@ -1392,7 +1394,10 @@ $('#impGo').onclick=async()=>{
   try{const s=await runImport(false); let msg=`${s.doc} rev ${s.rev}: 신규 ${s.new.length} · 변경 ${s.modified.length} · 삭제 ${s.deleted.length}`;
     const mode=$('#impMode').value; let target={crs:'SYS1',sys2:'SYS2',swe1:'SWE1',srs:'SYS2',info:null}[mode];
     if(mode==='crs'&&$('#impDerive').checked){const d=await api('/api/derive',{from:'SYS1',to:'SYS2'});msg+=` → SYS.2 SRS 초안 ${d.created.length}건 생성`;target='SYS2';}
-    $('#dlgImport').close(); await load(); if(target) goStage(target); toast(msg);
+    const revision=s.modified.length||s.deleted.length||s.restored?.length;
+    $('#dlgImport').close(); await load();
+    if(revision){ toast(msg+' — 변경 분석 중…'); try{ await api('/api/changes/analyze',{summary:s,ai:true,save:true}); view={kind:'changes',cid:s.import_id}; render(); toast(msg+' — 변경 분석 보고서 저장'); }catch(e){ toast('변경 분석 실패: '+e.message); if(target) goStage(target); } }
+    else { if(target) goStage(target); toast(msg); }
   }catch(e){toast('실패: '+e.message);} $('#impGo').disabled=false;
 };
 // ---------------- derive dialog ----------------
@@ -1524,6 +1529,61 @@ function formDlg({title,desc='',fields,ok='확인'}){
   });
 }
 
+// ---------------- revision change analysis (AI) ----------------
+const CH={sev:'',sel:new Set()};
+const SEVC={high:'err',medium:'warn',low:''}, SEVL={high:'높음',medium:'보통',low:'낮음'};
+const CHG={new:'신규',modified:'변경',deleted:'삭제',restored:'복원'};
+function chRow(r,opts={}){
+  const nums=r.numbers.filter(n=>n.from&&n.to).map(n=>`<span class="chip ${n.direction==='stricter'?'err':n.direction==='looser'?'new':''}" title="${esc(n.dim)}">${esc(n.from)} → ${esc(n.to)}${n.delta_pct!=null?` (${n.delta_pct>0?'+':''}${n.delta_pct}%${n.direction==='stricter'?' 강화':n.direction==='looser'?' 완화':n.direction==='threshold'?' 임계값':''})`:''}</span>`).join(' ');
+  return `<div class="req" style="--c:var(--${r.severity==='high'?'err':r.severity==='medium'?'warn':'muted'});cursor:default">
+    <div class="top">${opts.pick&&r.change!=='new'?`<input type="checkbox" data-pick="${esc(r.id)}" ${CH.sel.has(r.id)?'checked':''} aria-label="${esc(r.id)} 선택" style="width:auto">`:''}
+      <span class="chip ${SEVC[r.severity]}">영향 ${SEVL[r.severity]}${r.raised_by_ai?' (AI)':''}</span><span class="chip">${r.change==='deleted'&&r.text?'의무 해제':CHG[r.change]||r.change}</span>
+      <span class="id" ${r.change!=='new'||opts.saved?`data-open="${esc(r.id)}" style="cursor:pointer"`:''}>${esc(r.native_id||r.id)}</span>${r.native_id?`<span class="muted mono" style="font-size:11px">${esc(r.id)}</span>`:''}
+      ${r.kind_labels.map(k=>`<span class="chip link">${esc(k)}</span>`).join('')}${r.asil&&r.asil!=='QM'?`<span class="chip" style="border:1px solid var(--line);background:transparent">ASIL ${esc(r.asil)}</span>`:''}</div>
+    ${r.ai?`<div style="margin:4px 0"><b>AI</b> ${esc(r.ai)}</div>`:''}<div class="fields">${nums} ${esc(r.detail??r.explain)}</div>
+    ${r.change==='modified'||(r.change==='deleted'&&r.text)?`<div style="font-size:12.5px;margin-top:6px">${wordDiff(r.prev_text||'',r.text||'')}</div>`:r.change==='new'?`<div style="font-size:12.5px;margin-top:6px"><ins>${esc(r.text)}</ins></div>`:r.change==='deleted'?`<div style="font-size:12.5px;margin-top:6px"><del>${esc(r.prev_text)}</del></div>`:''}
+    ${r.question?`<div class="fields"><b>고객 확인</b> ${esc(r.question)}</div>`:''}
+    <div class="fields">${r.impact.review||r.impact.retest?`<b>영향</b> 재검토 ${r.impact.review} · 재시험 TC ${r.impact.retest}${r.impact.asil_items.length?` · ASIL 항목 ${r.impact.asil_items.length}`:''} · `:''}${r.actions.slice(0,opts.full?9:2).map(esc).join(' · ')}</div></div>`;
+}
+function chHTML(rep,opts={}){
+  const c=rep.counts, rows=rep.rows.filter(r=>!CH.sev||r.severity===CH.sev);
+  return `<div class="pnl" style="margin-bottom:12px"><div class="row"><h3>${rep.mode==='llm'?'AI 변경 분석':'변경 분석'}</h3><span class="chip">${rep.mode==='llm'?esc('AI · '+(rep.model||'')):'규칙 기반'}</span>${rep.ai_status?`<span class="muted" style="font-size:12px">${esc(rep.ai_status)}</span>`:''}</div>
+    <ul style="margin:8px 0 4px;padding-left:18px">${rep.summary.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
+    ${rep.questions?.length?`<div class="fields" style="margin-top:6px"><b>고객에게 확인할 점</b><ol style="margin:4px 0 0;padding-left:18px">${rep.questions.map(q=>`<li>${esc(q)}</li>`).join('')}</ol></div>`:''}
+    <div class="fchips" style="margin-top:10px">${[['','전체',rep.rows.length],['high','영향 높음',c.severity.high||0],['medium','보통',c.severity.medium||0],['low','낮음',c.severity.low||0]].map(([v,l,n])=>`<button data-sev="${v}" class="${CH.sev===v?'on':''}" aria-pressed="${CH.sev===v}">${l} ${n}</button>`).join('')}
+    <span class="muted" style="font-size:12px;align-self:center;margin-left:6px">재검토 ${c.review} · 재시험 TC ${c.retest}</span></div></div>
+    <div id="chRows">${rows.map(r=>chRow(r,opts)).join('')||'<div class="muted">해당 항목 없음</div>'}</div>`;
+}
+function bindCh(root,rep,opts,redraw){
+  root.querySelectorAll('[data-sev]').forEach(b=>b.onclick=()=>{CH.sev=b.dataset.sev;redraw();});
+  root.querySelectorAll('[data-pick]').forEach(b=>b.onchange=()=>{b.checked?CH.sel.add(b.dataset.pick):CH.sel.delete(b.dataset.pick);const n=$('#chCrN');if(n)n.textContent=CH.sel.size;});
+  if(opts.saved) bindOpen(root);
+}
+async function analyzePreview(s){
+  const box=$('#pvAi'); if(!box) return;
+  const reqChanges=s.details.filter(d=>d.change!=='new'||REQ(d.type));
+  if(!reqChanges.length||(!s.modified.length&&!s.deleted.length&&!s.restored?.length&&s.unchanged===0)){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="pnl" style="margin-bottom:12px"><span class="muted">변경점을 분석하는 중… (AI 가 연결돼 있으면 설명과 고객 확인 질의도 만듭니다)</span></div>';
+  try{ const rep=await api('/api/changes/analyze',{summary:s,ai:true}); CH.sev='';
+    const draw=()=>{box.innerHTML=chHTML(rep,{}); bindCh(box,rep,{},draw);}; draw(); pendingImport.analysis=rep;
+  }catch(e){ box.innerHTML=`<div class="pnl muted" style="margin-bottom:12px">변경 분석 실패: ${esc(e.message)}</div>`; }
+}
+async function viewChanges(){
+  const c=$('#content');
+  if(!view.cid){ let L; try{ L=(await api('/api/changes')).reports; }catch(e){ c.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+    c.innerHTML=`<div class="bar"><h1>요구사양서 변경 분석</h1><span class="sub">개정본을 가져올 때마다 저장되는 변경 분석 보고서</span></div>${L.length?`<table class="lt"><tr><th>문서</th><th>개정</th><th>분석</th><th>요약</th><th>높음</th><th>재시험 TC</th><th>시각</th></tr>${L.map(r=>`<tr class="click" data-cid="${esc(r.import_id)}"><td>${esc(r.doc)}</td><td class="mono">${esc(r.rev)}</td><td><span class="chip">${r.mode==='llm'?'AI':'규칙'}</span></td><td>${esc(r.headline)}</td><td class="mono">${r.counts.severity?.high||0}</td><td class="mono">${r.counts.retest||0}</td><td class="muted">${fmtT(r.at)} · ${esc(r.by)}</td></tr>`).join('')}</table>`:'<div class="empty"><b>아직 변경 분석이 없습니다</b>같은 문서명으로 새 개정본을 가져오면 변경점을 분석해 여기에 보고서로 남깁니다.</div>'}`;
+    c.querySelectorAll('[data-cid]').forEach(r=>r.onclick=()=>{view={kind:'changes',cid:r.dataset.cid};render();}); return; }
+  let rep; try{ rep=await api('/api/changes/'+encodeURIComponent(view.cid)); }catch(e){ c.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  CH.sel=new Set(rep.rows.filter(r=>r.severity==='high'&&r.change!=='new'&&S.byId[r.id]).map(r=>r.id));
+  const draw=()=>{ c.innerHTML=`<div class="bar"><div><h1>${esc(rep.doc)} rev ${esc(rep.rev)} 변경 분석</h1><div class="sub">${fmtT(rep.at)} · 신규 ${rep.counts.new} · 변경 ${rep.counts.modified} · 삭제 ${rep.counts.deleted}</div></div><span class="spacer"></span>
+      <button class="btn" id="chBack">← 목록</button><a class="btn" href="/api/changes/${encodeURIComponent(view.cid)}/xlsx">Excel</a>${atLeast('engineer')?`<button class="btn primary" id="chCr">선택 <span id="chCrN">${CH.sel.size}</span>건으로 변경 요청 만들기</button>`:''}</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:10px">영향 높은 기존 항목은 미리 선택돼 있습니다. 변경 요청(SUP.10)을 만들면 선택 항목이 변경 대상으로 들어가고 영향 분석이 함께 저장됩니다.</div>${chHTML(rep,{pick:true,saved:true,full:true})}`;
+    bindCh(c,rep,{saved:true},draw);
+    $('#chBack').onclick=()=>{view={kind:'changes'};render();};
+    if($('#chCr')) $('#chCr').onclick=async()=>{ if(!CH.sel.size){toast('항목을 고르세요');return;}
+      try{ const cr=await api('/api/changes/cr',{import_id:view.cid,ids:[...CH.sel]}); toast(`${cr.id} 생성 — 영향 분석 저장됨`); view={kind:'sup',rid:cr.id}; render(); }catch(e){ toast(e.message); } };
+  }; draw();
+}
 // ---------------- SUP.1 · SUP.8 · SUP.9 · SUP.10 ----------------
 const SP={data:null,tab:'overview',flt:{},q:''};
 const SUP_TABS=[['overview','개요'],['PR','문제 · SUP.9'],['CR','변경 요청 · SUP.10'],['QA','품질 보증 · SUP.1'],['REL','형상·릴리스 · SUP.8']];

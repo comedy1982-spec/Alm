@@ -20,6 +20,7 @@ assets/
 samples/*.pdf
 !samples/CRS_EPS_ECU_rev1.0.pdf
 !samples/CRS_eLSD_ECU_rev1.0.pdf
+!samples/CRS_eLSD_ECU_rev1.1.pdf
 samples/SRS_BLDC_Full_*.docx
 
 # OS / editor

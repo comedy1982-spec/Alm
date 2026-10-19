@@ -349,6 +349,23 @@ def match(cands: list[dict], olds: list[dict], threshold: float) -> dict[int, st
 
 
 # ---------------------------------------------------------------- main entry
+def _attr_sig(a: dict) -> dict:
+    """Requirement attributes that matter for a revision compare (table columns such as ASIL / verification)."""
+    f = {str(k).strip(): str(v).strip() for k, v in (a.get("fields") or {}).items() if str(v).strip()}
+    for k in ("asil", "verification_method"):
+        if a.get(k):
+            f[k] = str(a[k]).strip()
+    return f
+
+
+def _doc_attrs_changed(old: dict, new: dict) -> bool:
+    """Only what the document itself carries counts (values a user set in ALM are not a document change)."""
+    norm = lambda a: {str(k).strip(): str(v).strip() for k, v in (a.get("fields") or {}).items() if str(v).strip()}
+    if norm(old) != norm(new):
+        return True
+    return any(new.get(k) and str(new[k]).strip() != str(old.get(k, "")).strip() for k in ("asil", "verification_method"))
+
+
 def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = None, rev: str = "",
                     mode: str = "srs", dry_run: bool = False, ai: bool = False, user: str = "import") -> dict:
     path = Path(path)
@@ -391,7 +408,7 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
                 repo.update(oid, {**base, "attrs": merged_attrs, "status": "draft"}, change="restored", import_id=import_id, by=user)
                 summary["restored"].append(oid)
                 det.append({"id": oid, "change": "restored", "type": o["type"], "text": c["text"], "section": c["section"]})
-            elif o["fingerprint"] == c["fingerprint"] and o["text"] == c["text"]:
+            elif o["fingerprint"] == c["fingerprint"] and o["text"] == c["text"] and not _doc_attrs_changed(o["attrs"], c["attrs"]):
                 repo.update(oid, {"ord": c["ord"], "section": c["section"], "source_loc": c["source_loc"],
                                   "doc_rev": rev, "attrs": merged_attrs, "lint": base["lint"]},
                             bump_version=False)
@@ -406,6 +423,8 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
                 summary["modified"].append(oid)
                 det.append({"id": oid, "change": "modified", "type": o["type"], "text": c["text"], "prev_text": o["text"],
                             "section": c["section"], "was_approved": o["status"] == "approved",
+                            "native_id": c["attrs"].get("native_id") or o["attrs"].get("native_id", ""),
+                            "attrs_before": _attr_sig(o["attrs"]), "attrs_after": _attr_sig(c["attrs"]),
                             "dependents": [l["src"] for l in repo.links(oid) if l["dst"] == oid]})
         else:
             tdef = cfg["types"][typ]
@@ -415,7 +434,8 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
                         import_id=import_id, by=user)
             summary["new"].append(new_id)
             if typ not in ("HDG", "INFO"):
-                det.append({"id": new_id, "change": "new", "type": typ, "text": c["text"], "section": c["section"]})
+                det.append({"id": new_id, "change": "new", "type": typ, "text": c["text"], "section": c["section"],
+                            "native_id": c["attrs"].get("native_id", ""), "attrs_after": _attr_sig(c["attrs"])})
 
     # references the author wrote ("근거: REQ-PWR-009") become trace links inside this document
     ref_links = 0
@@ -437,11 +457,22 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
     summary["ref_links"] = ref_links
 
     matched_ids = set(matches.values())
+    # where a withdrawn requirement's ID still appears in the new revision (e.g. "shall" softened to "should",
+    # so the sentence is no longer captured as a requirement), keep that text for the change analysis
+    mention = {}
+    for b in blocks:
+        rows = [" | ".join(x.get("t", "") for x in r if not x.get("skip")) for r in (b.grid or [])] or [b.text or ""]
+        for row in rows:
+            for nid in re.findall(r"[A-Z][A-Z0-9]*-[A-Z0-9]+-\d{2,4}", row):
+                mention.setdefault(nid, row[:600])
     for o in olds:
         if o["id"] not in matched_ids and o["status"] != "deleted":
             repo.update(o["id"], {"status": "deleted", "doc_rev": rev}, change="deleted", import_id=import_id, by=user)
             summary["deleted"].append(o["id"])
-            det.append({"id": o["id"], "change": "deleted", "type": o["type"], "prev_text": o["text"], "section": o["section"]})
+            det.append({"id": o["id"], "change": "deleted", "type": o["type"], "prev_text": o["text"], "section": o["section"],
+                        "native_id": o["attrs"].get("native_id", ""), "attrs_before": _attr_sig(o["attrs"]),
+                        "still_in_doc": mention.get(o["attrs"].get("native_id") or "\0", ""),
+                        "dependents": [l["src"] for l in repo.links(o["id"]) if l["dst"] == o["id"]]})
 
     summary["suspect_links"] = repo.con.execute("SELECT COUNT(*) FROM links WHERE suspect=1").fetchone()[0]
     if dry_run:
