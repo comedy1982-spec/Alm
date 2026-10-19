@@ -524,6 +524,58 @@ def test_source_side_by_side():
         assert "data-items" in h["html"]
 
 
+def test_reqif_exchange():
+    """ReqIF: DOORS-style import, revision compare by object ID, supplier reply into the customer's file, round trip."""
+    import io, zipfile
+    from ecualm import changes as C, reqif, sup as U
+    from ecualm.stages import derive
+    r10, r11 = SAMPLES / "CRS_eLSD_ECU_rev1.0.reqifz", SAMPLES / "CRS_eLSD_ECU_rev1.1.reqifz"
+    if not r11.exists():
+        import subprocess, sys
+        subprocess.run([sys.executable, str(SAMPLES / "make_reqif_sample.py")], check=True, capture_output=True)
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root); U.init(repo)
+        a = import_document(repo, cfg, r10, doc="CRS", rev="1.0", mode="crs")
+        assert a["by_type"]["CRS"] == 186 and a["by_type"]["FIG"] == 12 and a["by_type"]["TBL"] > 50
+        crs = repo.items(doc="CRS", type_="CRS")
+        assert all(i["attrs"].get("reqif_id") and i["attrs"].get("native_id") for i in crs)
+        therm = next(i for i in crs if i["attrs"]["native_id"] == "REQ-THERM-003")
+        assert therm["attrs"]["asil"] == "B" and therm["attrs"]["reqif_supplier"] == {"Supplier Status": "Open"}
+        derive(repo, cfg, "SYS1", "SYS2")
+
+        prev = import_document(repo, cfg, r11, doc="CRS", rev="1.1", mode="crs", dry_run=True)
+        by = {r["native_id"]: r for r in C.analyze(repo, cfg, prev)["rows"] if r["native_id"]}
+        assert "obligation" in by["REQ-LOCK-010"]["kinds"] and by["REQ-LOCK-010"]["change"] == "modified"   # same object
+        assert "asil" in by["REQ-THERM-003"]["kinds"] and by["REQ-LOCK-012"]["change"] == "deleted"
+        assert by["REQ-SEC-007"]["change"] == "new" and by["REQ-ENV-001"]["kinds"] == ["editorial"]
+
+        for it, v in zip(crs[:4], ["C (준수)", "PC (부분 준수)", "NC (미준수)", "검토중"]):
+            ops.edit_item(repo, cfg, it["id"], attrs={**it["attrs"], "compliance": v, "comment": "의견 " + v[:2]}, suspect=False)
+        data, name, rep = reqif.reply(repo, cfg, "CRS")
+        assert name.endswith("_reply.reqifz") and rep["answered"] == 3 and rep["objects"] == 186 and not rep["warnings"]
+        out = root / name; out.write_bytes(data)
+        back = reqif.parse(out)
+        assert set(back["objects"]) == set(reqif.parse(r10)["objects"])            # customer objects untouched
+        st = {k: o["values"] for k, o in back["objects"].items()}
+        nid = lambda i: crs[i]["attrs"]["reqif_id"]
+        assert st[nid(0)]["Supplier Status"] == "Accepted" and st[nid(1)]["Supplier Status"] == "Partly accepted"
+        assert st[nid(2)]["Supplier Status"] == "Not accepted" and st[nid(3)]["Supplier Status"] == "Open"
+        assert st[nid(0)]["Supplier Comment"].startswith("의견") and "SYS2-" in st[nid(0)]["Supplier Reference"]
+        assert len(zipfile.ZipFile(io.BytesIO(data)).namelist()) == 13                  # images kept
+
+        g, gname, grep_ = reqif.export(repo, cfg, doc="CRS")
+        assert gname == "CRS.reqifz" and grep_["objects"] == 350 and grep_["files"] == 12
+        gp = root / gname; gp.write_bytes(g)
+        root2 = root / "p2"; root2.mkdir(); write_default_config(root2)
+        cfg2, repo2 = load_config(root2), Repo(root2)
+        b = import_document(repo2, cfg2, gp, doc="CRS", rev="x", mode="crs")
+        assert b["by_type"]["CRS"] == 186 and b["by_type"]["FIG"] == 12
+        again = import_document(repo2, cfg2, gp, doc="CRS", rev="y", mode="crs", dry_run=True)
+        assert not again["new"] and not again["modified"] and not again["deleted"]
+        assert reqif.export(repo, cfg, stage="SYS2")[2]["objects"] == 186
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -537,4 +589,5 @@ if __name__ == "__main__":
     test_sup_processes()
     test_revision_change_analysis()
     test_source_side_by_side()
+    test_reqif_exchange()
     print("OK")

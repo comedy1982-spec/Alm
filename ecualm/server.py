@@ -13,7 +13,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, changes, ops, schedule, sources, sup, testruns, workproducts
+from . import arch, assistant, changes, ops, reqif, schedule, sources, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -193,6 +193,25 @@ def make_handler(root: Path):
                                 return self._send(404, {"error": "원문 없음"})
                             return self._send(200, f.read_bytes(), "application/octet-stream",
                                               {"Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(f.name)}"})
+                    return self._send(404, {"error": "not found"})
+                if path.startswith("/api/reqif/"):
+                    qs = urllib.parse.parse_qs(p.query)
+                    doc, stage = qs.get("doc", [""])[0], qs.get("stage", [""])[0]
+                    with LOCK:
+                        if path == "/api/reqif/info":
+                            imp, src = reqif.reqif_source(repo, doc) if doc else (None, None)
+                            out = {"doc": doc, "reqif": bool(src), "file": src.name if src else "",
+                                   "rev": imp["rev"] if imp else ""}
+                            if src:
+                                out["reply"] = reqif.reply(repo, self.cfg, doc)[2]
+                            return self._send(200, out)
+                        if path in ("/api/reqif/reply", "/api/reqif/export"):
+                            data, fn, rep = (reqif.reply(repo, self.cfg, doc) if path.endswith("reply")
+                                             else reqif.export(repo, self.cfg, doc or None, stage or None))
+                            ctype = "application/zip" if fn.endswith(".reqifz") else "application/xml"
+                            return self._send(200, data, ctype, {
+                                "Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(fn)}",
+                                "X-ReqIF-Report": urllib.parse.quote(json.dumps(rep, ensure_ascii=False))})
                     return self._send(404, {"error": "not found"})
                 if path == "/api/changes" or path.startswith("/api/changes/"):
                     with LOCK:

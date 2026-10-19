@@ -114,6 +114,9 @@ def meta(repo, iid: str) -> dict:
         out["kind"] = "pdf"
         if src.suffix.lower() != ".pdf":
             out["note"] = f"{src.suffix.upper()[1:]} 을 PDF 로 변환해 표시합니다 (LibreOffice)."
+    elif src.suffix.lower() in (".reqif", ".reqifz"):
+        out["kind"] = "html"
+        out["note"] = "ReqIF 는 쪽(page)이 없는 교환 형식이라 객체 구조(제목·본문·표·그림) 순서대로 표시합니다."
     else:
         out["kind"] = "html"
         out["note"] = "LibreOffice 가 없어 원문을 구조 보기(문단·표)로 표시합니다. 쪽 모양 그대로 보려면 LibreOffice 를 설치하세요."

@@ -24,6 +24,8 @@ class Block:
     image: bytes | None = None
     image_ext: str = ""            # png / jpg / emf / wmf ...
     list_level: int = -1           # >=0 when the paragraph is a list item
+    # structured sources (ReqIF): object identity and attributes that travel with the block
+    meta: dict = field(default_factory=dict)
 
     def table_values(self) -> list[list[str]]:
         """Grid with merged cells filled in (every row has the same number of columns)."""

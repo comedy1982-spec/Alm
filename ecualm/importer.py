@@ -34,7 +34,7 @@ def _normalize_blocks(blocks: list[Block]) -> list[Block]:
     * empty leading table rows (a header lost at a page edge) are dropped so the header is found."""
     out: list[Block] = []
     for b in blocks:
-        if b.kind == "para" and b.text:
+        if b.kind == "para" and b.text and not b.meta:
             parts = [p for p in _OWN_ID_SPLIT.split(b.text) if p.strip()]
             if len(parts) > 1:
                 for p in parts:
@@ -86,7 +86,10 @@ def _parse_raw(path: Path) -> list[Block]:
             return parse_docx(out)
     if suffix in (".md", ".txt"):
         return _parse_text(path.read_text(encoding="utf-8"))
-    raise RuntimeError(f"지원하지 않는 형식: {suffix} (docx, pdf, doc, rtf, odt, md, txt)")
+    if suffix in (".reqif", ".reqifz"):
+        from .reqif import to_blocks
+        return to_blocks(path)
+    raise RuntimeError(f"지원하지 않는 형식: {suffix} (docx, pdf, doc, rtf, odt, md, txt, reqif, reqifz)")
 
 
 def _parse_text(src: str) -> list[Block]:
@@ -163,6 +166,15 @@ def table_text(grid) -> str:
 
 
 # ---------------------------------------------------------------- candidates
+def _tag(c: dict, b: Block) -> None:
+    """Carry a structured source's object identity (ReqIF) onto a heading / table / figure item."""
+    for k in ("reqif_id", "reqif_parent", "reqif_type", "native_id"):
+        if b.meta.get(k) and not (k == "native_id" and c["kind"] != "req"):
+            c["attrs"][k] = b.meta[k]
+    if b.meta.get("fields"):
+        c["attrs"].setdefault("fields", b.meta["fields"])
+
+
 def build_candidates(blocks: list[Block], cfg: dict, mode: str, repo: Repo, doc: str) -> list[dict]:
     an = Analyzer(cfg)
     cands: list[dict] = []
@@ -203,6 +215,22 @@ def build_candidates(blocks: list[Block], cfg: dict, mode: str, repo: Repo, doc:
             cands.append({"kind": "hdg", "type": "HDG", "domain": "GEN", "title": b.text, "text": label,
                           "attrs": {"level": b.level, "number": b.number}, "section": section_path(),
                           "source_loc": b.loc})
+            _tag(cands[-1], b)
+        elif b.kind == "para" and b.meta.get("reqif"):
+            # one ReqIF object = one item: never split, the exchange file decides what a requirement is
+            m = b.meta
+            kind = "info" if mode == "info" else (m.get("reqif_kind") or ("req" if an.is_requirement(b.text) else "info"))
+            extra = {k: m[k] for k in ("reqif_id", "reqif_type", "reqif_category", "reqif_name", "reqif_supplier",
+                                       "asil", "verification_method", "refs") if m.get(k)}
+            extra["fields"] = dict(m.get("fields") or {})
+            if kind == "req":
+                it = req_item(b.text, b.loc, extra)
+            else:
+                it = {"kind": "info", "type": "INFO", "domain": "GEN", "title": b.text[:80], "text": b.text,
+                      "attrs": extra, "section": section_path(), "source_loc": b.loc}
+            if m.get("native_id"):
+                it["attrs"]["native_id"] = m["native_id"]
+            cands.append(it)
         elif b.kind == "para":
             meta = META_RE.match(b.text) if mode != "info" else None
             last_req = next((c for c in reversed(cands[-3:]) if c["kind"] == "req"), None)
@@ -259,6 +287,7 @@ def build_candidates(blocks: list[Block], cfg: dict, mode: str, repo: Repo, doc:
                        "text": table_text(b.grid), "attrs": {"grid": b.grid, "caption": b.caption, "table_kind": kind},
                        "section": section_path(), "source_loc": b.loc}
                 cands.append(tid)
+                _tag(tid, b)
                 if kind == "pinmap":
                     for r_i, row in enumerate(b.grid[1:], start=2):
                         vals = [c["t"] for c in row]
@@ -282,6 +311,7 @@ def build_candidates(blocks: list[Block], cfg: dict, mode: str, repo: Repo, doc:
             cands.append({"kind": "fig", "type": "FIG", "domain": "GEN", "title": b.caption or "그림",
                           "text": b.caption or "", "attrs": attrs, "section": section_path(),
                           "source_loc": b.loc, "fp_src": fp_src})
+            _tag(cands[-1], b)
     for i, c in enumerate(cands):
         c["ord"] = (i + 1) * 10
         c["doc"] = doc
@@ -299,8 +329,18 @@ def match(cands: list[dict], olds: list[dict], threshold: float) -> dict[int, st
     for o in olds:
         by_kind.setdefault(kind_of.get(o["type"], "req"), []).append(o)
 
+    # 0) object identity of a structured exchange file (ReqIF IDENTIFIER) — also restores withdrawn objects
+    for i, c in enumerate(cands):
+        rid = c["attrs"].get("reqif_id")
+        if not rid:
+            continue
+        for o in sorted(by_kind.get(c["kind"], []), key=lambda o: o["status"] == "deleted"):
+            if o["id"] not in used and o["attrs"].get("reqif_id") == rid:
+                result[i] = o["id"]; used.add(o["id"]); break
     # 1) native IDs from the customer document
     for i, c in enumerate(cands):
+        if i in result:
+            continue
         nid = c["attrs"].get("native_id")
         if not nid:
             continue

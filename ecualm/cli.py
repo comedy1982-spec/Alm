@@ -428,6 +428,24 @@ def cmd_plan(args):
         print(schedule.set_baseline(repo, args.arg or "", "", admin))
 
 
+def cmd_reqif(args):
+    from . import reqif
+    import json as _json
+    if args.action == "info":
+        print(_json.dumps(reqif.summary(Path(args.target)), ensure_ascii=False, indent=2))
+        return
+    repo, cfg = _ctx(args)
+    if args.action == "reply":
+        data, fn, rep = reqif.reply(repo, cfg, args.target)
+    else:
+        st = args.target.startswith("stage:")
+        data, fn, rep = reqif.export(repo, cfg, None if st else args.target, args.target[6:] if st else None)
+    out = Path(args.out or fn)
+    out.write_bytes(data)
+    print(out)
+    print(_json.dumps(rep, ensure_ascii=False))
+
+
 def cmd_backup(args):
     from . import sup
     repo, cfg = _ctx(args)
@@ -447,7 +465,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("init"); p.add_argument("--project"); p.set_defaults(fn=cmd_init)
-    p = sub.add_parser("import", help="DOCX/PDF/DOC 가져오기")
+    p = sub.add_parser("import", help="DOCX/PDF/DOC/ReqIF 가져오기")
     p.add_argument("files", nargs="+")
     p.add_argument("--doc", help="문서 이름 (기본: 파일명). 같은 이름으로 다시 넣으면 개정본으로 처리")
     p.add_argument("--rev", help="개정 표기 (예: B, v1.2)")
@@ -498,6 +516,9 @@ def main(argv=None):
     p.add_argument("action", choices=["list", "add", "passwd", "role", "disable", "enable", "token"])
     p.add_argument("username", nargs="?"); p.add_argument("--name"); p.add_argument("--role", choices=["viewer", "engineer", "manager", "admin"])
     p.add_argument("--password", help="(비권장) 프롬프트 대신 인자로 전달"); p.set_defaults(fn=cmd_user)
+    p = sub.add_parser("reqif", help="ReqIF: info <파일> | reply <문서> (고객 파일에 회신 기입) | export <문서|stage:SYS2>")
+    p.add_argument("action", choices=["info", "reply", "export"]); p.add_argument("target"); p.add_argument("--out")
+    p.set_defaults(fn=cmd_reqif)
     p = sub.add_parser("backup", help="프로젝트 데이터(.alm DB·증빙·이미지·alm.json) zip 백업"); p.add_argument("out")
     p.set_defaults(fn=cmd_backup)
     p = sub.add_parser("restore", help="백업 zip 복원 (기존 .alm 은 .alm.bak 으로 이동)"); p.add_argument("zip")

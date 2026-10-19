@@ -51,6 +51,17 @@ ecualm export docx SRS.docx --stage SYS2        # Word 로 내보내기
   - DOC·DOCX는 LibreOffice가 있으면 PDF로 바꿔 쪽 모양 그대로 보여 주고(Windows 기본 설치 경로도 찾습니다), 없으면 문단·표 구조 보기로 보여 줍니다.
   - 이 기능 전에 가져온 개정은 원문이 없을 수 있습니다. 그때는 화면에서 같은 파일을 올리면 됩니다.
 
+### ReqIF 교환 (DOORS · Polarion · codebeamer)
+
+OEM 이 요구사항 도구에서 내보낸 **ReqIF 1.2** 파일(`.reqif`, 첨부 포함 `.reqifz`)을 그대로 가져오고, 회신도 같은 파일로 돌려줍니다.
+
+- **가져오기** — 상단 *요구사항 가져오기* 에서 .reqif/.reqifz 선택. SPEC-OBJECT 하나가 아이템 하나가 되고, 객체 IDENTIFIER(`reqif_id`)·외부 ID(ReqIF.ForeignID / Absolute Number)·모든 속성(ASIL, 검증 방법, 사용자 정의 속성)이 보존됩니다. 제목은 SPEC-HIERARCHY 구조에서, 본문은 ReqIF.Text / Object Text / Primary Text(XHTML)에서 읽고 XHTML 표와 첨부 이미지는 표·그림 아이템이 됩니다. 요구사항/정보 구분은 객체 유형 속성(Object Type, ReqIF.Category 등)이 있으면 그것을 따르고, 없으면 문장 분석으로 정합니다. SPEC-RELATION 은 추적 링크가 됩니다.
+- **개정 비교** — 다음 개정을 같은 문서명으로 가져오면 객체 IDENTIFIER 기준으로 1:1 대응합니다. 문장이 많이 바뀌어도(예: shall → should) 같은 요구사항으로 인식되어 *변경 분석* 이 정확해집니다.
+- **고객 회신** — SYS.1 *표* 보기의 준수 여부(C/PC/NC/검토중)·공급사 의견을 입력하고 **ReqIF → 회신 ReqIF 받기**. 고객 파일의 구조·ID·속성·첨부는 그대로 두고 회신 속성만 채웁니다: 고객 파일에 *Supplier Status / Supplier Comment* 같은 속성이 있으면 그 속성(열거형이면 Accepted/Partly/Not accepted 등 고객 값에 매핑)에, 없으면 속성을 추가해 씁니다. *Supplier Reference* 에는 ALM ID 와 전개된 SYS.2 ID 가 들어갑니다. 대화상자에서 회신률, 미매핑 경고를 미리 확인할 수 있습니다.
+- **새 ReqIF 내보내기** — 문서 또는 단계(예: SYS.2 전체)를 표준 속성(ReqIF.ForeignID, ReqIF.Text, ReqIF.ChapterName, ReqIF.Category)과 ASIL·검증 방법·상태·준수 여부, 추적 링크(SPEC-RELATION), 그림(files/)과 함께 .reqifz 로 씁니다. 출력은 OMG ReqIF XSD 로 검증했습니다.
+- 명령줄: `ecualm reqif info 파일.reqifz` · `ecualm reqif reply CRS` · `ecualm reqif export stage:SYS2 --out SYS2.reqifz`
+- 샘플: `python samples/make_reqif_sample.py` → `samples/CRS_eLSD_ECU_rev1.0.reqifz`, `rev1.1.reqifz` (DOORS 형식 속성, 개정 간 같은 객체 ID)
+
 ### 요구사양서 개정 변경 분석 (AI)
 
 같은 문서명으로 새 개정본을 가져오면 **변경 미리보기** 화면에 변경 분석이 먼저 나옵니다. 가져오기를 마치면 분석 보고서가 저장되고 보고서 화면으로 이동합니다(이력·베이스라인 → "요구사양서 변경 분석 보고서"에서 다시 볼 수 있습니다).
