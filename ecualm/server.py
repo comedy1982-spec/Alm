@@ -493,6 +493,15 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                             return self._send(413, {"error": "파일이 너무 큽니다"})
                         return self._send(200, sources.attach(repo, path.split("/")[3], urllib.parse.unquote(self.headers.get("X-Filename", "")),
                                                               self.rfile.read(n)))
+                    if path == "/api/compliance/import":
+                        n = int(self.headers.get("Content-Length") or 0)
+                        if n > 30 * 1024 * 1024:
+                            return self._send(413, {"error": "파일은 30MB 이하만 올릴 수 있습니다"})
+                        data = self.rfile.read(n)
+                        with tempfile.TemporaryDirectory() as td:
+                            f = Path(td) / (Path(urllib.parse.unquote(self.headers.get("X-Filename", "matrix.xlsx"))).name or "matrix.xlsx")
+                            f.write_bytes(data)
+                            return self._send(200, compliance.import_xlsx(repo, cfg, f, user, apply=self.headers.get("X-Apply") == "1"))
                     if path == "/api/evidence":
                         n = int(self.headers.get("Content-Length") or 0)
                         if n > testruns.MAX_EVIDENCE:

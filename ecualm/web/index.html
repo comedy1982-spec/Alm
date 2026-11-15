@@ -379,8 +379,24 @@ table.wt tr.inf td{color:var(--muted)}
 .cmsum{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .cmsum button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .cmsum button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.cmsum i,.cmst i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;display:inline-block}
-.cmsum .ok i,.cmst.ok i{background:var(--ok)} .cmsum .warn i,.cmst.warn i{background:var(--warn)} .cmsum .err i,.cmst.err i{background:var(--err)}
+.cmsum i,.cmst i,.cmleg i{width:9px;height:9px;border-radius:50%;background:var(--c,var(--muted));flex:none;display:inline-block}
+:root[data-theme="dark"] .cmsum i,:root[data-theme="dark"] .cmst i,:root[data-theme="dark"] .cmleg i{background:var(--cd,var(--muted))}
+.cmviz{display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr) minmax(340px,1.5fr);gap:12px;margin-bottom:12px}
+@media(max-width:1100px){.cmviz{grid-template-columns:1fr}}
+.cmcard{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:12px 14px;min-width:0}
+.cmcard h4{margin:0 0 8px;font-size:12.5px;color:var(--muted);font-weight:600}
+.cmcard svg{display:block;max-width:100%}
+.cmcard svg text{fill:var(--ink);font-size:11.5px;font-family:inherit}
+.cmcard svg text.mu{fill:var(--muted)}
+.cmcard svg .seg{fill:var(--c);cursor:pointer;stroke:var(--panel);stroke-width:2}
+:root[data-theme="dark"] .cmcard svg .seg{fill:var(--cd)}
+.cmcard svg .seg:hover,.cmcard svg .seg:focus-visible{opacity:.8;outline:none}
+.cmcard svg .trk{fill:var(--soft)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cmsum i,:root:not([data-theme="light"]) .cmst i,:root:not([data-theme="light"]) .cmleg i{background:var(--cd,var(--muted))}
+  :root:not([data-theme="light"]) .cmcard svg .seg{fill:var(--cd)} }
+.cmdon{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.cmleg{display:grid;grid-template-columns:auto 1fr auto auto;gap:3px 8px;font-size:12px;align-items:center;min-width:180px;flex:1}
+.cmleg b{font-weight:600;text-align:right} .cmleg span.p{color:var(--muted);text-align:right}
 .cmst{display:flex;align-items:center;gap:6px}
 .cmst select{font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);padding:3px 4px;max-width:190px}
 .cmst.open select{color:var(--muted)}
@@ -1643,31 +1659,73 @@ async function stageCompliance(st){
   try{ CM.data=await api('/api/compliance?doc='+encodeURIComponent(CM.doc)); }catch(e){ body.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
   drawCM(st);
 }
+const cmVar=c=>`style="--c:${c[0]};--cd:${c[1]}"`;
+function cmCharts(M){
+  const S_=M.summary, parts=[...M.statuses.map(x=>({k:x.label,n:S_.counts[x.label]||0,c:x.color})),{k:'Open',n:S_.counts.Open||0,c:M.open_color}];
+  const tot=S_.total||1, pct=n=>(n*100/tot).toFixed(n&&n*100/tot<10?1:0)+'%';
+  // donut: share of each status, the reply rate in the middle
+  const R1=74,R0=46,C=80; let a=-Math.PI/2, arcs='';
+  for(const p of parts.filter(p=>p.n)){ const b=a+2*Math.PI*p.n/tot, big=b-a>Math.PI?1:0, P=(r,t)=>`${(C+r*Math.cos(t)).toFixed(2)},${(C+r*Math.sin(t)).toFixed(2)}`;
+    arcs+=p.n===tot?`<path class="seg" ${cmVar(p.c)} data-f="${esc(p.k)}" tabindex="0" fill-rule="evenodd" d="M${C-R1},${C}a${R1},${R1} 0 1 0 ${2*R1},0a${R1},${R1} 0 1 0 ${-2*R1},0ZM${C-R0},${C}a${R0},${R0} 0 1 0 ${2*R0},0a${R0},${R0} 0 1 0 ${-2*R0},0Z"><title>${esc(p.k)}: ${p.n}건 (100%)</title></path>`
+      :`<path class="seg" ${cmVar(p.c)} data-f="${esc(p.k)}" tabindex="0" d="M${P(R1,a)}A${R1},${R1} 0 ${big} 1 ${P(R1,b)}L${P(R0,b)}A${R0},${R0} 0 ${big} 0 ${P(R0,a)}Z"><title>${esc(p.k)}: ${p.n}건 (${pct(p.n)})</title></path>`; a=b; }
+  const donut=`<svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="상태별 비율. 회신률 ${S_.rate}%">${arcs||`<circle class="trk" cx="${C}" cy="${C}" r="${(R1+R0)/2}" fill="none" style="fill:none;stroke:var(--soft);stroke-width:${R1-R0}"/>`}<text x="${C}" y="${C-2}" text-anchor="middle" style="font-size:22px;font-weight:700">${S_.rate}%</text><text class="mu" x="${C}" y="${C+16}" text-anchor="middle">회신 ${S_.answered}/${S_.total}</text></svg>`;
+  const leg=`<div class="cmleg">${parts.map(p=>`<i ${cmVar(p.c)}></i><span>${esc(p.k)}</span><b>${p.n}</b><span class="p">${pct(p.n)}</span>`).join('')}</div>`;
+  // bars: count per status
+  const mx=Math.max(1,...parts.map(p=>p.n)), LW=150, BW=170, RH=22;
+  const bars=`<svg width="${LW+BW+44}" height="${parts.length*RH+4}" viewBox="0 0 ${LW+BW+44} ${parts.length*RH+4}" role="img" aria-label="상태별 요구사항 수">${parts.map((p,i)=>{const w=p.n?Math.max(3,BW*p.n/mx):0, y=i*RH+3;
+    return `<text x="${LW-8}" y="${y+12}" text-anchor="end">${esc(p.k)}</text><rect class="trk" x="${LW}" y="${y+1}" width="${BW}" height="14" rx="3"/>${p.n?`<rect class="seg" ${cmVar(p.c)} data-f="${esc(p.k)}" tabindex="0" x="${LW}" y="${y+1}" width="${w.toFixed(1)}" height="14" rx="3" style="stroke:none"><title>${esc(p.k)}: ${p.n}건 (${pct(p.n)})</title></rect>`:''}<text x="${LW+BW+6}" y="${y+12}" style="font-weight:600">${p.n}</text>`;}).join('')}</svg>`;
+  // stacked bars: status per chapter
+  const CH=M.chapters, cm=Math.max(1,...CH.map(c=>c.total)), CL=170, CW=300, CR=20;
+  const stack=`<svg width="${CL+CW+40}" height="${Math.max(1,CH.length)*CR+4}" viewBox="0 0 ${CL+CW+40} ${Math.max(1,CH.length)*CR+4}" role="img" aria-label="장별 상태 분포">${CH.map((c,i)=>{let x=CL; const y=i*CR+3; const nm=c.name.length>15?c.name.slice(0,14)+'…':c.name;
+    return `<text x="${CL-8}" y="${y+11}" text-anchor="end"><title>${esc(c.name)}</title>${esc(nm)}</text>`+parts.filter(p=>c.counts[p.k]).map(p=>{const w=CW*c.counts[p.k]/cm, r=`<rect class="seg" ${cmVar(p.c)} x="${x.toFixed(1)}" y="${y+1}" width="${Math.max(2,w).toFixed(1)}" height="13" rx="2" style="cursor:default"><title>${esc(c.name)} — ${esc(p.k)}: ${c.counts[p.k]}건</title></rect>`; x+=w; return r;}).join('')+`<text class="mu" x="${(x+6).toFixed(1)}" y="${y+11}">${c.total}</text>`;}).join('')}</svg>`;
+  return `<div class="cmviz"><div class="cmcard"><h4>상태별 비율</h4><div class="cmdon">${donut}${leg}</div></div>
+    <div class="cmcard"><h4>상태별 요구사항 수</h4><div style="overflow:auto">${bars}</div></div>
+    <div class="cmcard"><h4>장(章)별 상태 분포 <span style="font-weight:400">· 색은 왼쪽 범례와 같음</span></h4><div style="overflow:auto;max-height:262px">${stack}</div></div></div>`;
+}
 function drawCM(st){
   const M=CM.data, S_=M.summary, body=$('#stageBody'), can=atLeast('engineer');
   if(!M.rows.length&&!CM.doc){ body.innerHTML='<div class="empty"><b>고객 요구사항이 없습니다</b>고객 요구사양서를 가져오면 요구사항마다 수용 여부와 코멘트를 적는 매트릭스가 만들어집니다.</div>'; return; }
-  const cls=Object.fromEntries(M.statuses.map(x=>[x.label,x.cls]));
-  const chip=(k,v,c)=>`<button type="button" class="${c||''}" data-f="${esc(k)}" aria-pressed="${CM.status===k}"><i></i>${esc(k)} <b>${v}</b></button>`;
+  const chip=(k,v,c)=>`<button type="button" data-f="${esc(k)}" aria-pressed="${CM.status===k}"><i ${cmVar(c)}></i>${esc(k)} <b>${v}</b></button>`;
   body.innerHTML=`<div class="wph"><span class="t">Compliance Matrix</span>
-      <span class="wpm" title="상태를 고른 요구사항 비율"><span class="mbar" role="img" aria-label="회신률 ${S_.rate}%"><i style="width:${S_.rate}%"></i></span><b style="color:var(--ink)">${S_.rate}%</b> 회신 (${S_.answered}/${S_.total})${S_.issues?` · <span style="color:var(--err)">사유 누락 ${S_.issues}</span>`:''}</span></div>
-    <div class="cmsum" style="margin-bottom:10px">${M.statuses.map(x=>chip(x.label,S_.counts[x.label]||0,x.cls)).join('')}${chip('Open',S_.counts.Open||0,'')}</div>
+      <span class="wpm" title="상태를 고른 요구사항 비율"><span class="mbar" role="img" aria-label="회신률 ${S_.rate}%"><i style="width:${S_.rate}%"></i></span><b style="color:var(--ink)">${S_.rate}%</b> 회신 (${S_.answered}/${S_.total}) · 확정 ${S_.final}${S_.issues?` · <span style="color:var(--err)">사유 누락 ${S_.issues}</span>`:''}</span>
+      <span class="spacer"></span><button class="btn sm" id="cmViz" aria-expanded="${!CM.noViz}">${CM.noViz?'그래프 보기':'그래프 숨기기'}</button></div>
+    ${CM.noViz?'':cmCharts(M)}
+    <div class="cmsum" style="margin-bottom:10px">${M.statuses.map(x=>chip(x.label,S_.counts[x.label]||0,x.color)).join('')}${chip('Open',S_.counts.Open||0,M.open_color)}</div>
     <div class="filters">${M.docs.length>1?`<select id="cmDoc" aria-label="문서"><option value="">전체 문서</option>${M.docs.map(d=>`<option ${CM.doc===d?'selected':''}>${esc(d)}</option>`).join('')}</select>`:''}
       <input id="cmQ" placeholder="검색 (ID, 요구사항, 코멘트)" value="${esc(CM.q)}" style="flex:1;min-width:160px">
       <label class="row" style="font-size:12.5px;color:var(--muted);gap:5px"><input type="checkbox" id="cmIss" ${CM.issues?'checked':''}> 사유 누락만</label>
       ${can?`<span class="cmbulk"><span id="cmN">선택 0건</span><select id="cmBulk" class="btn" aria-label="선택한 요구사항에 일괄 적용" disabled><option value="">일괄 적용…</option>${M.statuses.map(x=>`<option>${esc(x.label)}</option>`).join('')}<option value="Open">Open (비움)</option></select></span>`:''}
-      <span class="spacer"></span><a class="btn" id="cmX" href="/api/compliance/xlsx?doc=${encodeURIComponent(CM.doc)}">Excel</a><button class="btn" id="cmRq" title="고객 ReqIF 파일에 회신 기입">ReqIF</button></div>
+      <span class="spacer"></span><a class="btn" id="cmX" href="/api/compliance/xlsx?doc=${encodeURIComponent(CM.doc)}" title="Excel 로 내보내기">Excel 내보내기</a>${can?'<button class="btn" id="cmImp" title="내보낸 Excel 을 고친 뒤 다시 읽어 들입니다">Excel 가져오기</button><input type="file" id="cmFile" accept=".xlsx" hidden>':''}<button class="btn" id="cmRq" title="고객 ReqIF 파일에 회신 기입">ReqIF</button></div>
     <div class="wtw" id="cmw"></div>
-    <div class="muted" style="font-size:12px;margin-top:6px">${can?'상태는 목록에서 고르고, 코멘트·편차·담당·고객 회신 칸은 눌러서 적습니다 (Ctrl+Enter 저장, Esc 취소). 편차 수용은 편차 내용, 수용 불가·확인 필요·해당 없음은 코멘트가 있어야 합니다. 회신 내용은 요구사항 변경이 아니므로 하위 항목을 Suspect 로 만들지 않습니다.':'읽기 전용입니다.'}</div>`;
-  body.querySelectorAll('.cmsum [data-f]').forEach(b=>b.onclick=()=>{CM.status=CM.status===b.dataset.f?'':b.dataset.f;drawCM(st);});
+    <div class="muted" style="font-size:12px;margin-top:6px">${can?'상태는 목록에서 고르고, 코멘트·편차·담당·고객 회신 칸은 눌러서 적습니다 (Ctrl+Enter 저장, Esc 취소). 편차 조건 수용은 편차 내용, 코멘트 조건 수용·부분 수용·수용 불가·확인 필요·해당 없음은 코멘트가 있어야 합니다. 회신 내용은 요구사항 변경이 아니므로 하위 항목을 Suspect 로 만들지 않습니다.':'읽기 전용입니다.'}</div>`;
+  body.querySelectorAll('[data-f]').forEach(b=>{const go=()=>{CM.status=CM.status===b.dataset.f?'':b.dataset.f;drawCM(st);}; b.onclick=go; if(b.tagName!=='BUTTON') b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+  $('#cmViz').onclick=()=>{CM.noViz=!CM.noViz;drawCM(st);};
   if($('#cmDoc')) $('#cmDoc').onchange=e=>{CM.doc=e.target.value;CM.sel.clear();stageCompliance(st);};
   $('#cmQ').oninput=e=>{CM.q=e.target.value;cmRows(st);};
   $('#cmIss').onchange=e=>{CM.issues=e.target.checked;cmRows(st);};
   $('#cmRq').onclick=()=>reqifDlg(st);
   if($('#cmBulk')) $('#cmBulk').onchange=async e=>{const v=e.target.value; if(!v||!CM.sel.size) return; await cmSave(st,[...CM.sel],{status:v}); };
+  if($('#cmImp')){ $('#cmImp').onclick=()=>$('#cmFile').click(); $('#cmFile').onchange=e=>{const f=e.target.files[0]; e.target.value=''; if(f) cmImport(st,f);}; }
   cmRows(st);
 }
+async function cmImport(st,f){
+  const send=async apply=>{ const r=await fetch('/api/compliance/import',{method:'POST',body:await f.arrayBuffer(),headers:{'X-ECUALM':'1','X-Filename':encodeURIComponent(f.name),...(apply?{'X-Apply':'1'}:{})}}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.status); return j; };
+  let p; try{ p=await send(false); }catch(e){ toast(e.message); return; }
+  const show=v=>v===''?'(비움)':v.length>40?v.slice(0,39)+'…':v;
+  const lines=[`${f.name} — ${p.rows}행을 읽었습니다 (읽은 열: ${p.columns.join(', ')}).`,
+    p.changes.length?`바뀌는 칸 ${p.changes.length}개 · 요구사항 ${p.items}건`:'ALM 과 다른 내용이 없습니다.',
+    ...p.changes.slice(0,8).map(c=>`· ${c.id} ${c.label}: ${show(c.old)} → ${show(c.new)}`), p.changes.length>8?`… 외 ${p.changes.length-8}칸`:'',
+    p.invalid.length?`목록에 없는 상태 값 ${p.invalid.length}건은 건너뜁니다: ${p.invalid.slice(0,4).map(x=>`${x.id} "${x.value}"`).join(', ')}${p.invalid.length>4?' …':''}`:'',
+    p.unknown.length?`ALM 에 없는 ID ${p.unknown.length}건은 건너뜁니다: ${p.unknown.slice(0,5).map(x=>x.id).join(', ')}${p.unknown.length>5?' …':''}`:'',
+    p.changes.length?'Excel 의 빈 칸은 ALM 값을 지웁니다. 요구사항 본문은 바꾸지 않습니다.':''].filter(Boolean);
+  $('#fmDesc').style.whiteSpace='pre-line';
+  const ok=await formDlg({title:'Excel 가져오기 — 미리보기',desc:lines.join('\n'),fields:[],ok:p.changes.length?'적용':'닫기'});
+  if(!ok||!p.changes.length) return;
+  try{ const r=await send(true); toast(`${r.applied}건의 요구사항에 반영했습니다`); }catch(e){ toast(e.message); }
+  CM.data=null; stageCompliance(st); load().catch(()=>{});
+}
 function cmRows(st){
-  const M=CM.data, can=atLeast('engineer'), q=CM.q.trim().toLowerCase(), cls=Object.fromEntries(M.statuses.map(x=>[x.label,x.cls]));
+  const M=CM.data, can=atLeast('engineer'), q=CM.q.trim().toLowerCase(), cls=Object.fromEntries(M.statuses.map(x=>[x.label,x.color]));
   const rows=M.rows.filter(r=>(!CM.status||(r.status||'Open')===CM.status||(CM.status==='Open'&&!(r.status in cls)))&&(!CM.issues||r.issue)&&(!q||[r.id,r.native_id,r.text,r.comment,r.deviation,r.owner,r.customer_response].join(' ').toLowerCase().includes(q)));
   const shown=new Set(rows.map(r=>r.id)); for(const id of [...CM.sel]) if(!shown.has(id)) CM.sel.delete(id);
   const txt=(r,k,ph)=>`<td class="txt ${can?'ed':''} ${r.issue&&((k==='deviation'&&r.issue.includes('편차'))||(k==='comment'&&r.issue.includes('코멘트')))?'need':''}" data-k="${k}">${r[k]?esc(r[k]):`<span class="ph">${r.issue&&((k==='deviation'&&r.issue.includes('편차'))||(k==='comment'&&r.issue.includes('코멘트')))?esc(r.issue):ph}</span>`}</td>`;
@@ -1677,7 +1735,7 @@ function cmRows(st){
     const known=r.status in cls;
     h+=`<tr data-r="${esc(r.id)}"><td>${can?`<input type="checkbox" class="cmc" aria-label="${esc(r.id)} 선택" ${CM.sel.has(r.id)?'checked':''} style="width:auto;height:auto;margin-right:6px">`:''}<span class="id" data-open="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</span>${r.native_id?`<span class="nid">${esc(r.native_id)}</span>`:''}</td>
       <td class="rtx">${esc(r.text)}</td><td style="min-width:0">${esc(r.asil||'')}</td>
-      <td><span class="cmst ${known?cls[r.status]:'open'}"><i></i>${can?`<select aria-label="${esc(r.id)} 상태"><option value="">Open</option>${M.statuses.map(x=>`<option ${x.label===r.status?'selected':''} title="${esc(x.ko)}">${esc(x.label)}</option>`).join('')}${r.status&&!known?`<option selected>${esc(r.status)}</option>`:''}</select>`:esc(r.status||'Open')}</span></td>
+      <td><span class="cmst ${known?'':'open'}"><i ${cmVar(known?cls[r.status]:M.open_color)}></i>${can?`<select aria-label="${esc(r.id)} 상태"><option value="">Open</option>${M.statuses.map(x=>`<option ${x.label===r.status?'selected':''} title="${esc(x.ko)}">${esc(x.label)}</option>`).join('')}${r.status&&!known?`<option selected>${esc(r.status)}</option>`:''}</select>`:esc(r.status||'Open')}</span></td>
       ${txt(r,'comment','—')}${txt(r,'deviation','—')}<td class="${can?'ed':''}" data-k="owner">${esc(r.owner)||'<span class="ph">—</span>'}</td>${txt(r,'customer_response','—')}
       <td class="ids">${r.trace.map(t=>`<span class="id" data-open="${esc(t)}" style="--c:${tcolor(S.byId[t]?.type)};cursor:pointer">${esc(t)}</span>`).join(' ')||'<span class="ph">—</span>'}</td></tr>`;
   }

@@ -81,7 +81,8 @@ def _tc_cols(target: str, target_label: str):
 WORK_PRODUCTS = {
     "SYS1": ("고객 요구사항 명세 (CRS)", "17-00 요구사항, 13-52 의사소통 증거", [
         _ID, _NAT, _req("고객 요구사항"), C("compliance", "준수 여부", "attr:compliance", "enum", True,
-                                       options=["Accept", "Accept with Deviation", "Not Accept", "Clarification Needed", "Not Applicable"],
+                                       options=["Accept", "Accept with Comment", "Accept with Deviation", "Partially Accept", "Not Accept",
+                                                "Clarification Needed", "Under Review", "Noted", "Not Applicable"],
                                        help_="고객 요구사항별 합의 결과 (Compliance matrix)"),
         C("comment", "공급사 의견", "attr:comment", "long", False),
         C("derived", "SYS.2 전개", "down:SYS2", "ids", True, False, help_="SYS.1 → SYS.2 추적 (13-51)"),

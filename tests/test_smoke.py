@@ -685,7 +685,7 @@ def test_compliance_matrix():
         from ecualm.stages import derive
         derive(repo, cfg, "SYS1", "SYS2")
         m = CM.matrix(repo, cfg)
-        assert m["summary"]["total"] == 186 and m["summary"]["open"] == 186 and len(m["statuses"]) == 5
+        assert m["summary"]["total"] == 186 and m["summary"]["open"] == 186 and len(m["statuses"]) == 9
         ids = [r["id"] for r in m["rows"]]
         assert CM.set_rows(repo, cfg, ids[:100], {"status": "Accept"}, "kim")["updated"] == 100          # bulk
         CM.set_rows(repo, cfg, [ids[100]], {"status": "Accept with Deviation"}, "kim")
@@ -697,16 +697,33 @@ def test_compliance_matrix():
             pass
         m = CM.matrix(repo, cfg)
         s = m["summary"]
-        assert s["answered"] == 103 and s["counts"]["Accept"] == 100 and s["counts"]["Accept with Deviation"] == 2
-        assert s["issues"] == 1 and m["rows"][100]["issue"] and not m["rows"][101]["issue"] and not m["rows"][102]["issue"]
+        assert s["answered"] == 103 and s["counts"]["Accept"] == 100 and s["counts"]["Accept with Deviation"] == 1
+        assert s["counts"]["Partially Accept"] == 1 and sum(c["total"] for c in m["chapters"]) == 186
+        assert s["issues"] == 2 and m["rows"][100]["issue"] and not m["rows"][101]["issue"] and m["rows"][102]["issue"]
         assert m["rows"][0]["by"] == "kim" and m["rows"][0]["trace"] and m["rows"][0]["trace"][0].startswith("SYS2-")
         assert not any(l["suspect"] for l in repo.links())                     # answering is not a requirement change
         out = CM.export_xlsx(repo, cfg, root / "cm.xlsx")
         wb = load_workbook(out); ws = wb["Compliance Matrix"]
         assert ws.max_row == 5 + 186 and ws.cell(6, 7).value == "Accept" and ws.cell(107, 8).value == "액추에이터 사양 한계"
         assert str(ws.data_validations.dataValidation[0].sqref) == "G6:G191" and "Summary" in wb.sheetnames
+        assert len(wb["Summary"]._charts) == 3
+        # Excel -> matrix: edit the exported workbook and read it back (preview first, then apply)
+        ws.cell(6, 7).value = "partially accept"; ws.cell(6, 8).value = "토크 맵은 2종만 지원"       # row of ids[0]
+        ws.cell(7, 7).value = "Maybe"; ws.cell(8, 11).value = "고객 확인 완료"; ws.cell(9, 7).value = None
+        ws.cell(10, 3).value = "CRS-NOPE-9999"; ws.cell(10, 2).value = None
+        wb.save(root / "back.xlsx")
+        pv = CM.import_xlsx(repo, cfg, root / "back.xlsx", "lee")
+        ch = {(c["id"], c["field"]): c["new"] for c in pv["changes"]}
+        assert ch == {(ids[0], "status"): "Partially Accept", (ids[0], "comment"): "토크 맵은 2종만 지원",
+                      (ids[2], "customer_response"): "고객 확인 완료", (ids[3], "status"): ""}, ch
+        assert [x["value"] for x in pv["invalid"]] == ["Maybe"] and [x["id"] for x in pv["unknown"]] == ["CRS-NOPE-9999"]
+        assert pv["applied"] == 0 and CM.matrix(repo, cfg)["rows"][0]["status"] == "Accept"           # preview changes nothing
+        assert CM.import_xlsx(repo, cfg, root / "back.xlsx", "lee", apply=True)["applied"] == 3
+        m2 = CM.matrix(repo, cfg)["rows"]
+        assert m2[0]["status"] == "Partially Accept" and m2[0]["by"] == "lee" and m2[3]["status"] == "" and m2[1]["status"] == "Accept"
+        assert not CM.import_xlsx(repo, cfg, root / "back.xlsx", "lee")["changes"]
         rep = reqif.reply(repo, cfg, "CRS")[2]                                 # same answers go into the customer's ReqIF
-        assert rep["answered"] == 103 and rep["by_code"]["C"] == 100 and rep["by_code"]["PC"] == 2 and not rep["warnings"]
+        assert rep["answered"] == 102 and rep["by_code"]["C"] == 98 and rep["by_code"]["PC"] == 3 and not rep["warnings"]
 
 
 if __name__ == "__main__":

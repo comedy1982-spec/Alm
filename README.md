@@ -69,10 +69,12 @@ SYS.1 라이브 문서의 "고객 요구사항" 절은 고객 문서의 장(章)
 
 고객 요구사항마다 공급사 회신을 표에서 바로 적습니다.
 
-- **Compliance Status**: Accept / Accept with Deviation / Not Accept / Clarification Needed / Not Applicable (비우면 Open). 프로젝트별 목록은 `alm.json` 의 `"compliance_statuses": ["Accept", {"label": "Accept with Deviation", "needs": "deviation"}, …]` 로 바꿉니다.
+- **Compliance Status**: Accept / Accept with Comment / Accept with Deviation / Partially Accept / Not Accept / Clarification Needed / Under Review / Noted / Not Applicable (비우면 Open). Clarification Needed·Under Review 는 "회신"에는 들어가지만 "확정"에는 넣지 않습니다. 프로젝트별 목록은 `alm.json` 의 `"compliance_statuses": ["Accept", {"label": "Accept with Deviation", "needs": "deviation"}, …]` 로 바꿉니다.
 - **코멘트 · 편차/대안 · 담당 · 고객 회신** 칸은 눌러서 편집(Ctrl+Enter 저장). 편차 수용은 편차 내용, 수용 불가·확인 필요·해당 없음은 코멘트가 없으면 "사유 누락"으로 표시합니다.
 - 여러 행을 체크해 상태를 **일괄 적용**, 상태 칩으로 필터, 검색, 장(章)별 묶음, SYS.2 추적 표시.
 - **Excel**: 매트릭스 시트(상태 칸은 드롭다운 목록·색상, 자동 필터, 가로 인쇄 맞춤) + 상태별·장별 집계 시트.
+- **그래프**: 탭 위쪽에 상태별 비율(도넛), 상태별 요구사항 수(막대), 장별 상태 분포(누적 막대). 조각·막대를 누르면 그 상태만 걸러 봅니다. Excel 의 Summary 시트에도 같은 세 그래프(원형·막대·누적 막대)가 들어갑니다.
+- **Excel 가져오기**: 내보낸 파일을 Excel 에서 고친 뒤 다시 읽어 들입니다. ALM ID(없으면 Customer ID)로 행을 찾고 상태·코멘트·편차·담당·고객 회신 열만 반영합니다. 먼저 바뀌는 칸을 미리보기로 보여 주고 "적용"을 눌러야 저장됩니다. 목록에 없는 상태 값과 모르는 ID 는 건너뛰고 알려 줍니다. Excel 의 빈 칸은 ALM 값을 지웁니다.
 - 회신 값은 요구사항에 저장되어 SYS.1 표의 "준수 여부"와 ReqIF 회신 파일에 같은 내용이 들어갑니다(예전 C/PC/NC 값도 그대로 인식). 회신 편집은 요구사항 변경이 아니므로 하위 항목을 Suspect 로 만들지 않습니다.
 
 ### 그림 · 표 · 차트 · 수식 (문자 이외의 내용)

@@ -46,7 +46,8 @@ HEADING_CAT = re.compile(r"head|chapter|section|title|제목", re.I)
 INFO_CAT = re.compile(r"info|comment|note|descr|explan|prose|text only|정보|설명|참고|비고", re.I)
 REQ_CAT = re.compile(r"req|requirement|shall|요구", re.I)
 
-COMPLIANCE_ALM = ["Accept", "Accept with Deviation", "Not Accept", "Clarification Needed", "Not Applicable",
+COMPLIANCE_ALM = ["Accept", "Accept with Comment", "Accept with Deviation", "Partially Accept", "Not Accept",
+                  "Clarification Needed", "Under Review", "Noted", "Not Applicable",
                   "C (준수)", "PC (부분 준수)", "NC (미준수)", "검토중"]
 # ALM value -> words that identify the matching enum literal in a customer's own datatype
 COMPLIANCE_MATCH = {
@@ -54,7 +55,7 @@ COMPLIANCE_MATCH = {
     "PC": re.compile(r"partly|partial|part|pc\b|부분|조건", re.I),
     "NC": re.compile(r"not|non|nc\b|reject|no\b|deviat|미준수|불가|거부", re.I),
     "검토중": re.compile(r"open|tbd|review|clarif|pending|new|검토|확인", re.I),
-    "NA": re.compile(r"n/?a\b|not appl|해당\s*없", re.I),
+    "NA": re.compile(r"n/?a\b|not appl|noted|info|해당\s*없|참고", re.I),
 }
 
 
@@ -545,7 +546,8 @@ def _zip(xml_name: str, xml: bytes, files: dict) -> bytes:
 def compliance_code(v: str) -> str:
     from .compliance import normalize
     v = normalize(v)
-    code = {"Accept": "C", "Accept with Deviation": "PC", "Not Accept": "NC", "Not Applicable": "NA"}.get(v)
+    code = {"Accept": "C", "Accept with Comment": "C", "Accept with Deviation": "PC", "Partially Accept": "PC",
+            "Not Accept": "NC", "Not Applicable": "NA", "Noted": "NA"}.get(v)
     return code or ("검토중" if v else "")
 
 

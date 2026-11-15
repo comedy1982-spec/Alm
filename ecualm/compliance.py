@@ -10,14 +10,20 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+# color: [light, dark] — fixed per status (validated as a set for colour-vision separation in this order)
 STATUSES = [
-    {"label": "Accept", "ko": "수용", "cls": "ok", "needs": "", "fill": "E3F4E8"},
-    {"label": "Accept with Deviation", "ko": "편차 조건부 수용", "cls": "warn", "needs": "deviation", "fill": "FFF1D6"},
-    {"label": "Not Accept", "ko": "수용 불가", "cls": "err", "needs": "comment", "fill": "FBE3E0"},
-    {"label": "Clarification Needed", "ko": "확인 필요", "cls": "warn", "needs": "comment", "fill": "FFF7DB"},
-    {"label": "Not Applicable", "ko": "해당 없음", "cls": "", "needs": "comment", "fill": "ECEFF3"},
+    {"label": "Accept", "ko": "수용", "needs": "", "final": True, "color": ["#008300", "#0ca30c"]},
+    {"label": "Accept with Comment", "ko": "코멘트 조건 수용", "needs": "comment", "final": True, "color": ["#2a78d6", "#3987e5"]},
+    {"label": "Accept with Deviation", "ko": "편차 조건 수용", "needs": "deviation", "final": True, "color": ["#eb6834", "#d95926"]},
+    {"label": "Partially Accept", "ko": "부분 수용", "needs": "comment", "final": True, "color": ["#6250d6", "#9085e9"]},
+    {"label": "Not Accept", "ko": "수용 불가", "needs": "comment", "final": True, "color": ["#e34948", "#e66767"]},
+    {"label": "Clarification Needed", "ko": "확인 필요 (고객 질의)", "needs": "comment", "final": False, "color": ["#1baf7a", "#199e70"]},
+    {"label": "Under Review", "ko": "내부 검토 중", "needs": "", "final": False, "color": ["#eda100", "#c98500"]},
+    {"label": "Noted", "ko": "참고 (정보성 문장)", "needs": "", "final": True, "color": ["#e87ba4", "#d55181"]},
+    {"label": "Not Applicable", "ko": "해당 없음", "needs": "comment", "final": True, "color": ["#898781", "#898781"]},
 ]
-LEGACY = {"C": "Accept", "PC": "Accept with Deviation", "NC": "Not Accept", "검토중": "Clarification Needed"}
+OPEN_COLOR = ["#c3c2b7", "#52514e"]
+LEGACY = {"C": "Accept", "PC": "Partially Accept", "NC": "Not Accept", "검토중": "Under Review"}
 FIELDS = {"status": "compliance", "comment": "comment", "deviation": "deviation", "owner": "compliance_owner",
           "customer_response": "customer_response"}
 OPEN = "Open"
@@ -31,7 +37,8 @@ def statuses(cfg: dict) -> list[dict]:
     out = []
     for s in own:
         s = {"label": s} if isinstance(s, str) else dict(s)
-        base = next((d for d in STATUSES if d["label"].lower() == s["label"].lower()), {"ko": "", "cls": "", "needs": "", "fill": "ECEFF3"})
+        base = next((d for d in STATUSES if d["label"].lower() == s["label"].lower()),
+                    {"ko": "", "needs": "", "final": True, "color": ["#898781", "#898781"]})
         out.append({**base, **s})
     return out
 
@@ -80,9 +87,16 @@ def matrix(repo, cfg: dict, doc: str = "") -> dict:
     for r in rows:
         counts[r["status"] if r["status"] in counts else OPEN] += 1
     answered = len(rows) - counts[OPEN]
+    final = sum(counts[x["label"]] for x in sts if x.get("final", True))
+    chapters: dict = {}
+    for r in rows:
+        ch = chapters.setdefault((r["section"] or "—").split(" > ")[0], {})
+        k = r["status"] if r["status"] in by_label else OPEN
+        ch[k] = ch.get(k, 0) + 1
     revs = {d["doc"]: d["rev"] for d in repo.docs()}
     return {"statuses": sts, "docs": docs, "doc": doc, "rev": revs.get(doc, "") if doc else "", "rows": rows,
-            "summary": {"total": len(rows), "answered": answered, "open": counts[OPEN], "counts": counts,
+            "open_color": OPEN_COLOR, "chapters": [{"name": k, "counts": v, "total": sum(v.values())} for k, v in chapters.items()],
+            "summary": {"total": len(rows), "answered": answered, "final": final, "open": counts[OPEN], "counts": counts,
                         "rate": round(answered * 100 / len(rows), 1) if rows else 0.0,
                         "issues": sum(1 for r in rows if r["issue"])}}
 
@@ -138,7 +152,10 @@ def export_xlsx(repo, cfg: dict, out: Path, doc: str = "") -> Path:
         c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1F5FBF")
         c.alignment = Alignment(wrap_text=True, vertical="center"); c.border = bd
         ws.column_dimensions[get_column_letter(j)].width = w
-    fill = {x["label"]: PatternFill("solid", fgColor=x["fill"]) for x in m["statuses"]}
+    def tint(hexc: str) -> str:      # status colour mixed 80% toward white: readable behind black text
+        r, g, b = (int(hexc[i:i + 2], 16) for i in (1, 3, 5))
+        return "".join("%02X" % round(c + (255 - c) * 0.8) for c in (r, g, b))
+    fill = {x["label"]: PatternFill("solid", fgColor=tint(x["color"][0])) for x in m["statuses"]}
     for n, r in enumerate(m["rows"], 1):
         vals = [n, r["native_id"], r["id"], r["section"], r["text"], r["asil"], r["status"], r["comment"], r["deviation"],
                 r["owner"], r["customer_response"], ", ".join(r["trace"]), r["at"]]
@@ -177,5 +194,135 @@ def export_xlsx(repo, cfg: dict, out: Path, doc: str = "") -> Path:
         c.font = Font(bold=True)
     for k, v in secs.items():
         w2.append([k] + [v.get(x, 0) for x in labels])
+    # charts: share of each status (pie), count per status (bar), status per chapter (stacked bar)
+    from openpyxl.chart import BarChart, PieChart, Reference
+    from openpyxl.chart.label import DataLabelList
+    from openpyxl.chart.series import DataPoint
+    n_st = len(s["counts"])
+    from openpyxl.utils import get_column_letter as _col
+    anchor, anchor2 = _col(len(labels) + 3), _col(len(labels) + 11)      # right of the chapter table
+    w2.page_setup.orientation = "landscape"
+    colors = {x["label"]: x["color"][0][1:].upper() for x in m["statuses"]}
+    colors[OPEN] = OPEN_COLOR[0][1:].upper()
+    cats = Reference(w2, min_col=1, min_row=4, max_row=3 + n_st)
+    vals = Reference(w2, min_col=2, min_row=3, max_row=3 + n_st)
+    pie = PieChart(); pie.title = "Compliance Status"; pie.add_data(vals, titles_from_data=True); pie.set_categories(cats)
+    pie.dataLabels = DataLabelList(); pie.dataLabels.showPercent = True; pie.dataLabels.showVal = False
+    pie.dataLabels.showSerName = False; pie.dataLabels.showCatName = False; pie.dataLabels.showLeaderLines = False
+    for k, lab in enumerate(s["counts"]):
+        pt = DataPoint(idx=k); pt.graphicalProperties.solidFill = colors.get(lab, "898781"); pie.series[0].dPt.append(pt)
+    pie.height, pie.width = 9, 13
+    w2.add_chart(pie, f"{anchor}2")
+    bar = BarChart(); bar.type = "bar"; bar.title = "Requirements per status"; bar.add_data(vals, titles_from_data=True)
+    bar.set_categories(cats); bar.legend = None; bar.y_axis.title = "Requirements"
+    bar.dataLabels = DataLabelList(); bar.dataLabels.showVal = True
+    for name in ("showSerName", "showCatName", "showLegendKey", "showPercent"):
+        setattr(bar.dataLabels, name, False)
+    for k, lab in enumerate(s["counts"]):
+        pt = DataPoint(idx=k); pt.graphicalProperties.solidFill = colors.get(lab, "898781"); bar.series[0].dPt.append(pt)
+    bar.y_axis.delete = False; bar.x_axis.delete = False; bar.x_axis.scaling.orientation = "maxMin"
+    bar.height, bar.width = 9, 13
+    w2.add_chart(bar, f"{anchor2}2")
+    if secs:
+        h0 = 3 + n_st + 3                      # header row of the chapter table
+        st = BarChart(); st.type = "bar"; st.grouping = "stacked"; st.overlap = 100; st.title = "Status per chapter"
+        st.add_data(Reference(w2, min_col=2, max_col=1 + len(labels), min_row=h0, max_row=h0 + len(secs)), titles_from_data=True)
+        st.set_categories(Reference(w2, min_col=1, min_row=h0 + 1, max_row=h0 + len(secs)))
+        for ser, lab in zip(st.series, labels):
+            ser.graphicalProperties.solidFill = colors.get(lab, "898781")
+        st.y_axis.delete = False; st.x_axis.delete = False; st.x_axis.scaling.orientation = "maxMin"
+        st.height, st.width = max(8, 0.55 * len(secs) + 3), 26.5
+        w2.add_chart(st, f"{anchor}21")
     wb.save(out)
+    return out
+
+
+# ---------------------------------------------------------------- Excel -> matrix
+HEADERS = {"id": ("alm id", "almid", "id"), "native_id": ("customer id", "고객 id", "원문 id", "req id"),
+           "status": ("compliance status", "status", "상태", "준수 여부"),
+           "comment": ("supplier comment", "comment", "코멘트", "공급사 의견"),
+           "deviation": ("deviation / alternative", "deviation", "편차", "편차 · 대안"),
+           "owner": ("owner", "담당"), "customer_response": ("customer response", "고객 회신")}
+FIELD_LABEL = {"status": "Compliance Status", "comment": "코멘트", "deviation": "편차·대안", "owner": "담당",
+               "customer_response": "고객 회신"}
+
+
+def import_xlsx(repo, cfg: dict, path: Path, user: str, apply: bool = False) -> dict:
+    """Read an edited matrix workbook back. Rows are found by ALM ID (or Customer ID); only the answer columns are
+    taken (status, comment, deviation, owner, customer response) — requirement text in the file is ignored.
+    apply=False only reports what would change."""
+    from openpyxl import load_workbook
+    try:
+        wb = load_workbook(path, read_only=True, data_only=True)
+    except Exception as e:
+        raise ValueError(f"Excel 파일을 읽을 수 없습니다 ({e})")
+    ws = wb["Compliance Matrix"] if "Compliance Matrix" in wb.sheetnames else wb.worksheets[0]
+    rows = list(ws.iter_rows(values_only=True))
+    wb.close()
+    norm = lambda v: " ".join(str(v or "").replace("\n", " ").split()).lower()
+    col, head = {}, -1
+    for ri, r in enumerate(rows[:30]):
+        cells = [norm(c) for c in r]
+        found = {}
+        for key, names in HEADERS.items():
+            for j, c in enumerate(cells):
+                if c in names and key not in found and j not in found.values():
+                    found[key] = j
+                    break
+        if "status" in found and ("id" in found or "native_id" in found):
+            col, head = found, ri
+            break
+    if head < 0:
+        raise ValueError("머리글 행을 찾지 못했습니다 — 'ALM ID'(또는 'Customer ID')와 'Compliance Status' 열이 있어야 합니다")
+    sts = statuses(cfg)
+    label_of = {s["label"].lower(): s["label"] for s in sts}
+    types = set(next(s for s in cfg["stages"] if s["id"] == "SYS1")["types"])
+    items = {i["id"]: i for i in repo.items() if i["type"] in types}
+    by_native = {}
+    for i in items.values():
+        if i["attrs"].get("native_id"):
+            by_native.setdefault(i["attrs"]["native_id"], i["id"])
+    out = {"file": Path(path).name, "rows": 0, "changes": [], "unknown": [], "invalid": [], "applied": 0,
+           "columns": [FIELD_LABEL[k] for k in FIELD_LABEL if k in col]}
+    todo: dict = {}
+    cell = lambda r, k: ("" if k not in col or col[k] >= len(r) or r[col[k]] is None else str(r[col[k]]).strip())
+    for ri, r in enumerate(rows[head + 1:], head + 2):
+        iid, nid = cell(r, "id"), cell(r, "native_id")
+        if not iid and not nid:
+            continue
+        out["rows"] += 1
+        iid = iid if iid in items else by_native.get(nid, "")
+        if not iid:
+            out["unknown"].append({"row": ri, "id": cell(r, "id") or nid})
+            continue
+        if iid in todo:
+            continue
+        a = items[iid]["attrs"]
+        vals = {}
+        for k in FIELD_LABEL:
+            if k not in col:
+                continue
+            new = cell(r, k)
+            if k == "status":
+                if new.lower() == OPEN.lower():
+                    new = ""
+                elif new:
+                    lab = label_of.get(new.lower()) or (normalize(new) if normalize(new) in label_of.values() else None)
+                    if not lab:
+                        out["invalid"].append({"row": ri, "id": iid, "value": new})
+                        continue
+                    new = lab
+                old = normalize(a.get("compliance", ""))
+            else:
+                old = a.get(FIELDS[k], "") or ""
+            if new != old:
+                vals[k] = new
+                out["changes"].append({"id": iid, "native_id": a.get("native_id", ""), "field": k, "label": FIELD_LABEL[k],
+                                       "old": old, "new": new})
+        if vals:
+            todo[iid] = vals
+    out["items"] = len(todo)
+    if apply:
+        for iid, vals in todo.items():
+            out["applied"] += set_rows(repo, cfg, [iid], vals, user)["updated"]
     return out
