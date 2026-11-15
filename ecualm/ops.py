@@ -92,6 +92,8 @@ def reclassify(repo: Repo, cfg: dict, item_id: str, new_type: str, domain: str |
     domain = domain or cur["domain"]
     new_id = repo.next_id(_fmt(cfg, new_type, domain), cfg["types"][new_type]["prefix"], domain, cfg)
     attrs = {**cur["attrs"], "former_id": item_id}
+    if cur["type"] == "INFO":      # a user decision: later revisions of the document keep it a requirement
+        attrs["promoted"] = True
     an = Analyzer(cfg)
     repo.insert({"id": new_id, "type": new_type, "domain": domain, "title": cur["title"], "text": cur["text"],
                  "status": "draft", "attrs": attrs, "lint": an.lint(cur["text"], new_type) if new_type in REQ_TYPES else [],

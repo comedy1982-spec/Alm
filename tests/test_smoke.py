@@ -611,6 +611,69 @@ def test_figures_tables_charts_linked():
         assert "이미지 교체" in rows[pic]["detail"] and any("참조하는 요구사항" in x for x in rows[pic]["actions"])
 
 
+def test_projects_and_sys1_shows_everything():
+    """New projects in one server (own data, shared accounts) and SYS.1 listing the whole customer document."""
+    import http.cookiejar, threading, urllib.request
+    from ecualm.server import _Server, make_handler
+    from ecualm.stages import stage_doc
+    from ecualm import workproducts as W
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root)
+        W.init(repo)
+        a = import_document(repo, cfg, SAMPLES / "CRS_media_demo_rev1.docx", doc="M", rev="1", mode="crs")
+        sd = stage_doc(repo, cfg, "SYS1", "pam")
+        body = next(s for s in sd["sections"] if s["kind"] == "group")
+        shown = [i for x in body["sub"] for i in x["items"]]
+        types = {i["type"] for i in shown}
+        assert {"CRS", "INFO", "TBL", "FIG"} <= types and [x["title"] for x in body["sub"]][-3:] == ["토크 특성", "인터페이스", "시험 조건"]
+        assert sum(1 for i in shown if i["type"] == "CRS") == a["by_type"]["CRS"] == sum(x["count"] for x in body["sub"])
+        assert sum(1 for i in shown if i["type"] == "INFO") == a["by_type"]["INFO"] == sd["stats"]["content"]["info"]
+        t = W.table(repo, cfg, "SYS1")
+        assert t["info_rows"] == a["by_type"]["INFO"] and t["req_rows"] == a["by_type"]["CRS"]
+        assert not any(r["missing"] for r in t["rows"] if r["type"] == "INFO")
+        # an explanatory paragraph turned into a requirement stays one when the document comes again
+        info = repo.items(doc="M", type_="INFO")[0]
+        new = ops.reclassify(repo, cfg, info["id"], "CRS", user="t")
+        b = import_document(repo, cfg, SAMPLES / "CRS_media_demo_rev1.docx", doc="M", rev="1b", mode="crs")
+        assert not b["new"] and not b["deleted"] and repo.get(new["id"])["status"] != "deleted"
+        assert repo.get(info["id"])["status"] == "deleted"
+        # a document where nothing was recognised as a requirement is still listed in SYS.1
+        note = root / "note.md"; note.write_text("# 개요\n\n이 문서는 배경을 설명한다고 적혀 있음\n", encoding="utf-8")
+        import_document(repo, cfg, note, doc="NOTE", rev="1", mode="crs")
+        assert "NOTE" in stage_doc(repo, cfg, "SYS1", "pam")["docs"]
+        repo.con.close()
+
+        srv = _Server(("127.0.0.1", 0), make_handler(root)); port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        mk = lambda: urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        adm, eng = mk(), mk()
+        try:
+            assert _http(port, "/api/auth/setup", {"username": "pm", "password": "Passw0rd!"}, adm)[0] == 200
+            n0 = len(_http(port, "/api/state", opener=adm)[1]["items"])
+            assert n0 > 10
+            r = _http(port, "/api/projects/create", {"name": "eLSD 양산", "copy_settings": True}, adm)
+            assert r[0] == 200 and r[1]["current"] == "eLSD_양산", r
+            st = _http(port, "/api/state", opener=adm)[1]                     # switched by cookie
+            assert st["project"] == "eLSD 양산" and st["project_id"] == "eLSD_양산" and not st["items"]
+            assert st["me"]["role"] == "admin"                                # same account in every project
+            assert (root / "projects" / "eLSD_양산" / ".alm" / "alm.db").exists()
+            assert _http(port, "/api/projects/create", {"name": "eLSD 양산"}, adm)[0] == 400       # duplicate
+            assert _http(port, "/api/projects/create", {"name": "x", "id": "../up"}, adm)[0] == 400
+            ps = _http(port, "/api/projects", opener=adm)[1]
+            assert [p["id"] for p in ps["projects"]] == ["default", "eLSD_양산"] and ps["projects"][0]["requirements"] >= 6
+            assert _http(port, "/api/projects/switch", {"id": "nope"}, adm)[0] == 404
+            assert _http(port, "/api/projects/switch", {"id": "default"}, adm)[0] == 200
+            assert len(_http(port, "/api/state", opener=adm)[1]["items"]) == n0
+            assert _http(port, "/api/users", {"username": "kim", "password": "Temp12345", "role": "engineer"}, adm)[0] == 200
+            _http(port, "/api/auth/login", {"username": "kim", "password": "Temp12345"}, eng)
+            _http(port, "/api/auth/password", {"old": "Temp12345", "new": "Kim-12345"}, eng)
+            assert _http(port, "/api/projects/create", {"name": "no"}, eng)[0] == 403              # PM or admin only
+            assert _http(port, "/api/projects/switch", {"id": "eLSD_양산"}, eng)[0] == 200
+        finally:
+            srv.shutdown(); srv.server_close()
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -626,4 +689,5 @@ if __name__ == "__main__":
     test_source_side_by_side()
     test_reqif_exchange()
     test_figures_tables_charts_linked()
+    test_projects_and_sys1_shows_everything()
     print("OK")

@@ -77,6 +77,69 @@ def stage_counts(repo: Repo, cfg: dict) -> dict:
 
 
 # ------------------------------------------------------------------ stage document
+CONTENT_TYPES = {"HDG", "INFO", "TBL", "FIG"}
+
+
+def customer_docs(repo: Repo, cfg: dict) -> list[str]:
+    """Documents that belong to SYS.1: those with customer requirements, and imported customer documents in
+    which no sentence was recognised as a requirement (they would otherwise be visible nowhere)."""
+    crs_types = set(get_stage(cfg, "SYS1")["types"])
+    mode = {}
+    for imp in repo.imports():
+        mode[imp["doc"]] = (imp["summary"] or {}).get("mode", "")
+    has_crs, has_req, seen = set(), set(), []
+    for i in repo.items():
+        d = i["doc"]
+        if not d or i["source_loc"].startswith("derived:"):
+            continue
+        if d not in seen:
+            seen.append(d)
+        if i["type"] in crs_types:
+            has_crs.add(d)
+        elif i["type"] not in CONTENT_TYPES:
+            has_req.add(d)
+    return [d for d in seen if d in has_crs or (d in mode and d not in has_req and mode[d] in ("", "crs", "auto", "srs"))]
+
+
+def _chapters(repo: Repo, docs: list[str], st: dict, n: int, up, down, loose: list[dict]) -> list[dict]:
+    """SYS.1 body: every imported element in document order (requirements, explanatory text, tables, figures),
+    one sub-section per chapter of the customer document."""
+    sub: list[dict] = []
+    req_types = set(st["types"]) | REQ_TYPES
+
+    def new(title):
+        sub.append({"number": "", "title": title, "items": [], "kind": "items", "count": 0, "info": 0})
+        return sub[-1]
+
+    for d in docs:
+        rows = [i for i in repo.items(doc=d) if not i["source_loc"].startswith("derived:")]
+        top = min((int(i["attrs"].get("level") or 1) for i in rows if i["type"] == "HDG"), default=1)
+        pre = f"{d} · " if len(docs) > 1 else ""
+        cur = None
+        for i in rows:
+            if i["type"] == "HDG" and int(i["attrs"].get("level") or 1) <= top:
+                cur = new(pre + (re.sub(r"^\s*\d+(\.\d+)*\.?\s+", "", i["text"]) or i["text"]))
+                continue
+            if cur is None:
+                cur = new(pre + "머리말")
+            i["_up"], i["_down"] = list(up[i["id"]]), list(down[i["id"]])
+            cur["items"].append(i)
+            if i["type"] in req_types:
+                cur["count"] += 1
+            elif i["type"] == "INFO":
+                cur["info"] += 1
+    if loose:
+        cur = new("문서 외 항목 (직접 추가)")
+        for i in loose:
+            i["_up"], i["_down"] = list(up[i["id"]]), list(down[i["id"]])
+            cur["items"].append(i)
+            cur["count"] += 1
+    sub = [x for x in sub if any(i["type"] != "HDG" for i in x["items"])]
+    for k, x in enumerate(sub, 1):
+        x["number"] = f"{n}.{k}"
+    return sub
+
+
 def stage_doc(repo: Repo, cfg: dict, sid: str, mode: str = "pam") -> dict:
     st = get_stage(cfg, sid)
     items = [i for i in repo.items() if i["type"] in st["types"]]
@@ -86,6 +149,8 @@ def stage_doc(repo: Repo, cfg: dict, sid: str, mode: str = "pam") -> dict:
         up[l["src"]].append(l)
         down[l["dst"]].append(l)
     docs = sorted({i["doc"] for i in items if i["doc"]})
+    if sid == "SYS1":
+        docs = sorted(set(docs) | set(customer_docs(repo, cfg)))
     revs = {d["doc"]: d["rev"] for d in repo.docs()}
     sections: list[dict] = []
 
@@ -122,6 +187,11 @@ def stage_doc(repo: Repo, cfg: dict, sid: str, mode: str = "pam") -> dict:
                   "HWE1": "하드웨어 요구사항", "HWE2": "하드웨어 블록 및 인터페이스"}.get(sid, "테스트 케이스")
     n = 4
     sub = []
+    if sid == "SYS1":      # the customer document as a whole: nothing the customer wrote is left out
+        in_docs = set(docs)
+        sub = _chapters(repo, docs, st, n, up, down, [i for i in items if i["doc"] not in in_docs
+                                                       or i["source_loc"].startswith("derived:")])
+        order = []
     for k, d in enumerate(order, 1):
         rows = sorted(by_dom[d], key=lambda i: (i["doc"], i["ord"]))
         for i in rows:
@@ -140,8 +210,13 @@ def stage_doc(repo: Repo, cfg: dict, sid: str, mode: str = "pam") -> dict:
     trace = [{"id": i["id"], "up": [f"{l['role']} {l['dst']}" + (" (제안)" if l["state"] == "proposed" else "") for l in up[i["id"]]],
               "down": [f"{l['src']} {l['role']}" for l in down[i["id"]]]} for i in items]
     sections.append({"number": str(n), "title": "추적 매트릭스", "kind": "trace", "rows": trace})
+    stats = _stats(items)
+    if sid == "SYS1":
+        stats["content"] = {"info": sum(x["info"] for x in sub),
+                            "tables": sum(1 for x in sub for i in x["items"] if i["type"] == "TBL"),
+                            "figures": sum(1 for x in sub for i in x["items"] if i["type"] == "FIG")}
     return {"stage": st, "mode": mode, "title": f"{st['name']} ({st['aspice']})", "sections": sections, "docs": docs,
-            "stats": _stats(items)}
+            "stats": stats}
 
 
 def _stats(items):

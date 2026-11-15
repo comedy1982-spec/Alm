@@ -446,6 +446,19 @@ def cmd_reqif(args):
     print(_json.dumps(rep, ensure_ascii=False))
 
 
+def cmd_project(args):
+    from .projects import Workspace
+    ws = Workspace(_root(args))
+    if args.action == "new":
+        if not args.name:
+            raise ValueError("사용법: ecualm project new <이름> [--id ID] [--copy-settings]")
+        i = ws.create(args.name, args.id or "", "default" if args.copy_settings else "")
+        print(f"프로젝트 생성: {i['name']} (ID {i['id']})  →  {ws.path(i['id'])}")
+        return
+    for i in ws.list():
+        print(f"{i['id']:<24} {i['name']:<28} 요구사항 {i['requirements']:>5}  문서 {i['docs']:>3}  {ws.path(i['id'])}")
+
+
 def cmd_backup(args):
     from . import sup
     repo, cfg = _ctx(args)
@@ -519,6 +532,10 @@ def main(argv=None):
     p = sub.add_parser("reqif", help="ReqIF: info <파일> | reply <문서> (고객 파일에 회신 기입) | export <문서|stage:SYS2>")
     p.add_argument("action", choices=["info", "reply", "export"]); p.add_argument("target"); p.add_argument("--out")
     p.set_defaults(fn=cmd_reqif)
+    p = sub.add_parser("project", help="프로젝트: list | new <이름> (서버 한 대에서 여러 프로젝트, <root>/projects/<ID>)")
+    p.add_argument("action", choices=["list", "new"]); p.add_argument("name", nargs="?"); p.add_argument("--id")
+    p.add_argument("--copy-settings", action="store_true", help="기본 프로젝트의 alm.json·AI 설정을 복사")
+    p.set_defaults(fn=cmd_project)
     p = sub.add_parser("backup", help="프로젝트 데이터(.alm DB·증빙·이미지·alm.json) zip 백업"); p.add_argument("out")
     p.set_defaults(fn=cmd_backup)
     p = sub.add_parser("restore", help="백업 zip 복원 (기존 .alm 은 .alm.bak 으로 이동)"); p.add_argument("zip")

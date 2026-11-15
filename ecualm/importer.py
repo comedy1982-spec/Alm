@@ -477,6 +477,26 @@ def link_media(repo: Repo, cfg: dict, doc: str, cands: list[dict]) -> int:
     return n
 
 
+def _keep_promoted(cands: list[dict], olds: list[dict], cfg: dict) -> None:
+    """Text a user turned into a requirement (INFO -> CRS ...) stays a requirement when the document is imported
+    again, also when the customer reworded it."""
+    import difflib
+    promoted = [o for o in olds if o["attrs"].get("promoted") and o["status"] != "deleted" and o["type"] in REQ_TYPES]
+    if not promoted:
+        return
+    an = Analyzer(cfg)
+    infos = [c for c in cands if c["kind"] == "info"]
+    for o in promoted:
+        hit = next((c for c in infos if c["kind"] == "info" and c.get("fingerprint") == o["fingerprint"]), None)
+        if not hit:
+            best = max(((difflib.SequenceMatcher(None, o["text"], c["text"]).ratio(), k) for k, c in enumerate(infos)
+                        if c["kind"] == "info"), default=(0, -1))
+            hit = infos[best[1]] if best[0] >= cfg["match_threshold"] else None
+        if hit:
+            hit.update(kind="req", type=o["type"], domain=o["domain"], lint=an.lint(hit["text"], o["type"]))
+            hit["attrs"] = {**hit["attrs"], "promoted": True, "former_id": o["attrs"].get("former_id", "")}
+
+
 # ---------------------------------------------------------------- main entry
 def _attr_sig(a: dict) -> dict:
     """Requirement attributes that matter for a revision compare (table columns such as ASIL / verification)."""
@@ -512,10 +532,12 @@ def import_document(repo: Repo, cfg: dict, path: str | Path, doc: str | None = N
     # items added by hand (tests, architecture, notes) live in the doc view but are never matched/deleted by an import
     olds = [o for o in repo.items(doc=doc, include_deleted=True)
             if o["source_loc"] != "manual" and not o["source_loc"].startswith("derived:")]
+    olds = [o for o in olds if not o["attrs"].get("moved_to")]        # retired IDs (reclassified) never come back
+    _keep_promoted(cands, olds, cfg)
     matches = match(cands, olds, cfg["match_threshold"])
     old_by_id = {o["id"]: o for o in olds}
     id_fmt = cfg["id_format"]
-    summary = {"doc": doc, "rev": rev, "import_id": import_id, "file": path.name, "blocks": len(blocks),
+    summary = {"doc": doc, "rev": rev, "import_id": import_id, "file": path.name, "blocks": len(blocks), "mode": mode,
                "new": [], "modified": [], "unchanged": 0, "deleted": [], "restored": [], "by_type": {}, "details": []}
     det = summary["details"]
 

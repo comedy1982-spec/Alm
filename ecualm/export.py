@@ -249,39 +249,43 @@ def export_stage_docx(repo: Repo, cfg: dict, sid: str, out: Path, mode: str = "p
             v = d.add_paragraph("   검증 기준: " + a["verification_criteria"])
             v.runs[0].font.size = Pt(8.5)
 
+    def content_block(it):
+        if it["type"] == "HDG":
+            d.add_heading(it["text"], min(3, int(it["attrs"].get("level", 1)) + 1))
+        elif it["type"] == "INFO":
+            d.add_paragraph(it["text"])
+        elif it["type"] == "TBL":
+            grid = it["attrs"].get("grid") or []
+            if it["attrs"].get("caption"):
+                d.add_paragraph(it["attrs"]["caption"])
+            if grid:
+                t = d.add_table(rows=len(grid), cols=len(grid[0]))
+                t.style = "Table Grid"
+                for ri, row in enumerate(grid):
+                    for ci, c in enumerate(row):
+                        if not c.get("skip"):
+                            t.cell(ri, ci).text = c.get("t", "")
+        elif it["type"] == "FIG":
+            f = it["attrs"].get("file")
+            if f and (repo.assets / f).exists() and f.rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif"):
+                from docx.shared import Cm
+                d.add_picture(str(repo.assets / f), width=Cm(15))
+            d.add_paragraph(f"{it['id']} {it['attrs'].get('caption', '')}")
+        else:
+            item_block(it)
+
     for sec in sd["sections"]:
         d.add_heading(f"{sec['number']} {sec['title']}".strip(), 1)
         if sec["kind"] == "text":
             for t in sec["text"]:
                 d.add_paragraph(t)
-        elif sec["kind"] == "group":
-            for sub in sec["sub"]:
-                d.add_heading(f"{sub['number']} {sub['title']}", 2)
+        elif sec["kind"] in ("group", "source"):
+            groups = sec["sub"] if sec["kind"] == "group" else [{"items": sec["items"]}]
+            for sub in groups:
+                if sub.get("title"):
+                    d.add_heading(f"{sub['number']} {sub['title']}", 2)
                 for it in sub["items"]:
-                    item_block(it)
-        elif sec["kind"] == "source":
-            for it in sec["items"]:
-                if it["type"] == "HDG":
-                    d.add_heading(it["text"], min(3, int(it["attrs"].get("level", 1)) + 1))
-                elif it["type"] == "INFO":
-                    d.add_paragraph(it["text"])
-                elif it["type"] == "TBL":
-                    grid = it["attrs"].get("grid") or []
-                    if grid:
-                        t = d.add_table(rows=len(grid), cols=len(grid[0]))
-                        t.style = "Table Grid"
-                        for ri, row in enumerate(grid):
-                            for ci, c in enumerate(row):
-                                if not c.get("skip"):
-                                    t.cell(ri, ci).text = c.get("t", "")
-                elif it["type"] == "FIG":
-                    f = it["attrs"].get("file")
-                    if f and (repo.assets / f).exists() and f.rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif"):
-                        from docx.shared import Cm
-                        d.add_picture(str(repo.assets / f), width=Cm(15))
-                    d.add_paragraph(f"{it['id']} {it['attrs'].get('caption', '')}")
-                else:
-                    item_block(it)
+                    content_block(it)
         elif sec["kind"] == "verification":
             t = d.add_table(rows=1, cols=4)
             t.style = "Table Grid"

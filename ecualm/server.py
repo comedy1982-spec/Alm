@@ -20,6 +20,7 @@ from .config import load_config
 from .db import Repo
 from .export import export_excel, state_payload
 from .importer import import_document
+from .projects import DEFAULT, Workspace
 from .stages import derive, stage_doc
 
 WEB = Path(__file__).parent / "web"
@@ -32,7 +33,9 @@ POST_ROLE = {"/api/chat": "viewer", "/api/auth/logout": "viewer", "/api/auth/pas
              "/api/plan/template": "viewer", "/api/plan/meta": "manager", "/api/baseline": "manager",
              "/api/ai/settings": "admin", "/api/users": "admin", "/api/users/update": "admin", "/api/users/reset": "admin",
              "/api/users/token": "admin", "/api/wpcol": "manager", "/api/wpcol/update": "manager",
-             "/api/wpcol/delete": "manager"}
+             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/projects/create": "manager",
+             "/api/projects/rename": "manager"}
+PROJ_COOKIE = "ecualm_proj"
 PUBLIC_POST = {"/api/auth/login", "/api/auth/setup"}
 
 
@@ -44,16 +47,64 @@ def _pub(u: dict | None) -> dict | None:
 
 
 def make_handler(root: Path):
+    """Request handler for a workspace: each request is served by the project its cookie (or X-Project header)
+    names. Accounts and sessions are shared and live in the first project's database."""
+    ws = Workspace(Path(root))
+    cfg0 = load_config(ws.root)
+    auth = Auth(Repo(ws.root), cfg0)
+    auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
+    handlers: dict = {}
+    hlock = threading.Lock()
+
+    def handler(pid: str):
+        with hlock:
+            if pid not in handlers:
+                handlers[pid] = _project_handler(ws.path(pid), ws, pid, auth, auth_on)
+            return handlers[pid]
+
+    class Dispatch(BaseHTTPRequestHandler):
+        server_version = "ecualm"
+
+        def _pid(self) -> str:
+            pid = self.headers.get("X-Project", "")
+            if not pid:
+                c = http.cookies.SimpleCookie()
+                try:
+                    c.load(self.headers.get("Cookie", ""))
+                    pid = urllib.parse.unquote(c[PROJ_COOKIE].value) if PROJ_COOKIE in c else ""
+                except http.cookies.CookieError:
+                    pid = ""
+            return pid if pid and ws.exists(pid) else DEFAULT
+
+        def _run(self, method: str):
+            cls = handler(self._pid())
+            self.__class__ = cls
+            try:
+                getattr(cls, method)(self)
+            finally:
+                self.__class__ = Dispatch
+
+        def do_GET(self):
+            self._run("do_GET")
+
+        def do_POST(self):
+            self._run("do_POST")
+
+        def log_message(self, fmt, *args):
+            pass
+
+    handler(DEFAULT)
+    return Dispatch
+
+
+def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: bool):
     repo = Repo(root)
-    cfg0 = load_config(root)
-    auth = Auth(repo, cfg0)
     schedule.init(repo)
     workproducts.init(repo)
     testruns.init(repo)
     sup.init(repo)
     changes.init(repo)
     sources.init(repo)
-    auth_on = bool(cfg0.get("auth", {}).get("enabled", True))
 
     class H(BaseHTTPRequestHandler):
         server_version = "ecualm"
@@ -156,6 +207,8 @@ def make_handler(root: Path):
                     if rank(user["role"]) < rank("admin"):
                         return self._send(403, {"error": "관리자 권한이 필요합니다"})
                     return self._send(200, {"users": auth.users(), "log": auth.log(60)})
+                if path == "/api/projects":
+                    return self._send(200, {"current": pid, "projects": ws.list()})
                 if path == "/api/plan":
                     with LOCK:
                         from .stages import stage_counts
@@ -305,7 +358,7 @@ def make_handler(root: Path):
                 if path == "/api/state":
                     with LOCK:
                         st = state_payload(repo, self.cfg)
-                    st["me"] = _pub(user); st["auth"] = auth_on
+                    st["me"] = _pub(user); st["auth"] = auth_on; st["project_id"] = pid
                     return self._send(200, st)
                 if path.startswith("/api/item/"):
                     iid = urllib.parse.unquote(path[len("/api/item/"):])
@@ -376,6 +429,20 @@ def make_handler(root: Path):
                 if path.startswith("/api/auth/") or path.startswith("/api/users"):
                     r = self._auth_post(path, self._json_body(), who)
                     return r if r is not None else self._send(404, {"error": "not found"})
+                if path.startswith("/api/projects/"):
+                    b = self._json_body()
+                    pick = lambda p: {"Set-Cookie": f"{PROJ_COOKIE}={urllib.parse.quote(p)}; SameSite=Strict; Path=/; Max-Age=31536000"}
+                    if path == "/api/projects/switch":
+                        if not ws.exists(b.get("id", "")):
+                            return self._send(404, {"error": "프로젝트를 찾을 수 없습니다"})
+                        return self._send(200, {"current": b["id"]}, headers=pick(b["id"]))
+                    with LOCK:
+                        if path == "/api/projects/create":
+                            info = ws.create(b.get("name", ""), b.get("id", ""), pid if b.get("copy_settings") else "")
+                            return self._send(200, {"current": info["id"], "project": info}, headers=pick(info["id"]))
+                        if path == "/api/projects/rename":
+                            return self._send(200, ws.rename(pid, b.get("name", "")))
+                    return self._send(404, {"error": "not found"})
                 if path.startswith("/api/plan/"):
                     b = self._json_body()
                     with LOCK:

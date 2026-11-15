@@ -363,6 +363,19 @@ table.cases tr.det td{background:var(--soft2);font-size:12px}
 /* ---------- work-product table ---------- */
 .wph{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:10px}
 .wph .t{font-weight:600}
+.projbtn{font:inherit;font-size:12px;font-weight:500;color:var(--muted);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:2px 8px;margin-left:6px;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projbtn:hover{color:var(--ink);border-color:var(--accent)}
+.projmenu{position:fixed;z-index:60;min-width:260px;max-width:min(360px,calc(100vw - 16px));max-height:70vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px}
+.pmh{font-size:11.5px;color:var(--muted);padding:6px 10px 4px}
+.pmi{display:block;width:100%;text-align:left;font:inherit;background:none;border:0;border-radius:7px;padding:7px 10px;cursor:pointer;color:var(--ink)}
+.pmi:hover,.pmi:focus-visible{background:var(--soft)}
+.pmi b{display:block;font-weight:600;font-size:13px}
+.pmi span{display:block;font-size:12px;color:var(--muted)}
+.pmi.on b{color:var(--accent)}
+.pms{height:1px;background:var(--line);margin:6px 4px}
+p.info[data-open]{cursor:pointer;border-radius:4px}
+p.info[data-open]:hover{background:var(--soft)}
+table.wt tr.inf td{color:var(--muted)}
 .rqh{margin:16px 0 8px;font-size:13px;color:var(--muted);text-transform:none}
 .rqcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel)}
 .wpm{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
@@ -509,7 +522,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
 </div>
 <header>
   <div class="hrow">
-    <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <small id="proj"></small></div>
+    <div class="brand"><i aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 3h12M2 8h8M2 13h12"/></svg></i>ECU ALM <button type="button" id="proj" class="projbtn" aria-haspopup="true" title="프로젝트 전환 · 새 프로젝트"></button></div>
     <span class="muted" style="font-size:12.5px" id="crumb"></span>
     <div class="spacer"></div>
     <button class="btn" id="btnSup" title="SUP.1 품질 보증 · SUP.8 형상·릴리스 · SUP.9 문제 · SUP.10 변경 요청">지원(SUP)</button>
@@ -700,7 +713,7 @@ async function load(){
   for(const l of S.links){(S.up[l.src]||=[]).push(l);(S.down[l.dst]||=[]).push(l);}
   S.stageById=Object.fromEntries(S.stages.map(s=>[s.id,s]));
   S.stageOfType={}; for(const s of S.stages) for(const t of s.types) S.stageOfType[t]=s.id;
-  $('#proj').textContent=S.project;
+  $('#proj').textContent=S.project+(STATIC?'':' ▾'); $('#proj').onclick=STATIC?null:projMenu;
   $('#docNames').innerHTML=S.docs.map(d=>`<option value="${esc(d.doc)}">`).join('');
   render();
 }
@@ -749,7 +762,7 @@ function specHTML(a){
 function itemHTML(it){
   const sel=selected===it.id?' sel':'';
   if(it.type==='HDG'){const l=Math.min(4,(it.attrs.level||1)+1);return `<h${l} id="h-${esc(it.id)}">${esc(it.text)}</h${l}>`;}
-  if(it.type==='INFO') return `<p class="info${it.attrs.list_level>=0?' li':''}">${it.attrs.list_level>=0?'• ':''}${refText(it)}</p>`;
+  if(it.type==='INFO') return `<p class="info${it.attrs.list_level>=0?' li':''}" ${STATIC?'':`data-open="${esc(it.id)}" title="${esc(it.id)} — 눌러서 열기 (요구사항으로 전환 가능)"`}>${it.attrs.list_level>=0?'• ':''}${refText(it)}</p>`;
   if(it.type==='TBL'){const refs=(S.down[it.id]||[]).filter(l=>l.role==='refers');
     return `<div class="tblwrap" data-id="${esc(it.id)}"><div class="tblcap"><span class="id">${esc(it.id)}</span>${esc(it.attrs.caption||'')}<span class="chip">${esc(it.attrs.table_kind||'')}</span>${refs.length?`<span class="muted" style="font-size:12px;margin-left:auto">참조: ${refs.map(l=>`<span class="id" data-open="${esc(l.src)}" style="cursor:pointer">${esc(l.src)}</span>`).join(' ')}</span>`:''}</div>${tableHTML(it.attrs.grid||[])}</div>`;}
   if(it.type==='FIG') return figHTML(it);
@@ -848,17 +861,17 @@ function viewStage(){
 }
 async function stageDoc(st,its){
   const body=$('#stageBody');
-  if(!its.length){ $('#left').innerHTML=''; body.innerHTML=`<div class="empty"><b>${esc(st.aspice)} ${esc(st.name)} 문서가 아직 비어 있습니다</b>${st.id==='SYS1'?'고객 요구사항 문서를 가져오세요.':st.id==='SYS2'?'SRS를 직접 가져오거나, SYS.1 고객 요구사항에서 전개하세요.':'상위 단계에서 “전개”하거나 문서를 가져오세요.'}</div>`; return; }
+  if(!its.length&&!(st.id==='SYS1'&&S.items.some(i=>i.type==='INFO'&&i.status!=='deleted'&&i.doc))){ $('#left').innerHTML=''; body.innerHTML=`<div class="empty"><b>${esc(st.aspice)} ${esc(st.name)} 문서가 아직 비어 있습니다</b>${st.id==='SYS1'?'고객 요구사항 문서를 가져오세요.':st.id==='SYS2'?'SRS를 직접 가져오거나, SYS.1 고객 요구사항에서 전개하세요.':'상위 단계에서 “전개”하거나 문서를 가져오세요.'}</div>`; return; }
   body.innerHTML='<div class="muted">문서 구성 중…</div>';
   let sd;
   try{ sd = STATIC ? STATIC.stagedocs[st.id][docMode] : await api(`/api/stagedoc/${st.id}?mode=${docMode}`); }catch(e){ body.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
-  const toc=[]; let html=`<div class="filters"><select id="dm"><option value="pam" ${docMode==='pam'?'selected':''}>PAM 4.0 구조</option><option value="source" ${docMode==='source'?'selected':''}>원문 구조 (표·그림 포함)</option></select><input id="fq" placeholder="검색 (ID, 내용)" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">${Object.entries(sd.stats.domains).map(([k,v])=>`${S.domain_names[k]||k} ${v}`).join(' · ')}</span></div><div class="doc" id="docbody">`;
+  const toc=[]; let html=`<div class="filters"><select id="dm"><option value="pam" ${docMode==='pam'?'selected':''}>PAM 4.0 구조</option><option value="source" ${docMode==='source'?'selected':''}>원문 구조 (표·그림 포함)</option></select><input id="fq" placeholder="검색 (ID, 내용)" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">${sd.stats.content?`요구사항 ${sd.stats.total} · 정보 ${sd.stats.content.info} · 표 ${sd.stats.content.tables} · 그림 ${sd.stats.content.figures}`:Object.entries(sd.stats.domains).map(([k,v])=>`${S.domain_names[k]||k} ${v}`).join(' · ')}</span></div><div class="doc" id="docbody">`;
   for(const sec of sd.sections){
     const hid='s-'+sec.number.replace(/\./g,'-')+'-'+Math.random().toString(36).slice(2,6);
     if(sec.kind==='source'){ toc.push([0,hid,sec.title]); html+=`<h2 id="${hid}">${esc(sec.title)}</h2>`+sec.items.map(i=>{if(i.type==='HDG') toc.push([i.attrs.level||1,'h-'+i.id,i.text]);return itemHTML(i);}).join(''); continue; }
     toc.push([0,hid,`${sec.number} ${sec.title}`]); html+=`<h2 id="${hid}">${esc(sec.number)} ${esc(sec.title)}</h2>`;
     if(sec.kind==='text') html+=sec.text.map(t=>`<p class="info">${esc(t)}</p>`).join('');
-    else if(sec.kind==='group') for(const sub of sec.sub){const sid='s-'+sub.number.replace(/\./g,'-');toc.push([1,sid,`${sub.number} ${sub.title}`]);html+=`<h3 id="${sid}">${esc(sub.number)} ${esc(sub.title)} <span class="chip">${sub.items.length}</span></h3>`+sub.items.map(itemHTML).join('');}
+    else if(sec.kind==='group') for(const sub of sec.sub){const sid='s-'+sub.number.replace(/\./g,'-');toc.push([1,sid,`${sub.number} ${sub.title}`]);html+=`<h3 id="${sid}">${esc(sub.number)} ${esc(sub.title)} <span class="chip" title="${sub.info!=null?'요구사항 수':''}">${sub.count??sub.items.length}</span>${sub.info?` <span class="chip" title="정보(설명) 문단 수">정보 ${sub.info}</span>`:''}</h3>`+sub.items.map(itemHTML).join('');}
     else if(sec.kind==='verification') html+=`<div class="tblwrap"><table class="g"><tr><td>ID</td><td>검증 기준</td><td>방법</td><td>TC</td></tr>${sec.rows.map(r=>`<tr><td class="id" data-open="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</td><td>${esc(r.criteria)}</td><td>${esc(r.method)}</td><td>${r.tc.map(t=>`<span class="id" data-open="${esc(t)}" style="--c:var(--tc);cursor:pointer">${esc(t)}</span>`).join(' ')||'<span class="chip err">없음</span>'}</td></tr>`).join('')}</table></div>`;
     else if(sec.kind==='trace') html+=`<div class="tblwrap"><table class="g"><tr><td>ID</td><td>상위 (Upstream)</td><td>하위 (Downstream)</td></tr>${sec.rows.map(r=>`<tr><td class="id" data-open="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</td><td>${r.up.map(esc).join('<br>')||'<span class="chip err">없음</span>'}</td><td>${r.down.map(esc).join('<br>')||'—'}</td></tr>`).join('')}</table></div>`;
   }
@@ -867,7 +880,7 @@ async function stageDoc(st,its){
   $('#left').querySelectorAll('[data-src]').forEach(a=>a.onclick=e=>{e.preventDefault();openSource(a.dataset.src);});
   $('#left').querySelectorAll('[data-rq]').forEach(a=>a.onclick=e=>{e.preventDefault();reqifDlg(st);});
   $('#dm').onchange=()=>{docMode=$('#dm').value;render();};
-  $('#fq').oninput=()=>{const q=$('#fq').value.trim().toLowerCase();body.querySelectorAll('.req').forEach(e=>{e.style.display=!q||e.textContent.toLowerCase().includes(q)?'':'none';});};
+  $('#fq').oninput=()=>{const q=$('#fq').value.trim().toLowerCase();body.querySelectorAll('.req,p.info').forEach(e=>{e.style.display=!q||e.textContent.toLowerCase().includes(q)?'':'none';});};
   bindOpen(body);
 }
 function stageBoard(st,its){
@@ -1342,7 +1355,7 @@ async function openItem(id){
    ${it.type==='TBL'?`<div class="sec"><b>표</b><div class="tblwrap">${tableHTML(a.grid||[])}</div></div>`:''}${it.type==='FIG'&&a.file?`<div class="sec"><b>그림</b><img src="${asset(a.file)}" style="max-width:100%;background:#fff"></div>`:''}${a.chart&&a.grid?`<div class="sec"><b>차트 데이터</b><div class="tblwrap">${tableHTML(a.grid)}</div></div>`:''}
    <div class="sec"><b>추적 링크</b>${ups.map(l=>linkRow(l,l.dst,'↑')).join('')}${downs.map(l=>linkRow(l,l.src,'↓')).join('')||(ups.length?'':'<div class="muted">링크 없음</div>')}
    ${ro?'':`<div class="row" style="margin-top:8px"><select id="lrole" class="btn">${roleOpts.map(r=>`<option>${r}</option>`).join('')}</select><input id="ldst" class="btn" list="allIds" placeholder="상위 아이템 ID" style="flex:1;min-width:120px"><button class="btn" id="ladd">링크 추가</button></div><datalist id="allIds">${S.items.filter(i=>REQ(i.type)&&i.status!=='deleted'&&i.id!==id).slice(0,3000).map(i=>`<option value="${esc(i.id)}">${esc(i.text.slice(0,60))}</option>`).join('')}</datalist>`}</div>
-   ${ro||!REQ(it.type)?'':`<div class="sec"><b>재분류</b><div class="row"><select id="rtype" class="btn">${Object.keys(S.types).filter(REQ).map(k=>`<option ${k===it.type?'selected':''}>${k}</option>`).join('')}</select><button class="btn" id="rgo">타입 변경 (새 ID 발급)</button></div></div>`}
+   ${ro||!(REQ(it.type)||it.type==='INFO')?'':`<div class="sec"><b>${it.type==='INFO'?'요구사항으로 전환':'재분류'}</b>${it.type==='INFO'?'<div class="muted" style="font-size:12.5px;margin-bottom:6px">가져올 때 설명 문단으로 분류된 항목입니다. 요구사항이라면 유형을 골라 전환하세요 (새 ID 발급).</div>':''}<div class="row"><select id="rtype" class="btn">${Object.keys(S.types).filter(REQ).map(k=>`<option ${k===it.type?'selected':''}>${k}</option>`).join('')}</select><button class="btn" id="rgo">타입 변경 (새 ID 발급)</button></div></div>`}
    <div class="sec"><b>이력</b>${hist.slice().reverse().map((h,k,arr)=>`<div class="hist"><b>v${h.version}</b> ${esc(h.change)} <span class="muted">${new Date(h.at*1000).toLocaleString()} · ${esc(h.by)}</span>${arr[k+1]&&arr[k+1].text!==h.text?`<div>${wordDiff(arr[k+1].text,h.text)}</div>`:''}</div>`).join('')}</div>`;
   $('#drawer').classList.add('open');
   if(a.result?.waveform&&$('#drWave')) renderWave($('#drWave'),it,true);
@@ -1365,7 +1378,7 @@ async function openItem(id){
   $('#drawer').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const [s,r,d]=b.dataset.del.split('|');act(()=>api('/api/link/delete',{src:s,role:r,dst:d}),'링크 삭제');});
   $('#drawer').querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>{const [s,r,d]=b.dataset.ok.split('|');act(()=>api('/api/link',{src:s,role:r,dst:d}),'링크 확정');});
   $('#drawer').querySelectorAll('[data-clr]').forEach(b=>b.onclick=()=>{const [s,d]=b.dataset.clr.split('|');act(()=>api('/api/link/clear-suspect',{src:s,dst:d}),'Suspect 해제');});
-  $('#rgo')&&($('#rgo').onclick=async()=>{const nt=$('#rtype').value;if(nt===it.type)return;try{const n=await api('/api/item/'+encodeURIComponent(id)+'/reclassify',{type:nt});await load();openItem(n.id);toast(`${id} → ${n.id}`);}catch(e){toast(e.message)}});
+  $('#rgo')&&($('#rgo').onclick=async()=>{const nt=$('#rtype').value;if(nt===it.type)return;try{const n=await api('/api/item/'+encodeURIComponent(id)+'/reclassify',{type:nt});await load();render();openItem(n.id);toast(`${id} → ${n.id}`);}catch(e){toast(e.message)}});
 }
 
 // ---------------- LINK WORKBENCH: tiled panes / new window, drag & drop ----------------
@@ -1603,6 +1616,29 @@ function formDlg({title,desc='',fields,ok='확인'}){
     $('#fmClose').onclick=()=>fin(null); d.onclose=()=>fin(null);
     d.showModal(); setTimeout(()=>d.querySelector('input,textarea')?.focus(),0);
   });
+}
+
+// ---------------- projects ----------------
+async function projMenu(ev){
+  ev.stopPropagation();
+  const old=$('#projMenu'); if(old){old.remove();return;}
+  let P; try{P=await api('/api/projects');}catch(e){toast(e.message);return;}
+  const m=document.createElement('div'); m.id='projMenu'; m.className='projmenu'; m.setAttribute('role','menu');
+  m.innerHTML=`<div class="pmh">프로젝트</div>${P.projects.map(p=>`<button type="button" role="menuitem" class="pmi${p.id===P.current?' on':''}" data-p="${esc(p.id)}"><b>${esc(p.name)}</b><span>요구사항 ${p.requirements} · 문서 ${p.docs}${p.id===P.current?' · 현재':''}</span></button>`).join('')}
+    ${atLeast('manager')?'<div class="pms"></div><button type="button" role="menuitem" class="pmi" id="pmNew"><b>＋ 새 프로젝트</b><span>빈 프로젝트를 만들고 그쪽으로 전환</span></button><button type="button" role="menuitem" class="pmi" id="pmRen"><b>이름 바꾸기</b><span>현재 프로젝트 이름 변경</span></button>':''}`;
+  document.body.appendChild(m);
+  const r=$('#proj').getBoundingClientRect(); m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+'px'; m.style.top=(r.bottom+6)+'px';
+  const close=()=>{m.remove();document.removeEventListener('click',close);};
+  setTimeout(()=>document.addEventListener('click',close),0);
+  m.querySelectorAll('[data-p]').forEach(b=>b.onclick=async()=>{ if(b.dataset.p===P.current) return; try{await api('/api/projects/switch',{id:b.dataset.p}); location.hash=''; location.reload();}catch(e){toast(e.message);} });
+  if($('#pmNew')) $('#pmNew').onclick=newProject;
+  if($('#pmRen')) $('#pmRen').onclick=async()=>{ const v=await formDlg({title:'프로젝트 이름 바꾸기',fields:[{k:'name',label:'이름',value:S.project,req:true}],ok:'저장'}); if(!v) return; try{await api('/api/projects/rename',{name:v.name}); await load(); render(); toast('이름을 바꿨습니다');}catch(e){toast(e.message);} };
+}
+async function newProject(){
+  const v=await formDlg({title:'새 프로젝트',desc:'요구사항·시험·일정이 비어 있는 프로젝트를 만듭니다. 로그인 계정은 모든 프로젝트가 함께 씁니다. 지금 프로젝트의 데이터는 그대로 남고, 왼쪽 위 프로젝트 이름에서 언제든 돌아올 수 있습니다.',
+    fields:[{k:'name',label:'프로젝트 이름',ph:'예: eLSD ECU 양산 개발',req:true},{k:'id',label:'폴더 ID (선택 — 비우면 이름에서 자동)',ph:'예: elsd_mp'},{k:'copy',type:'check',label:'현재 프로젝트의 설정 복사 (아이템 유형·ID 형식·AI 연결 설정)',value:true}],ok:'만들고 전환'});
+  if(!v) return;
+  try{ await api('/api/projects/create',{name:v.name,id:v.id,copy_settings:v.copy}); location.hash=''; location.reload(); }catch(e){ toast(e.message); }
 }
 
 // ---------------- ReqIF exchange ----------------
@@ -2165,10 +2201,11 @@ function drawTable(st){
   const T=WT.data, body=$('#stageBody'), hid=wtHidden(st.id), canEdit=atLeast('engineer'), canCol=atLeast('manager');
   const reqN=T.columns.filter(c=>c.required).length;
   body.innerHTML=`<div class="wph"><span class="t">${esc(T.work_product)}</span><span class="chip" title="PAM 4.0 정보 항목">${esc(T.info_items)}</span>
-     <span class="wpm" title="필수 컬럼 ${reqN}개 기준"><span class="mbar" role="img" aria-label="필수 충족률 ${T.completeness}%"><i style="width:${T.completeness}%"></i></span><b style="color:var(--ink)">${T.completeness}%</b> 필수 충족 · 누락 ${T.missing}칸 · 완료 ${T.complete_rows}/${T.rows.length}행</span></div>
+     <span class="wpm" title="필수 컬럼 ${reqN}개 기준"><span class="mbar" role="img" aria-label="필수 충족률 ${T.completeness}%"><i style="width:${T.completeness}%"></i></span><b style="color:var(--ink)">${T.completeness}%</b> 필수 충족 · 누락 ${T.missing}칸 · 완료 ${T.complete_rows}/${T.req_rows??T.rows.length}행${T.info_rows?` · 정보 ${T.info_rows}행`:''}</span></div>
    <div class="filters"><input id="wtQ" placeholder="검색 (ID, 내용)" value="${esc(WT.q)}" style="flex:1;min-width:160px">
      <select id="wtSt" aria-label="상태"><option value="">전체 상태</option>${['draft','review','approved'].map(x=>`<option ${WT.status===x?'selected':''}>${x}</option>`).join('')}</select>
      <label class="row" style="font-size:12.5px;color:var(--muted);gap:5px"><input type="checkbox" id="wtMiss" ${WT.onlyMiss?'checked':''}> 필수 누락 행만</label>
+     ${T.info_rows?`<label class="row" style="font-size:12.5px;color:var(--muted);gap:5px"><input type="checkbox" id="wtInfo" ${WT.noInfo?'':'checked'}> 정보(INFO) 포함</label>`:''}
      <span class="spacer"></span><span style="position:relative"><button class="btn" id="wtCols" aria-haspopup="true">컬럼 (${T.columns.length-[...hid].filter(k=>T.columns.some(c=>c.key===k&&!c.required)).length}/${T.columns.length})</button></span>
      ${canCol?'<button class="btn" id="wtAdd">컬럼 추가</button>':''}<a class="btn" href="/api/table/${st.id}/xlsx">Excel</a><button class="btn" id="wtReqif" title="ReqIF 회신 · 내보내기 (DOORS / Polarion)">ReqIF</button></div>
    <div class="wtw" id="wtw"></div>
@@ -2176,6 +2213,7 @@ function drawTable(st){
   $('#wtQ').oninput=e=>{WT.q=e.target.value;drawRows(st);};
   $('#wtSt').onchange=e=>{WT.status=e.target.value;drawRows(st);};
   $('#wtMiss').onchange=e=>{WT.onlyMiss=e.target.checked;drawRows(st);};
+  if($('#wtInfo')) $('#wtInfo').onchange=e=>{WT.noInfo=!e.target.checked;drawRows(st);};
   $('#wtCols').onclick=e=>{e.stopPropagation();colPicker(st,e.currentTarget);};
   if($('#wtAdd')) $('#wtAdd').onclick=()=>addColumn(st);
   $('#wtReqif').onclick=()=>reqifDlg(st);
@@ -2192,10 +2230,10 @@ function cellView(c,v,missing){
 function drawRows(st){
   const T=WT.data, hid=wtHidden(st.id), cols=T.columns.filter(c=>c.required||!hid.has(c.key)), canEdit=atLeast('engineer');
   const q=WT.q.trim().toLowerCase();
-  let rows=T.rows.filter(r=>(!WT.status||r.values.status===WT.status)&&(!WT.onlyMiss||r.missing.length)&&(!q||JSON.stringify(r.values).toLowerCase().includes(q)));
+  let rows=T.rows.filter(r=>(!WT.noInfo||r.type!=='INFO')&&(!WT.status||r.values.status===WT.status)&&(!WT.onlyMiss||r.missing.length)&&(!q||JSON.stringify(r.values).toLowerCase().includes(q)));
   if(WT.sort){ const {k,d}=WT.sort, f=v=>Array.isArray(v)?v.length:v??''; rows=[...rows].sort((a,b)=>{const x=f(a.values[k]),y=f(b.values[k]);return (x>y?1:x<y?-1:0)*d;}); }
   $('#wtw').innerHTML=`<table class="wt"><thead><tr>${cols.map(c=>`<th class="${c.required?'rq':''}" data-sort="${c.key}" title="${esc((c.required?'필수 컬럼. ':'')+(c.help||'')+(c.builtin?'':' (사용자 추가 컬럼)'))}" aria-sort="${WT.sort?.k===c.key?(WT.sort.d>0?'ascending':'descending'):'none'}">${esc(c.label)}${c.required?' *':''}${c.builtin?'':' <span class="sd">＋</span>'}${T.missing_by_column[c.key]?`<span class="mc">누락 ${T.missing_by_column[c.key]}</span>`:''}${WT.sort?.k===c.key?`<span class="sd">${WT.sort.d>0?'▲':'▼'}</span>`:''}</th>`).join('')}</tr></thead>
-   <tbody>${rows.map(r=>`<tr data-r="${esc(r.id)}">${cols.map(c=>{const m=r.missing.includes(c.key), ed=canEdit&&c.edit;return `<td class="${c.type==='long'?'long':''} ${c.type==='ids'?'ids':''} ${m?'miss':''} ${ed?'ed':''}" data-k="${c.key}" ${c.key==='id'?`data-open="${esc(r.id)}" style="cursor:pointer"`:''}>${cellView(c,r.values[c.key],m)}</td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="muted" style="padding:20px">해당하는 행이 없습니다</td></tr>`}</tbody></table>`;
+   <tbody>${rows.map(r=>`<tr data-r="${esc(r.id)}" class="${r.type==='INFO'?'inf':''}">${cols.map(c=>{const m=r.missing.includes(c.key), ed=canEdit&&c.edit&&r.type!=='INFO';return `<td class="${c.type==='long'?'long':''} ${c.type==='ids'?'ids':''} ${m?'miss':''} ${ed?'ed':''}" data-k="${c.key}" ${c.key==='id'?`data-open="${esc(r.id)}" style="cursor:pointer"`:''}>${cellView(c,r.values[c.key],m)}</td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="muted" style="padding:20px">해당하는 행이 없습니다</td></tr>`}</tbody></table>`;
   const w=$('#wtw');
   w.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;WT.sort=WT.sort?.k===k?(WT.sort.d>0?{k,d:-1}:null):{k,d:1};drawRows(st);});
   w.querySelectorAll('[data-open]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.open);});

@@ -285,14 +285,19 @@ def table(repo, cfg: dict, stage: str) -> dict:
     st = next(s for s in cfg["stages"] if s["id"] == stage)
     ctx = _ctx(repo)
     rows, missing_total, per_col = [], 0, {c["key"]: 0 for c in cols}
+    info_docs = set()
+    if stage == "SYS1":      # explanatory text of the customer documents is listed too (never counted as incomplete)
+        from .stages import customer_docs
+        info_docs = set(customer_docs(repo, cfg))
     for it in ctx[0].values():
-        if it["type"] not in st["types"]:
+        is_info = it["type"] == "INFO" and it["doc"] in info_docs
+        if it["type"] not in st["types"] and not is_info:
             continue
         vals, miss = {}, []
         for c in cols:
             v = value(it, c, cfg, ctx)
             vals[c["key"]] = v
-            if c["required"] and empty(v):
+            if c["required"] and empty(v) and not is_info:
                 miss.append(c["key"]); per_col[c["key"]] += 1
         missing_total += len(miss)
         rows.append({"id": it["id"], "type": it["type"], "values": vals, "missing": miss, "ord": (it["doc"], it["ord"])})
@@ -300,11 +305,13 @@ def table(repo, cfg: dict, stage: str) -> dict:
     for r in rows:
         r.pop("ord")
     req_cols = [c for c in cols if c["required"]]
-    filled = sum(len(req_cols) - len(r["missing"]) for r in rows)
+    reqs = [r for r in rows if r["type"] != "INFO"]
+    filled = sum(len(req_cols) - len(r["missing"]) for r in reqs)
     return {"stage": stage, "work_product": title, "info_items": info, "columns": cols, "rows": rows,
             "types": TYPES, "missing": missing_total, "missing_by_column": per_col,
-            "complete_rows": sum(1 for r in rows if not r["missing"]),
-            "completeness": round(filled * 100 / (len(req_cols) * len(rows)), 1) if rows and req_cols else 100.0}
+            "req_rows": len(reqs), "info_rows": len(rows) - len(reqs),
+            "complete_rows": sum(1 for r in reqs if not r["missing"]),
+            "completeness": round(filled * 100 / (len(req_cols) * len(reqs)), 1) if reqs and req_cols else 100.0}
 
 
 def set_cell(repo, cfg, item_id: str, key: str, val, user: str) -> dict:
@@ -314,6 +321,8 @@ def set_cell(repo, cfg, item_id: str, key: str, val, user: str) -> dict:
     if not it:
         raise KeyError(item_id)
     st = next((s for s in cfg["stages"] if it["type"] in s["types"]), None)
+    if not st:
+        raise ValueError(f"{item_id} ({it['type']}) 은 표에서 고칠 수 없습니다 — 요구사항으로 전환한 뒤 편집하세요")
     _, _, cols = columns(repo, cfg, st["id"])
     col = next((c for c in cols if c["key"] == key), None)
     if not col or not col["edit"]:
@@ -373,7 +382,7 @@ def export_xlsx(repo, cfg, stage: str, out: Path) -> Path:
     t = table(repo, cfg, stage)
     wb = Workbook(); ws = wb.active; ws.title = stage
     ws["A1"] = f"{t['work_product']}  —  {t['info_items']}"; ws["A1"].font = Font(bold=True, size=13)
-    ws["A2"] = f"{len(t['rows'])}건 · 필수 컬럼 충족률 {t['completeness']}% · 누락 {t['missing']}칸 (빨간 칸)  ·  * = 필수"
+    ws["A2"] = f"요구사항 {t['req_rows']}건" + (f" + 정보 {t['info_rows']}건" if t["info_rows"] else "") + f" · 필수 컬럼 충족률 {t['completeness']}% · 누락 {t['missing']}칸 (빨간 칸)  ·  * = 필수"
     thin = Side(style="thin", color="C9D1DB"); bd = Border(left=thin, right=thin, top=thin, bottom=thin)
     for j, c in enumerate(t["columns"], 1):
         h = ws.cell(4, j, c["label"] + (" *" if c["required"] else ""))
