@@ -81,7 +81,7 @@ def _tc_cols(target: str, target_label: str):
 WORK_PRODUCTS = {
     "SYS1": ("고객 요구사항 명세 (CRS)", "17-00 요구사항, 13-52 의사소통 증거", [
         _ID, _NAT, _req("고객 요구사항"), C("compliance", "준수 여부", "attr:compliance", "enum", True,
-                                       options=["C (준수)", "PC (부분 준수)", "NC (미준수)", "검토중"],
+                                       options=["Accept", "Accept with Deviation", "Not Accept", "Clarification Needed", "Not Applicable"],
                                        help_="고객 요구사항별 합의 결과 (Compliance matrix)"),
         C("comment", "공급사 의견", "attr:comment", "long", False),
         C("derived", "SYS.2 전개", "down:SYS2", "ids", True, False, help_="SYS.1 → SYS.2 추적 (13-51)"),
@@ -136,7 +136,7 @@ WORK_PRODUCTS = {
     "SYS5": ("시스템 검증 명세·결과", "08-60 검증 수단, 15-52 검증 결과", _tc_cols("SYS2", "SYS.2 요구사항")),
 }
 # attributes that are bookkeeping, not requirement content: changing them does not make downstream items Suspect
-NO_SUSPECT = {"compliance", "comment", "verification_method", "tool", "discipline", "complexity_target"}
+NO_SUSPECT = {"compliance", "comment", "deviation", "compliance_owner", "customer_response", "verification_method", "tool", "discipline", "complexity_target"}
 FIELD_ALIASES = {"asil": ["asil"], "verification_method": ["검증방법", "verification", "verificationmethod", "검증"],
                  "verification_criteria": ["검증기준", "acceptancecriteria"], "comment": ["비고", "comment"]}
 

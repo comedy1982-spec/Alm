@@ -674,6 +674,41 @@ def test_projects_and_sys1_shows_everything():
             srv.shutdown(); srv.server_close()
 
 
+def test_compliance_matrix():
+    """Compliance matrix: status + comment per customer requirement, bulk set, Excel, ReqIF reply uses the same answers."""
+    from ecualm import compliance as CM, reqif
+    from openpyxl import load_workbook
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root)
+        import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.reqifz", doc="CRS", rev="1.0", mode="crs")
+        from ecualm.stages import derive
+        derive(repo, cfg, "SYS1", "SYS2")
+        m = CM.matrix(repo, cfg)
+        assert m["summary"]["total"] == 186 and m["summary"]["open"] == 186 and len(m["statuses"]) == 5
+        ids = [r["id"] for r in m["rows"]]
+        assert CM.set_rows(repo, cfg, ids[:100], {"status": "Accept"}, "kim")["updated"] == 100          # bulk
+        CM.set_rows(repo, cfg, [ids[100]], {"status": "Accept with Deviation"}, "kim")
+        CM.set_rows(repo, cfg, [ids[101]], {"status": "Not Accept", "comment": "액추에이터 사양 한계"}, "kim")
+        ops.edit_item(repo, cfg, ids[102], attrs={"compliance": "PC (부분 준수)", "deviation": "B 샘플부터"}, suspect=False)   # older value
+        try:
+            CM.set_rows(repo, cfg, [ids[0]], {"status": "Maybe"}, "kim"); assert False
+        except ValueError:
+            pass
+        m = CM.matrix(repo, cfg)
+        s = m["summary"]
+        assert s["answered"] == 103 and s["counts"]["Accept"] == 100 and s["counts"]["Accept with Deviation"] == 2
+        assert s["issues"] == 1 and m["rows"][100]["issue"] and not m["rows"][101]["issue"] and not m["rows"][102]["issue"]
+        assert m["rows"][0]["by"] == "kim" and m["rows"][0]["trace"] and m["rows"][0]["trace"][0].startswith("SYS2-")
+        assert not any(l["suspect"] for l in repo.links())                     # answering is not a requirement change
+        out = CM.export_xlsx(repo, cfg, root / "cm.xlsx")
+        wb = load_workbook(out); ws = wb["Compliance Matrix"]
+        assert ws.max_row == 5 + 186 and ws.cell(6, 7).value == "Accept" and ws.cell(107, 8).value == "액추에이터 사양 한계"
+        assert str(ws.data_validations.dataValidation[0].sqref) == "G6:G191" and "Summary" in wb.sheetnames
+        rep = reqif.reply(repo, cfg, "CRS")[2]                                 # same answers go into the customer's ReqIF
+        assert rep["answered"] == 103 and rep["by_code"]["C"] == 100 and rep["by_code"]["PC"] == 2 and not rep["warnings"]
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -690,4 +725,5 @@ if __name__ == "__main__":
     test_reqif_exchange()
     test_figures_tables_charts_linked()
     test_projects_and_sys1_shows_everything()
+    test_compliance_matrix()
     print("OK")

@@ -13,7 +13,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, changes, ops, reqif, schedule, sources, sup, testruns, workproducts
+from . import arch, assistant, changes, compliance, ops, reqif, schedule, sources, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -247,6 +247,17 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                             return self._send(200, f.read_bytes(), "application/octet-stream",
                                               {"Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(f.name)}"})
                     return self._send(404, {"error": "not found"})
+                if path in ("/api/compliance", "/api/compliance/xlsx"):
+                    doc = urllib.parse.parse_qs(p.query).get("doc", [""])[0]
+                    if path.endswith("/xlsx"):
+                        with LOCK, tempfile.TemporaryDirectory() as td:
+                            out = compliance.export_xlsx(repo, self.cfg, Path(td) / "cm.xlsx", doc)
+                            fn = urllib.parse.quote(f"Compliance_Matrix_{doc or self.cfg.get('project', 'ALM')}.xlsx")
+                            return self._send(200, out.read_bytes(),
+                                              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                              {"Content-Disposition": f"attachment; filename*=UTF-8''{fn}"})
+                    with LOCK:
+                        return self._send(200, compliance.matrix(repo, self.cfg, doc))
                 if path.startswith("/api/reqif/"):
                     qs = urllib.parse.parse_qs(p.query)
                     doc, stage = qs.get("doc", [""])[0], qs.get("stage", [""])[0]
@@ -561,6 +572,8 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                         return self._send(200, testruns.record(repo, cfg, b["session"], b, who))
                     if path == "/api/evidence/delete":
                         return self._send(200, testruns.delete_evidence(repo, int(b["id"]), who))
+                    if path == "/api/compliance/set":
+                        return self._send(200, compliance.set_rows(repo, cfg, b.get("ids") or [], b.get("values") or {}, user))
                     if path == "/api/table/cell":
                         return self._send(200, workproducts.set_cell(repo, cfg, b["id"], b["key"], b.get("value"), user))
                     if path == "/api/wpcol":
