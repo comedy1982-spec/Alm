@@ -408,10 +408,19 @@ table.wt.cm .nid{display:block;font-size:11px;color:var(--muted);font-family:ui-
 .cmstamp{display:block;margin-top:3px;font-size:10.5px;color:var(--muted);white-space:nowrap;cursor:pointer}
 .cmstamp:hover{text-decoration:underline}
 .cmwho{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap}
-.cmwho .av{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:1px 8px 1px 3px;background:var(--panel);color:var(--ink)}
-.cmwho .av i{width:16px;height:16px;border-radius:50%;background:var(--pc);display:inline-grid;place-items:center;color:#fff;font-size:10px;font-style:normal;font-weight:700}
-table.wt.cm td.pres{box-shadow:inset 0 0 0 2px var(--pc)!important;position:relative}
-table.wt.cm td.pres::after{content:attr(data-who);position:absolute;top:-1px;right:-1px;background:var(--pc);color:#fff;font-size:10px;font-weight:600;line-height:1;padding:2px 5px;border-radius:0 0 0 5px;white-space:nowrap;z-index:1}
+.cmwho .av,#liveWho .av{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:1px 8px 1px 3px;background:var(--panel);color:var(--ink)}
+.cmwho .av i,#liveWho .av i{width:16px;height:16px;border-radius:50%;background:var(--pc);display:inline-grid;place-items:center;color:#fff;font-size:10px;font-style:normal;font-weight:700}
+table.wt td.pres{box-shadow:inset 0 0 0 2px var(--pc)!important}
+table.wt td.pres:not(:first-child){position:relative}
+.req.pres{box-shadow:0 0 0 2px var(--pc);position:relative}
+.req.pres::after{content:attr(data-who);position:absolute;top:-9px;right:10px;background:var(--pc);color:#fff;font-size:10.5px;font-weight:600;line-height:1;padding:3px 7px;border-radius:5px;white-space:nowrap}
+#liveWho{margin-right:2px;gap:0;flex-wrap:nowrap}
+#liveWho .dot{width:26px;height:26px;border-radius:50%;background:var(--pc);color:#fff;font-size:10.5px;font-weight:700;display:inline-grid;place-items:center;border:2px solid var(--panel);margin-left:-6px;position:relative;cursor:default;text-transform:uppercase}
+#liveWho .dot:first-child{margin-left:0}
+#liveWho .dot b{position:absolute;right:-4px;bottom:-5px;font-size:11px;color:var(--ink);background:var(--panel);border-radius:50%;line-height:1;padding:1px}
+#liveStale{font:inherit;font-size:12px;border:1px solid var(--warn);background:var(--warn-soft);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap}
+.dpres{background:var(--warn-soft);border:1px solid var(--warn);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:12.5px;margin-bottom:8px}
+table.wt td.pres::after{content:attr(data-who);position:absolute;top:-1px;right:-1px;background:var(--pc);color:#fff;font-size:10px;font-weight:600;line-height:1;padding:2px 5px;border-radius:0 0 0 5px;white-space:nowrap;z-index:1}
 table.cmh{width:100%;border-collapse:collapse;font-size:12.5px}
 table.cmh th,table.cmh td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 table.cmh th{position:sticky;top:0;background:var(--soft);font-size:11.5px}
@@ -575,6 +584,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
     <button class="btn" id="btnHist">이력·베이스라인</button>
     <button class="btn" id="btnXlsx">Excel</button>
     <button class="btn primary" id="btnImport">요구사항 가져오기</button>
+    <span id="liveWho" class="cmwho" hidden aria-live="polite" aria-label="지금 접속 중인 다른 사용자"></span><button type="button" id="liveStale" hidden title="다른 사용자가 저장한 내용이 있습니다">변경됨 · 새로 고침</button>
     <button class="btn me" id="btnMe" hidden aria-haspopup="dialog"><span id="meName"></span><span class="r" id="meRole"></span></button>
   </div>
   <nav class="strip" id="strip" aria-label="ASPICE 단계"></nav>
@@ -747,7 +757,9 @@ const RULES={'SYS1>SYS2':'CRS 문장마다 SYS.2 초안을 만들고 derives 링
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),3000);}
 async function api(path, body){
   if(STATIC) throw new Error('읽기 전용 스냅샷입니다');
+  if(body!==undefined&&path!=='/api/presence'&&typeof LIVE!=='undefined') LIVE.mine=Date.now();
   const r=await fetch(path, body===undefined?{}:{method:'POST',headers:{'content-type':'application/json','X-ECUALM':'1'},body:JSON.stringify(body)});
+  if(body!==undefined&&path!=='/api/presence'&&typeof LIVE!=='undefined') LIVE.mine=Date.now();
   const j=await r.json().catch(()=>({}));
   if(r.status===401&&j.login){ ME=null; showLogin({}); }
   if(r.status===403&&j.must_change){ openPw(true); }
@@ -786,6 +798,7 @@ function render(){
   if(STATIC){$('#btnImport').style.display='none';$('#btnXlsx').style.display='none';$('#btnAi').style.display='none';$('#btnPlan').style.display='none';$('#btnTests').style.display='none';$('#btnSup').style.display='none';}
   else if(ME&&ME.role==='viewer'){$('#btnImport').style.display='none';}
   broadcastCtx();
+  if(typeof liveStart==='function'){ liveStart(); setTimeout(liveMarks,0); }
 }
 
 // ---------------- chips / item rendering ----------------
@@ -1675,35 +1688,56 @@ async function stageCompliance(st){
   try{ CM.data=await api('/api/compliance?doc='+encodeURIComponent(CM.doc)); }catch(e){ body.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
   drawCM(st);
 }
-// ---- who is here, which cell they are in (polled), and picking up their saved edits ----
-const CMP={tab:Math.random().toString(36).slice(2,10),timer:null,cell:'',others:[],st:null};
+// ---- live: who else is in the project, which item / cell they are editing, and picking up their saves ----
+const LIVE={tab:Math.random().toString(36).slice(2,10),timer:null,cell:'',others:[],data:null,mine:0};
 const PCOL=['#2a78d6','#eb6834','#6250d6','#1baf7a','#d55181','#c98500','#e34948','#008300'];
 const pcol=u=>{let h=0; for(const ch of u) h=(h*31+ch.charCodeAt(0))>>>0; return PCOL[h%PCOL.length];};
 const FLD={status:'Compliance Status',comment:'코멘트',deviation:'편차·대안',owner:'담당',customer_response:'고객 회신'};
-function cmActive(){ return view.kind==='stage'&&stageTab==='cm'&&!!$('#cmw'); }
-async function cmPing(){
-  if(!cmActive()){ clearInterval(CMP.timer); CMP.timer=null; api('/api/presence',{tab:CMP.tab,view:''}).catch(()=>{}); return; }
-  let r; try{ r=await api('/api/presence',{tab:CMP.tab,view:'cm',cell:CMP.cell,editing:!!CMP.cell}); }catch(e){ return; }
-  if(!cmActive()) return;
-  CMP.others=r.others; cmPresence();
-  if(CM.data&&r.version!==CM.data.version&&!CMP.cell&&!document.querySelector('#cmw td.editing')&&!CM.busy){
-    const w=$('#cmw'); CM.keep=[w.scrollTop,w.scrollLeft];
-    try{ CM.data=await api('/api/compliance?doc='+encodeURIComponent(CM.doc)); }catch(e){ return; }
-    if(cmActive()&&!document.querySelector('#cmw td.editing')){ const k=CM.keep; drawCM(CMP.st); if(k&&$('#cmw')) [$('#cmw').scrollTop,$('#cmw').scrollLeft]=k; }
-  }
+const TABN={doc:'문서',table:'표',cm:'컴플라이언스',canvas:'블록도',board:'리뷰 보드',trace:'추적',quality:'품질'};
+const VIEWN={home:'V-모델',audit:'감사',history:'이력',wb:'링크 작업대',plan:'일정·공수',tests:'시험',sup:'지원(SUP)',changes:'변경 분석',source:'원문 대조'};
+function liveView(){ return view.kind==='stage'?`stage:${view.sid}/${stageTab}`:view.kind; }
+function liveWhere(o){ const m=/^stage:([^/]+)\/(.+)$/.exec(o.view||''); let w=m?`${S.stageById[m[1]]?.aspice||m[1]} ${TABN[m[2]]||m[2]}`:(VIEWN[o.view]||o.view||'');
+  if(o.cell){ const [id,k]=o.cell.split('|'); w+=` — ${id}${k&&k!=='*'?' '+(FLD[k]||k):''} 편집 중`; } return w; }
+function liveCell(c){ if(LIVE.cell===c) return; LIVE.cell=c; livePing(); }
+function liveBusy(){ const a=document.activeElement, t=a&&a.tagName;
+  return !!document.querySelector('td.editing,dialog[open]')||((t==='INPUT'||t==='TEXTAREA'||t==='SELECT')&&a.id!=='fq'&&a.id!=='cmQ'&&a.id!=='wtQ')||CM.busy; }
+const LIVE_AUTO=()=>view.kind==='home'||view.kind==='audit'||(view.kind==='stage'&&stageTab!=='canvas');
+async function liveRefresh(){
+  $('#liveStale').hidden=true;
+  const y=scrollY, w=$('#wtw'), c=$('#cmw'); if(w) WT.keep=[w.scrollTop,w.scrollLeft]; if(c) CM.keep=[c.scrollTop,c.scrollLeft];
+  try{ await load(); }catch(e){ return; }
+  let n=0; const t=setInterval(()=>{ if(document.documentElement.scrollHeight>=y+innerHeight||++n>20){ scrollTo(0,y); clearInterval(t); } },100);
 }
-function cmSetCell(c){ if(CMP.cell===c) return; CMP.cell=c; cmPing(); }
-function cmPresence(){
-  const w=$('#cmw'); if(!w) return;
-  w.querySelectorAll('td.pres').forEach(td=>{td.classList.remove('pres');td.removeAttribute('data-who');td.style.removeProperty('--pc');});
-  const seen={};
-  for(const o of CMP.others){ seen[o.user]=o; if(!o.cell) continue; const [id,k]=o.cell.split('|');
-    const td=w.querySelector(`tr[data-r="${CSS.escape(id)}"] td[data-k="${CSS.escape(k)}"]`); if(!td) continue;
-    td.classList.add('pres'); td.dataset.who=o.user+' 편집 중'; td.style.setProperty('--pc',pcol(o.user)); }
-  const el=$('#cmWho'); if(!el) return;
-  const L=Object.values(seen);
-  el.innerHTML=L.length?`함께 보는 중 ${L.map(o=>`<span class="av" style="--pc:${pcol(o.user)}" title="${esc(o.name)} (${esc(o.user)})${o.cell?' — '+esc(o.cell.split('|')[0])+' '+esc(FLD[o.cell.split('|')[1]]||'')+' 편집 중':''}"><i>${esc(o.user.slice(0,1).toUpperCase())}</i>${esc(o.user)}${o.cell?' ✎':''}</span>`).join('')}`:'<span>지금은 혼자 보고 있습니다</span>';
+async function livePing(){
+  if(STATIC||!S||(S.auth&&!ME)) return;
+  const dr=$('#drawer').classList.contains('open')&&selected?selected+'|*':'';
+  let r; try{ r=await api('/api/presence',{tab:LIVE.tab,view:liveView(),cell:LIVE.cell||dr,editing:!!LIVE.cell}); }catch(e){ return; }
+  LIVE.others=r.others; liveMarks();
+  if(LIVE.data===null||r.data===LIVE.data){ LIVE.data=r.data; return; }
+  if(Date.now()-LIVE.mine<6000){ LIVE.data=r.data; return; }       // my own save: the view is already up to date
+  if(LIVE_AUTO()){ if(liveBusy()) return; LIVE.data=r.data; liveRefresh(); }
+  else $('#liveStale').hidden=false;                                 // views with unsaved state: offer, do not force
 }
+function liveMarks(){
+  document.querySelectorAll('.pres').forEach(e=>{e.classList.remove('pres');e.removeAttribute('data-who');e.style.removeProperty('--pc');});
+  const mine=liveView(), users={};
+  for(const o of LIVE.others){ (users[o.user]||=[]).push(o); if(!o.cell) continue; const [id,k]=o.cell.split('|');
+    const mark=el=>{ if(!el) return; el.classList.add('pres'); el.dataset.who=o.user+' 편집 중'; el.style.setProperty('--pc',pcol(o.user)); };
+    if(o.view===mine&&k!=='*') for(const box of ['#cmw','#wtw']) mark(document.querySelector(`${box} tr[data-r="${CSS.escape(id)}"] td[data-k="${CSS.escape(k)}"]`));
+    document.querySelectorAll(`.req[data-id="${CSS.escape(id)}"]`).forEach(mark);
+    if(k==='*') document.querySelectorAll(`#cmw tr[data-r="${CSS.escape(id)}"] td:first-child,#wtw tr[data-r="${CSS.escape(id)}"] td:first-child`).forEach(mark); }
+  const av=(u,L)=>`<span class="av" style="--pc:${pcol(u)}" title="${esc(L[0].name)} (${esc(u)}) · ${esc(L.map(liveWhere).join(' / '))}"><i>${esc(u.slice(0,1).toUpperCase())}</i>${esc(u)}${L.some(o=>o.cell)?' ✎':''}</span>`;
+  const U=Object.entries(users);
+  $('#liveWho').innerHTML=U.slice(0,5).map(([u,L])=>`<span class="dot" style="--pc:${pcol(u)}" title="${esc(L[0].name)} (${esc(u)}) · ${esc(L.map(liveWhere).join(' / '))}">${esc(u.slice(0,2))}${L.some(o=>o.cell)?'<b>✎</b>':''}</span>`).join('')+(U.length>5?`<span class="muted">+${U.length-5}</span>`:'');
+  $('#liveWho').hidden=!LIVE.others.length;
+  const here=Object.entries(users).map(([u,L])=>[u,L.filter(o=>o.view===mine)]).filter(x=>x[1].length);
+  const el=$('#cmWho'); if(el) el.innerHTML=here.length?`함께 보는 중 ${here.map(([u,L])=>av(u,L)).join('')}`:'<span>지금은 혼자 보고 있습니다</span>';
+  const d=$('#drawer'), old=d.querySelector('.dpres'); if(old) old.remove();
+  if(d.classList.contains('open')&&selected){ const L=LIVE.others.filter(o=>o.cell&&o.cell.split('|')[0]===selected);
+    if(L.length){ const b=document.createElement('div'); b.className='dpres'; b.textContent=`${[...new Set(L.map(o=>o.user))].join(', ')} 님도 이 항목을 열고 있습니다 — 동시에 저장하면 나중 값이 남습니다 (이력에는 모두 기록).`; d.prepend(b); } }
+}
+function liveStart(){ if(STATIC||LIVE.timer) return; $('#liveStale').onclick=()=>{LIVE.data=null;liveRefresh();}; LIVE.timer=setInterval(livePing,2500); livePing(); }
+const cmSetCell=liveCell, cmPresence=liveMarks;
 async function cmHistory(item){
   const d=$('#dlgCmHist'); $('#chClose').onclick=()=>d.close();
   $('#chTitle').textContent=item?`변경 이력 — ${item}`:'변경 이력 (최근 300건)';
@@ -1755,7 +1789,7 @@ function drawCM(st){
   body.querySelectorAll('[data-f]').forEach(b=>{const go=()=>{CM.status=CM.status===b.dataset.f?'':b.dataset.f;drawCM(st);}; b.onclick=go; if(b.tagName!=='BUTTON') b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
   $('#cmViz').onclick=()=>{CM.noViz=!CM.noViz;drawCM(st);};
   $('#cmHist').onclick=()=>cmHistory('');
-  CMP.st=st; if(!CMP.timer){ CMP.timer=setInterval(cmPing,2500); cmPing(); }
+  liveMarks();
   if($('#cmDoc')) $('#cmDoc').onchange=e=>{CM.doc=e.target.value;CM.sel.clear();stageCompliance(st);};
   $('#cmQ').oninput=e=>{CM.q=e.target.value;cmRows(st);};
   $('#cmIss').onchange=e=>{CM.issues=e.target.checked;cmRows(st);};
@@ -1808,8 +1842,8 @@ function cmRows(st){
   $('#cmAll').onchange=e=>{ rows.forEach(r=>e.target.checked?CM.sel.add(r.id):CM.sel.delete(r.id)); w.querySelectorAll('.cmc').forEach(c=>c.checked=e.target.checked); upd(); };
   upd();
   w.querySelectorAll('.cmst select').forEach(sel=>{const id=sel.closest('tr').dataset.r;
-    sel.onfocus=()=>cmSetCell(id+'|status'); sel.onblur=()=>{ if(CMP.cell===id+'|status') cmSetCell(''); };
-    sel.onchange=()=>{CMP.cell='';cmSave(st,[id],{status:sel.value});};});
+    sel.onfocus=()=>cmSetCell(id+'|status'); sel.onblur=()=>{ if(LIVE.cell===id+'|status') cmSetCell(''); };
+    sel.onchange=()=>{LIVE.cell='';cmSave(st,[id],{status:sel.value});};});
   w.querySelectorAll('td.ed').forEach(td=>td.onclick=()=>{
     if(td.classList.contains('editing')) return;
     const id=td.parentElement.dataset.r, k=td.dataset.k, row=M.rows.find(r=>r.id===id), old=td.innerHTML;
@@ -2456,15 +2490,15 @@ function editCell(st,td){
   if(td.classList.contains('editing')) return;
   const id=td.parentElement.dataset.r, k=td.dataset.k, c=WT.data.columns.find(x=>x.key===k), row=WT.data.rows.find(r=>r.id===id);
   let v=row.values[k]; if(v==null) v=''; if(typeof v==='string'&&/^\[.*\]$/.test(v.trim())) v='';
-  const old=td.innerHTML; td.classList.add('editing');
+  const old=td.innerHTML; td.classList.add('editing'); liveCell(id+'|'+k);
   let el;
   if(c.type==='enum') td.innerHTML=`<select>${['',...c.options].map(o=>`<option ${String(o)===String(v)?'selected':''} value="${esc(o)}">${o===''?'(비움)':esc(o)}</option>`).join('')}${v&&!c.options.includes(v)?`<option selected>${esc(v)}</option>`:''}</select>`;
   else if(c.type==='long') td.innerHTML=`<textarea>${esc(v)}</textarea>`;
   else td.innerHTML=`<input type="${c.type==='num'?'number':c.type==='date'?'date':'text'}" value="${esc(v)}" ${c.type==='user'?'list="wtUsers"':''}>`;
   el=td.firstElementChild; el.focus(); if(el.select&&c.type!=='date') try{el.select();}catch(e){}
   let done=false;
-  const cancel=()=>{ if(done) return; done=true; td.classList.remove('editing'); td.innerHTML=old; };
-  const save=async()=>{ if(done) return; done=true; const nv=el.value;
+  const cancel=()=>{ if(done) return; done=true; liveCell(''); td.classList.remove('editing'); td.innerHTML=old; };
+  const save=async()=>{ if(done) return; done=true; liveCell(''); const nv=el.value;
     if(String(nv)===String(v)){ td.classList.remove('editing'); td.innerHTML=old; return; }
     td.style.opacity=.5;
     try{ await api('/api/table/cell',{id,key:k,value:nv}); const was=S.byId[id]?.status;

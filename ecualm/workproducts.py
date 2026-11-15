@@ -50,6 +50,8 @@ def C(key, label, src, type_="text", req=False, edit=True, options=None, help_="
 _ID = C("id", "ID", "core:id", req=True, edit=False)
 _STATUS = C("status", "상태", "core:status", "enum", True, options=STATUS_OPTS, help_="승인 상태 (draft·review·approved)")
 _VER = C("version", "버전", "core:version", "num", False, False)
+_BY = C("updated_by", "수정자", "core:updated_by", edit=False, help_="마지막으로 저장한 사용자 아이디")
+_AT = C("updated_at", "수정 일시", "core:updated_at", edit=False, help_="마지막 저장 일시")
 _DOM = C("domain", "도메인", "core:domain", edit=False)
 _SRC = C("source", "원천 문서", "core:doc", edit=False)
 _SEC = C("section", "섹션", "core:section", edit=False)
@@ -161,7 +163,7 @@ def columns(repo, cfg: dict, stage: str) -> tuple[str, str, list[dict]]:
     if stage not in {s["id"] for s in cfg["stages"]}:
         raise KeyError(stage)
     title, info, cols = WORK_PRODUCTS.get(stage, (stage, "", [_ID, _req(), _STATUS]))
-    return title, info, [dict(c) for c in cols] + custom_columns(repo, stage)
+    return title, info, [dict(c) for c in cols] + custom_columns(repo, stage) + [dict(_BY), dict(_AT)]
 
 
 def _slug(label: str, taken: set[str]) -> str:
@@ -235,6 +237,10 @@ def _stage_types(cfg, stage_ids: str) -> set[str] | None:
 
 def _ctx(repo):
     items = {i["id"]: i for i in repo.items()}
+    for iid, by, at in repo.con.execute("SELECT id, by, max(at) FROM history GROUP BY id"):     # who saved it last
+        if iid in items:
+            items[iid]["updated_by"] = by
+            items[iid]["updated_at"] = time.strftime("%Y-%m-%d %H:%M", time.localtime(at))
     up, down = {}, {}
     for l in repo.links():
         if l["src"] in items and l["dst"] in items:

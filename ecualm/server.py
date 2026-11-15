@@ -456,13 +456,18 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                         if b.get("view"):
                             presence[me] = {"t": now, "user": user, "name": who.get("name") or user, "view": str(b["view"])[:20],
                                             "cell": str(b.get("cell") or "")[:120], "editing": bool(b.get("editing"))}
+                            presence[me]["view"] = str(b["view"])[:40]
                         else:
                             presence.pop(me, None)
-                        others = [{k2: v[k2] for k2 in ("user", "name", "cell", "editing")} for k, v in presence.items()
-                                  if k != me and v["view"] == b.get("view")]
-                    with LOCK:
+                        others = [{k2: v[k2] for k2 in ("user", "name", "view", "cell", "editing")} for k, v in presence.items()
+                                  if k != me]
+                    with LOCK:      # a cheap fingerprint of the project data: changes whenever anyone saves something
                         ver = compliance.version(repo)
-                    return self._send(200, {"others": others, "version": ver})
+                        h = repo.con.execute("SELECT coalesce(max(rowid), 0) FROM history").fetchone()[0]
+                        l = repo.con.execute("SELECT count(*), coalesce(sum(suspect), 0), coalesce(sum(state='proposed'), 0), "
+                                             "coalesce(max(created), 0) FROM links").fetchone()
+                        n = repo.con.execute("SELECT count(*) FROM imports").fetchone()[0]
+                    return self._send(200, {"others": others, "version": ver, "data": f"{h}:{l[0]}:{l[1]}:{l[2]}:{l[3]}:{n}"})
                 if path.startswith("/api/projects/"):
                     b = self._json_body()
                     pick = lambda p: {"Set-Cookie": f"{PROJ_COOKIE}={urllib.parse.quote(p)}; SameSite=Strict; Path=/; Max-Age=31536000"}
