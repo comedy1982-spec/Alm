@@ -29,6 +29,37 @@ FIELDS = {"status": "compliance", "comment": "comment", "deviation": "deviation"
 OPEN = "Open"
 
 
+SCHEMA = """CREATE TABLE IF NOT EXISTS compliance_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, user TEXT NOT NULL, item TEXT NOT NULL,
+  field TEXT NOT NULL, old TEXT, new TEXT, via TEXT DEFAULT '');
+CREATE INDEX IF NOT EXISTS compliance_log_item ON compliance_log(item);"""
+_ready: set = set()
+
+
+def init(repo) -> None:
+    key = str(repo.dir)
+    if key not in _ready:
+        repo.con.executescript(SCHEMA)
+        repo.con.commit()
+        _ready.add(key)
+
+
+def version(repo) -> int:
+    """Grows with every saved answer: clients poll it to pick up other people's edits."""
+    init(repo)
+    return repo.con.execute("SELECT coalesce(max(id), 0) FROM compliance_log").fetchone()[0]
+
+
+def history(repo, item: str = "", limit: int = 300) -> list[dict]:
+    """Who changed which answer, when, from what to what — newest first."""
+    init(repo)
+    q, args = "SELECT id, at, user, item, field, old, new, via FROM compliance_log", []
+    if item:
+        q += " WHERE item=?"; args.append(item)
+    rows = repo.con.execute(q + " ORDER BY id DESC LIMIT ?", args + [max(1, min(int(limit), 2000))]).fetchall()
+    return [dict(zip(("id", "at", "user", "item", "field", "old", "new", "via"), r)) for r in rows]
+
+
 def statuses(cfg: dict) -> list[dict]:
     """Default list, or the project's own from alm.json: "compliance_statuses": ["Accept", {"label": ..., "needs": "comment"}]."""
     own = cfg.get("compliance_statuses")
@@ -78,8 +109,10 @@ def matrix(repo, cfg: dict, doc: str = "") -> dict:
         r = {"id": i["id"], "native_id": a.get("native_id", ""), "doc": i["doc"], "section": i["section"], "text": i["text"],
              "asil": a.get("asil") or f.get("ASIL", ""), "status": normalize(a.get("compliance", "")),
              "comment": a.get("comment", ""), "deviation": a.get("deviation", ""), "owner": a.get("compliance_owner", ""),
-             "customer_response": a.get("customer_response", ""), "by": a.get("compliance_by", ""),
-             "at": a.get("compliance_at", ""), "trace": sorted(down.get(i["id"], []))}
+             "customer_response": a.get("customer_response", ""), "meta": dict(a.get("compliance_meta") or {}),
+             "trace": sorted(down.get(i["id"], []))}
+        r["meta"].setdefault("status", {"by": a.get("compliance_by", ""), "at": a.get("compliance_at", "")})
+        r["by"], r["at"] = r["meta"]["status"]["by"], r["meta"]["status"]["at"]
         r["issue"] = _needs(by_label.get(r["status"]), r)
         rows.append(r)
     counts = {s["label"]: 0 for s in sts}
@@ -94,14 +127,14 @@ def matrix(repo, cfg: dict, doc: str = "") -> dict:
         k = r["status"] if r["status"] in by_label else OPEN
         ch[k] = ch.get(k, 0) + 1
     revs = {d["doc"]: d["rev"] for d in repo.docs()}
-    return {"statuses": sts, "docs": docs, "doc": doc, "rev": revs.get(doc, "") if doc else "", "rows": rows,
+    return {"version": version(repo), "statuses": sts, "docs": docs, "doc": doc, "rev": revs.get(doc, "") if doc else "", "rows": rows,
             "open_color": OPEN_COLOR, "chapters": [{"name": k, "counts": v, "total": sum(v.values())} for k, v in chapters.items()],
             "summary": {"total": len(rows), "answered": answered, "final": final, "open": counts[OPEN], "counts": counts,
                         "rate": round(answered * 100 / len(rows), 1) if rows else 0.0,
                         "issues": sum(1 for r in rows if r["issue"])}}
 
 
-def set_rows(repo, cfg: dict, ids: list[str], values: dict, user: str) -> dict:
+def set_rows(repo, cfg: dict, ids: list[str], values: dict, user: str, via: str = "") -> dict:
     """Write status / comment / deviation / owner / customer_response on one or many requirements."""
     from . import ops
     labels = {s["label"] for s in statuses(cfg)}
@@ -113,6 +146,7 @@ def set_rows(repo, cfg: dict, ids: list[str], values: dict, user: str) -> dict:
         if vals["status"] and vals["status"] not in labels:
             raise ValueError(f"상태는 {', '.join(sorted(labels))} 중에서 고르세요")
     types = set(next(s for s in cfg["stages"] if s["id"] == "SYS1")["types"])
+    init(repo)
     n = 0
     for iid in ids:
         it = repo.get(iid)
@@ -122,10 +156,21 @@ def set_rows(repo, cfg: dict, ids: list[str], values: dict, user: str) -> dict:
         new = {FIELDS[k]: v for k, v in vals.items() if (normalize(a.get(FIELDS[k], "")) if k == "status" else a.get(FIELDS[k], "")) != v}
         if not new:
             continue
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        meta = dict(a.get("compliance_meta") or {})
+        inv = {v: k for k, v in FIELDS.items()}
+        for attr, val in list(new.items()):       # every field keeps who wrote it and when; every change is logged
+            k = inv[attr]
+            meta[k] = {"by": user, "at": now}
+            old = normalize(a.get(attr, "")) if k == "status" else (a.get(attr, "") or "")
+            repo.con.execute("INSERT INTO compliance_log(at, user, item, field, old, new, via) VALUES(?,?,?,?,?,?,?)",
+                             (now, user, iid, k, old, val, via))
+        new["compliance_meta"] = meta
         if "compliance" in new:
-            new.update(compliance_by=user, compliance_at=time.strftime("%Y-%m-%d"))
+            new.update(compliance_by=user, compliance_at=now)
         ops.edit_item(repo, cfg, iid, attrs=new, user=user, suspect=False)     # an answer is not a change of the requirement
         n += 1
+    repo.con.commit()
     return {"updated": n}
 
 
@@ -144,7 +189,8 @@ def export_xlsx(repo, cfg: dict, out: Path, doc: str = "") -> Path:
                 + " · ".join(f"{k} {v}" for k, v in s["counts"].items() if v))
     cols = [("No", 6), ("Customer ID", 16), ("ALM ID", 16), ("Section", 26), ("Requirement", 62), ("ASIL", 7),
             ("Compliance Status", 24), ("Supplier Comment", 44), ("Deviation / Alternative", 44), ("Owner", 12),
-            ("Customer Response", 36), ("Trace (SYS.2 …)", 24), ("Answered", 12)]
+            ("Customer Response", 36), ("Trace (SYS.2 …)", 24), ("Status by", 10), ("Status at", 17),
+            ("Comment by", 10), ("Comment at", 17)]
     thin = Side(style="thin", color="C9D1DB"); bd = Border(left=thin, right=thin, top=thin, bottom=thin)
     H = 5
     for j, (name, w) in enumerate(cols, 1):
@@ -158,7 +204,8 @@ def export_xlsx(repo, cfg: dict, out: Path, doc: str = "") -> Path:
     fill = {x["label"]: PatternFill("solid", fgColor=tint(x["color"][0])) for x in m["statuses"]}
     for n, r in enumerate(m["rows"], 1):
         vals = [n, r["native_id"], r["id"], r["section"], r["text"], r["asil"], r["status"], r["comment"], r["deviation"],
-                r["owner"], r["customer_response"], ", ".join(r["trace"]), r["at"]]
+                r["owner"], r["customer_response"], ", ".join(r["trace"]), r["by"], r["at"],
+                (r["meta"].get("comment") or {}).get("by", ""), (r["meta"].get("comment") or {}).get("at", "")]
         for j, v in enumerate(vals, 1):
             c = ws.cell(H + n, j, v)
             c.alignment = Alignment(wrap_text=True, vertical="top"); c.border = bd
@@ -324,5 +371,5 @@ def import_xlsx(repo, cfg: dict, path: Path, user: str, apply: bool = False) -> 
     out["items"] = len(todo)
     if apply:
         for iid, vals in todo.items():
-            out["applied"] += set_rows(repo, cfg, [iid], vals, user)["updated"]
+            out["applied"] += set_rows(repo, cfg, [iid], vals, user, via=f"Excel: {Path(path).name}")["updated"]
     return out

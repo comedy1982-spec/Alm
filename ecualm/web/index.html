@@ -405,6 +405,17 @@ table.wt.cm td.rtx{min-width:300px;max-width:460px}
 table.wt.cm tr.grp td{background:var(--soft);font-weight:600;font-size:12px;color:var(--muted);position:static}
 table.wt.cm td.need{box-shadow:inset 3px 0 0 var(--err)}
 table.wt.cm .nid{display:block;font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+.cmstamp{display:block;margin-top:3px;font-size:10.5px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.cmstamp:hover{text-decoration:underline}
+.cmwho{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.cmwho .av{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:1px 8px 1px 3px;background:var(--panel);color:var(--ink)}
+.cmwho .av i{width:16px;height:16px;border-radius:50%;background:var(--pc);display:inline-grid;place-items:center;color:#fff;font-size:10px;font-style:normal;font-weight:700}
+table.wt.cm td.pres{box-shadow:inset 0 0 0 2px var(--pc)!important;position:relative}
+table.wt.cm td.pres::after{content:attr(data-who);position:absolute;top:-1px;right:-1px;background:var(--pc);color:#fff;font-size:10px;font-weight:600;line-height:1;padding:2px 5px;border-radius:0 0 0 5px;white-space:nowrap;z-index:1}
+table.cmh{width:100%;border-collapse:collapse;font-size:12.5px}
+table.cmh th,table.cmh td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.cmh th{position:sticky;top:0;background:var(--soft);font-size:11.5px}
+table.cmh td.o{color:var(--muted);text-decoration:line-through}
 .cmbulk{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
 .rqh{margin:16px 0 8px;font-size:13px;color:var(--muted);text-transform:none}
 .rqcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel)}
@@ -627,6 +638,11 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
   <form id="fmForm" class="pf"><h3 style="margin:0 0 4px" id="fmTitle"></h3><div class="muted" style="font-size:12.5px" id="fmDesc"></div>
   <div id="fmBody"></div>
   <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" type="button" id="fmClose">취소</button><button class="btn primary" type="submit" id="fmOk">확인</button></div></form>
+</dialog>
+<dialog id="dlgCmHist" style="width:min(860px,96vw)">
+  <div class="pf"><div class="row"><h3 style="margin:0" id="chTitle">변경 이력</h3><span class="spacer"></span><button class="btn sm" type="button" id="chClose">닫기</button></div>
+  <div class="muted" style="font-size:12.5px;margin:4px 0 10px">누가 언제 어떤 칸을 무엇에서 무엇으로 바꿨는지 모두 남습니다 (지울 수 없음).</div>
+  <div id="chBody" style="max-height:62vh;overflow:auto"></div></div>
 </dialog>
 <dialog id="dlgReqif" style="width:min(680px,96vw)">
   <div class="pf"><h3 style="margin:0 0 4px">ReqIF 교환</h3>
@@ -1659,6 +1675,44 @@ async function stageCompliance(st){
   try{ CM.data=await api('/api/compliance?doc='+encodeURIComponent(CM.doc)); }catch(e){ body.innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
   drawCM(st);
 }
+// ---- who is here, which cell they are in (polled), and picking up their saved edits ----
+const CMP={tab:Math.random().toString(36).slice(2,10),timer:null,cell:'',others:[],st:null};
+const PCOL=['#2a78d6','#eb6834','#6250d6','#1baf7a','#d55181','#c98500','#e34948','#008300'];
+const pcol=u=>{let h=0; for(const ch of u) h=(h*31+ch.charCodeAt(0))>>>0; return PCOL[h%PCOL.length];};
+const FLD={status:'Compliance Status',comment:'코멘트',deviation:'편차·대안',owner:'담당',customer_response:'고객 회신'};
+function cmActive(){ return view.kind==='stage'&&stageTab==='cm'&&!!$('#cmw'); }
+async function cmPing(){
+  if(!cmActive()){ clearInterval(CMP.timer); CMP.timer=null; api('/api/presence',{tab:CMP.tab,view:''}).catch(()=>{}); return; }
+  let r; try{ r=await api('/api/presence',{tab:CMP.tab,view:'cm',cell:CMP.cell,editing:!!CMP.cell}); }catch(e){ return; }
+  if(!cmActive()) return;
+  CMP.others=r.others; cmPresence();
+  if(CM.data&&r.version!==CM.data.version&&!CMP.cell&&!document.querySelector('#cmw td.editing')&&!CM.busy){
+    const w=$('#cmw'); CM.keep=[w.scrollTop,w.scrollLeft];
+    try{ CM.data=await api('/api/compliance?doc='+encodeURIComponent(CM.doc)); }catch(e){ return; }
+    if(cmActive()&&!document.querySelector('#cmw td.editing')){ const k=CM.keep; drawCM(CMP.st); if(k&&$('#cmw')) [$('#cmw').scrollTop,$('#cmw').scrollLeft]=k; }
+  }
+}
+function cmSetCell(c){ if(CMP.cell===c) return; CMP.cell=c; cmPing(); }
+function cmPresence(){
+  const w=$('#cmw'); if(!w) return;
+  w.querySelectorAll('td.pres').forEach(td=>{td.classList.remove('pres');td.removeAttribute('data-who');td.style.removeProperty('--pc');});
+  const seen={};
+  for(const o of CMP.others){ seen[o.user]=o; if(!o.cell) continue; const [id,k]=o.cell.split('|');
+    const td=w.querySelector(`tr[data-r="${CSS.escape(id)}"] td[data-k="${CSS.escape(k)}"]`); if(!td) continue;
+    td.classList.add('pres'); td.dataset.who=o.user+' 편집 중'; td.style.setProperty('--pc',pcol(o.user)); }
+  const el=$('#cmWho'); if(!el) return;
+  const L=Object.values(seen);
+  el.innerHTML=L.length?`함께 보는 중 ${L.map(o=>`<span class="av" style="--pc:${pcol(o.user)}" title="${esc(o.name)} (${esc(o.user)})${o.cell?' — '+esc(o.cell.split('|')[0])+' '+esc(FLD[o.cell.split('|')[1]]||'')+' 편집 중':''}"><i>${esc(o.user.slice(0,1).toUpperCase())}</i>${esc(o.user)}${o.cell?' ✎':''}</span>`).join('')}`:'<span>지금은 혼자 보고 있습니다</span>';
+}
+async function cmHistory(item){
+  const d=$('#dlgCmHist'); $('#chClose').onclick=()=>d.close();
+  $('#chTitle').textContent=item?`변경 이력 — ${item}`:'변경 이력 (최근 300건)';
+  $('#chBody').innerHTML='<div class="muted">불러오는 중…</div>'; if(!d.open) d.showModal();
+  let r; try{ r=await api('/api/compliance/history?item='+encodeURIComponent(item||'')); }catch(e){ $('#chBody').innerHTML=`<div class="empty">${esc(e.message)}</div>`; return; }
+  const v=x=>x?esc(x):'<span class="muted">(비움)</span>';
+  $('#chBody').innerHTML=r.log.length?`<table class="cmh"><thead><tr><th>일시</th><th>아이디</th>${item?'':'<th>요구사항</th>'}<th>칸</th><th>이전</th><th>변경 후</th></tr></thead><tbody>${r.log.map(l=>`<tr><td style="white-space:nowrap">${esc(l.at)}</td><td><b>${esc(l.user)}</b>${l.via?`<div class="muted" style="font-size:11px">${esc(l.via)}</div>`:''}</td>${item?'':`<td><span class="id" data-h="${esc(l.item)}" style="cursor:pointer">${esc(l.item)}</span></td>`}<td>${esc(FLD[l.field]||l.field)}</td><td class="${l.old?'o':''}">${v(l.old)}</td><td>${v(l.new)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">아직 변경 이력이 없습니다.</div>';
+  $('#chBody').querySelectorAll('[data-h]').forEach(e=>e.onclick=()=>cmHistory(e.dataset.h));
+}
 const cmVar=c=>`style="--c:${c[0]};--cd:${c[1]}"`;
 function cmCharts(M){
   const S_=M.summary, parts=[...M.statuses.map(x=>({k:x.label,n:S_.counts[x.label]||0,c:x.color})),{k:'Open',n:S_.counts.Open||0,c:M.open_color}];
@@ -1688,7 +1742,7 @@ function drawCM(st){
   const chip=(k,v,c)=>`<button type="button" data-f="${esc(k)}" aria-pressed="${CM.status===k}"><i ${cmVar(c)}></i>${esc(k)} <b>${v}</b></button>`;
   body.innerHTML=`<div class="wph"><span class="t">Compliance Matrix</span>
       <span class="wpm" title="상태를 고른 요구사항 비율"><span class="mbar" role="img" aria-label="회신률 ${S_.rate}%"><i style="width:${S_.rate}%"></i></span><b style="color:var(--ink)">${S_.rate}%</b> 회신 (${S_.answered}/${S_.total}) · 확정 ${S_.final}${S_.issues?` · <span style="color:var(--err)">사유 누락 ${S_.issues}</span>`:''}</span>
-      <span class="spacer"></span><button class="btn sm" id="cmViz" aria-expanded="${!CM.noViz}">${CM.noViz?'그래프 보기':'그래프 숨기기'}</button></div>
+      <span class="spacer"></span><span class="cmwho" id="cmWho" aria-live="polite"></span><button class="btn sm" id="cmHist">변경 이력</button><button class="btn sm" id="cmViz" aria-expanded="${!CM.noViz}">${CM.noViz?'그래프 보기':'그래프 숨기기'}</button></div>
     ${CM.noViz?'':cmCharts(M)}
     <div class="cmsum" style="margin-bottom:10px">${M.statuses.map(x=>chip(x.label,S_.counts[x.label]||0,x.color)).join('')}${chip('Open',S_.counts.Open||0,M.open_color)}</div>
     <div class="filters">${M.docs.length>1?`<select id="cmDoc" aria-label="문서"><option value="">전체 문서</option>${M.docs.map(d=>`<option ${CM.doc===d?'selected':''}>${esc(d)}</option>`).join('')}</select>`:''}
@@ -1697,9 +1751,11 @@ function drawCM(st){
       ${can?`<span class="cmbulk"><span id="cmN">선택 0건</span><select id="cmBulk" class="btn" aria-label="선택한 요구사항에 일괄 적용" disabled><option value="">일괄 적용…</option>${M.statuses.map(x=>`<option>${esc(x.label)}</option>`).join('')}<option value="Open">Open (비움)</option></select></span>`:''}
       <span class="spacer"></span><a class="btn" id="cmX" href="/api/compliance/xlsx?doc=${encodeURIComponent(CM.doc)}" title="Excel 로 내보내기">Excel 내보내기</a>${can?'<button class="btn" id="cmImp" title="내보낸 Excel 을 고친 뒤 다시 읽어 들입니다">Excel 가져오기</button><input type="file" id="cmFile" accept=".xlsx" hidden>':''}<button class="btn" id="cmRq" title="고객 ReqIF 파일에 회신 기입">ReqIF</button></div>
     <div class="wtw" id="cmw"></div>
-    <div class="muted" style="font-size:12px;margin-top:6px">${can?'상태는 목록에서 고르고, 코멘트·편차·담당·고객 회신 칸은 눌러서 적습니다 (Ctrl+Enter 저장, Esc 취소). 편차 조건 수용은 편차 내용, 코멘트 조건 수용·부분 수용·수용 불가·확인 필요·해당 없음은 코멘트가 있어야 합니다. 회신 내용은 요구사항 변경이 아니므로 하위 항목을 Suspect 로 만들지 않습니다.':'읽기 전용입니다.'}</div>`;
+    <div class="muted" style="font-size:12px;margin-top:6px">${can?'상태는 목록에서 고르고, 코멘트·편차·담당·고객 회신 칸은 눌러서 적습니다 (Ctrl+Enter 저장, Esc 취소). 편차 조건 수용은 편차 내용, 코멘트 조건 수용·부분 수용·수용 불가·확인 필요·해당 없음은 코멘트가 있어야 합니다. 저장할 때마다 아이디·일시가 칸 아래에 찍히고 변경 이력에 남으며, 다른 사람이 편집 중인 칸은 색 테두리와 아이디로 표시됩니다. 회신 내용은 요구사항 변경이 아니므로 하위 항목을 Suspect 로 만들지 않습니다.':'읽기 전용입니다.'}</div>`;
   body.querySelectorAll('[data-f]').forEach(b=>{const go=()=>{CM.status=CM.status===b.dataset.f?'':b.dataset.f;drawCM(st);}; b.onclick=go; if(b.tagName!=='BUTTON') b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
   $('#cmViz').onclick=()=>{CM.noViz=!CM.noViz;drawCM(st);};
+  $('#cmHist').onclick=()=>cmHistory('');
+  CMP.st=st; if(!CMP.timer){ CMP.timer=setInterval(cmPing,2500); cmPing(); }
   if($('#cmDoc')) $('#cmDoc').onchange=e=>{CM.doc=e.target.value;CM.sel.clear();stageCompliance(st);};
   $('#cmQ').oninput=e=>{CM.q=e.target.value;cmRows(st);};
   $('#cmIss').onchange=e=>{CM.issues=e.target.checked;cmRows(st);};
@@ -1728,42 +1784,48 @@ function cmRows(st){
   const M=CM.data, can=atLeast('engineer'), q=CM.q.trim().toLowerCase(), cls=Object.fromEntries(M.statuses.map(x=>[x.label,x.color]));
   const rows=M.rows.filter(r=>(!CM.status||(r.status||'Open')===CM.status||(CM.status==='Open'&&!(r.status in cls)))&&(!CM.issues||r.issue)&&(!q||[r.id,r.native_id,r.text,r.comment,r.deviation,r.owner,r.customer_response].join(' ').toLowerCase().includes(q)));
   const shown=new Set(rows.map(r=>r.id)); for(const id of [...CM.sel]) if(!shown.has(id)) CM.sel.delete(id);
-  const txt=(r,k,ph)=>`<td class="txt ${can?'ed':''} ${r.issue&&((k==='deviation'&&r.issue.includes('편차'))||(k==='comment'&&r.issue.includes('코멘트')))?'need':''}" data-k="${k}">${r[k]?esc(r[k]):`<span class="ph">${r.issue&&((k==='deviation'&&r.issue.includes('편차'))||(k==='comment'&&r.issue.includes('코멘트')))?esc(r.issue):ph}</span>`}</td>`;
+  const stamp=(r,k)=>{const m=(r.meta||{})[k]; return m&&m.by&&r[k]?`<span class="cmstamp" data-hist="${esc(r.id)}" title="${esc(r.id)} 변경 이력 보기">${esc(m.by)} · ${esc((m.at||'').slice(0,16))}</span>`:'';};
+  const txt=(r,k,ph)=>`<td class="txt ${can?'ed':''} ${r.issue&&((k==='deviation'&&r.issue.includes('편차'))||(k==='comment'&&r.issue.includes('코멘트')))?'need':''}" data-k="${k}">${r[k]?esc(r[k]):`<span class="ph">${r.issue&&((k==='deviation'&&r.issue.includes('편차'))||(k==='comment'&&r.issue.includes('코멘트')))?esc(r.issue):ph}</span>`}${stamp(r,k)}</td>`;
   let sec=null, h='';
   for(const r of rows){
     if(r.section!==sec){ sec=r.section; h+=`<tr class="grp"><td colspan="9">${esc(sec||'—')}</td></tr>`; }
     const known=r.status in cls;
     h+=`<tr data-r="${esc(r.id)}"><td>${can?`<input type="checkbox" class="cmc" aria-label="${esc(r.id)} 선택" ${CM.sel.has(r.id)?'checked':''} style="width:auto;height:auto;margin-right:6px">`:''}<span class="id" data-open="${esc(r.id)}" style="cursor:pointer">${esc(r.id)}</span>${r.native_id?`<span class="nid">${esc(r.native_id)}</span>`:''}</td>
       <td class="rtx">${esc(r.text)}</td><td style="min-width:0">${esc(r.asil||'')}</td>
-      <td><span class="cmst ${known?'':'open'}"><i ${cmVar(known?cls[r.status]:M.open_color)}></i>${can?`<select aria-label="${esc(r.id)} 상태"><option value="">Open</option>${M.statuses.map(x=>`<option ${x.label===r.status?'selected':''} title="${esc(x.ko)}">${esc(x.label)}</option>`).join('')}${r.status&&!known?`<option selected>${esc(r.status)}</option>`:''}</select>`:esc(r.status||'Open')}</span></td>
-      ${txt(r,'comment','—')}${txt(r,'deviation','—')}<td class="${can?'ed':''}" data-k="owner">${esc(r.owner)||'<span class="ph">—</span>'}</td>${txt(r,'customer_response','—')}
+      <td data-k="status"><span class="cmst ${known?'':'open'}"><i ${cmVar(known?cls[r.status]:M.open_color)}></i>${can?`<select aria-label="${esc(r.id)} 상태"><option value="">Open</option>${M.statuses.map(x=>`<option ${x.label===r.status?'selected':''} title="${esc(x.ko)}">${esc(x.label)}</option>`).join('')}${r.status&&!known?`<option selected>${esc(r.status)}</option>`:''}</select>`:esc(r.status||'Open')}</span>${r.status?stamp({...r,status:1},'status'):''}</td>
+      ${txt(r,'comment','—')}${txt(r,'deviation','—')}<td class="${can?'ed':''}" data-k="owner">${esc(r.owner)||'<span class="ph">—</span>'}${stamp(r,'owner')}</td>${txt(r,'customer_response','—')}
       <td class="ids">${r.trace.map(t=>`<span class="id" data-open="${esc(t)}" style="--c:${tcolor(S.byId[t]?.type)};cursor:pointer">${esc(t)}</span>`).join(' ')||'<span class="ph">—</span>'}</td></tr>`;
   }
   const w=$('#cmw');
   w.innerHTML=`<table class="wt cm"><thead><tr><th>${can?'<input type="checkbox" id="cmAll" aria-label="보이는 행 모두 선택" style="width:auto;height:auto;margin-right:6px">':''}ID</th><th>고객 요구사항</th><th>ASIL</th><th class="rq">Compliance Status</th><th>코멘트 (Supplier Comment)</th><th>편차 · 대안 (Deviation)</th><th>담당</th><th>고객 회신</th><th>추적</th></tr></thead><tbody>${h||'<tr><td colspan="9" class="muted" style="padding:20px">해당하는 요구사항이 없습니다</td></tr>'}</tbody></table>`;
   if(CM.keep){ [w.scrollTop,w.scrollLeft]=CM.keep; CM.keep=null; }
   w.querySelectorAll('[data-open]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openItem(e.dataset.open);});
+  w.querySelectorAll('[data-hist]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();cmHistory(e.dataset.hist);});
+  cmPresence();
   if(!can) return;
   const upd=()=>{ $('#cmN').textContent=`선택 ${CM.sel.size}건`; $('#cmBulk').disabled=!CM.sel.size; $('#cmAll').checked=rows.length>0&&rows.every(r=>CM.sel.has(r.id)); };
   w.querySelectorAll('.cmc').forEach(c=>c.onchange=()=>{const id=c.closest('tr').dataset.r; c.checked?CM.sel.add(id):CM.sel.delete(id); upd();});
   $('#cmAll').onchange=e=>{ rows.forEach(r=>e.target.checked?CM.sel.add(r.id):CM.sel.delete(r.id)); w.querySelectorAll('.cmc').forEach(c=>c.checked=e.target.checked); upd(); };
   upd();
-  w.querySelectorAll('.cmst select').forEach(sel=>sel.onchange=()=>cmSave(st,[sel.closest('tr').dataset.r],{status:sel.value}));
+  w.querySelectorAll('.cmst select').forEach(sel=>{const id=sel.closest('tr').dataset.r;
+    sel.onfocus=()=>cmSetCell(id+'|status'); sel.onblur=()=>{ if(CMP.cell===id+'|status') cmSetCell(''); };
+    sel.onchange=()=>{CMP.cell='';cmSave(st,[id],{status:sel.value});};});
   w.querySelectorAll('td.ed').forEach(td=>td.onclick=()=>{
     if(td.classList.contains('editing')) return;
     const id=td.parentElement.dataset.r, k=td.dataset.k, row=M.rows.find(r=>r.id===id), old=td.innerHTML;
-    td.classList.add('editing');
+    td.classList.add('editing'); cmSetCell(id+'|'+k);
     td.innerHTML=k==='owner'?`<input value="${esc(row[k]||'')}" list="wtUsers">`:`<textarea>${esc(row[k]||'')}</textarea>`;
     const el=td.firstElementChild; el.focus(); let done=false;
-    const fin=async save=>{ if(done) return; done=true; const v=el.value.trim(); td.classList.remove('editing'); if(!save||v===(row[k]||'')){ td.innerHTML=old; return; } await cmSave(st,[id],{[k]:v}); };
+    const fin=async save=>{ if(done) return; done=true; const v=el.value.trim(); td.classList.remove('editing'); cmSetCell(''); if(!save||v===(row[k]||'')){ td.innerHTML=old; return; } await cmSave(st,[id],{[k]:v}); };
     el.onblur=()=>fin(true);
     el.onkeydown=e=>{ if(e.key==='Escape'){e.preventDefault();fin(false);} else if(e.key==='Enter'&&(k==='owner'||e.ctrlKey||e.metaKey)){e.preventDefault();fin(true);} };
   });
 }
 async function cmSave(st,ids,values){
-  const w=$('#cmw'); CM.keep=w?[w.scrollTop,w.scrollLeft]:null;
+  const w=$('#cmw'); CM.keep=w?[w.scrollTop,w.scrollLeft]:null; CM.busy=true;
   try{ const r=await api('/api/compliance/set',{ids,values}); if(ids.length>1) toast(`${r.updated}건에 적용했습니다`); }catch(e){ toast(e.message); }
   try{ CM.data=await api('/api/compliance?doc='+encodeURIComponent(CM.doc)); }catch(e){}
+  CM.busy=false;
   const keep=CM.keep; drawCM(st); if(keep&&$('#cmw')) [$('#cmw').scrollTop,$('#cmw').scrollLeft]=keep;
   load().catch(()=>{});
 }

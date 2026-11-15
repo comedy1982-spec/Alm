@@ -722,6 +722,16 @@ def test_compliance_matrix():
         m2 = CM.matrix(repo, cfg)["rows"]
         assert m2[0]["status"] == "Partially Accept" and m2[0]["by"] == "lee" and m2[3]["status"] == "" and m2[1]["status"] == "Accept"
         assert not CM.import_xlsx(repo, cfg, root / "back.xlsx", "lee")["changes"]
+        # every change is logged with user and time; each field shows who wrote it last
+        h = CM.history(repo, ids[0])
+        assert [(x["user"], x["field"], x["old"], x["new"]) for x in h] == [
+            ("lee", "comment", "", "토크 맵은 2종만 지원"), ("lee", "status", "Accept", "Partially Accept"), ("kim", "status", "", "Accept")]
+        assert h[0]["via"].startswith("Excel: back.xlsx") and len(h[0]["at"]) == 19
+        assert m2[0]["meta"]["comment"]["by"] == "lee" and m2[1]["meta"]["status"]["by"] == "kim"
+        v0 = CM.version(repo)
+        CM.set_rows(repo, cfg, [ids[1]], {"comment": "확인"}, "park")
+        assert CM.version(repo) == v0 + 1 and CM.matrix(repo, cfg)["version"] == v0 + 1
+        CM.set_rows(repo, cfg, [ids[1]], {"comment": ""}, "park")
         rep = reqif.reply(repo, cfg, "CRS")[2]                                 # same answers go into the customer's ReqIF
         assert rep["answered"] == 102 and rep["by_code"]["C"] == 98 and rep["by_code"]["PC"] == 3 and not rep["warnings"]
 

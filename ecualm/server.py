@@ -33,7 +33,7 @@ POST_ROLE = {"/api/chat": "viewer", "/api/auth/logout": "viewer", "/api/auth/pas
              "/api/plan/template": "viewer", "/api/plan/meta": "manager", "/api/baseline": "manager",
              "/api/ai/settings": "admin", "/api/users": "admin", "/api/users/update": "admin", "/api/users/reset": "admin",
              "/api/users/token": "admin", "/api/wpcol": "manager", "/api/wpcol/update": "manager",
-             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/projects/create": "manager",
+             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/presence": "viewer", "/api/projects/create": "manager",
              "/api/projects/rename": "manager"}
 PROJ_COOKIE = "ecualm_proj"
 PUBLIC_POST = {"/api/auth/login", "/api/auth/setup"}
@@ -105,6 +105,9 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
     sup.init(repo)
     changes.init(repo)
     sources.init(repo)
+    compliance.init(repo)
+    presence: dict = {}       # (username, tab) -> what that browser tab is looking at; kept in memory only
+    plock = threading.Lock()
 
     class H(BaseHTTPRequestHandler):
         server_version = "ecualm"
@@ -247,6 +250,10 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                             return self._send(200, f.read_bytes(), "application/octet-stream",
                                               {"Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(f.name)}"})
                     return self._send(404, {"error": "not found"})
+                if path == "/api/compliance/history":
+                    qs = urllib.parse.parse_qs(p.query)
+                    with LOCK:
+                        return self._send(200, {"log": compliance.history(repo, qs.get("item", [""])[0], int(qs.get("limit", ["300"])[0]))})
                 if path in ("/api/compliance", "/api/compliance/xlsx"):
                     doc = urllib.parse.parse_qs(p.query).get("doc", [""])[0]
                     if path.endswith("/xlsx"):
@@ -440,6 +447,22 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                 if path.startswith("/api/auth/") or path.startswith("/api/users"):
                     r = self._auth_post(path, self._json_body(), who)
                     return r if r is not None else self._send(404, {"error": "not found"})
+                if path == "/api/presence":      # who else has this view open, and which cell they are in
+                    b = self._json_body()
+                    now, me = time.time(), (user, str(b.get("tab", ""))[:24])
+                    with plock:
+                        for k in [k for k, v in presence.items() if now - v["t"] > 12]:
+                            del presence[k]
+                        if b.get("view"):
+                            presence[me] = {"t": now, "user": user, "name": who.get("name") or user, "view": str(b["view"])[:20],
+                                            "cell": str(b.get("cell") or "")[:120], "editing": bool(b.get("editing"))}
+                        else:
+                            presence.pop(me, None)
+                        others = [{k2: v[k2] for k2 in ("user", "name", "cell", "editing")} for k, v in presence.items()
+                                  if k != me and v["view"] == b.get("view")]
+                    with LOCK:
+                        ver = compliance.version(repo)
+                    return self._send(200, {"others": others, "version": ver})
                 if path.startswith("/api/projects/"):
                     b = self._json_body()
                     pick = lambda p: {"Set-Cookie": f"{PROJ_COOKIE}={urllib.parse.quote(p)}; SameSite=Strict; Path=/; Max-Age=31536000"}
