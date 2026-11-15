@@ -736,6 +736,28 @@ def test_compliance_matrix():
         assert rep["answered"] == 102 and rep["by_code"]["C"] == 98 and rep["by_code"]["PC"] == 3 and not rep["warnings"]
 
 
+def test_pdf_to_word():
+    """PDF -> editable Word: headings with numbers, tables, pictures; scanned / non-PDF input is refused."""
+    from docx import Document
+    from ecualm import pdf2docx
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "o.docx"
+        st = pdf2docx.convert(SAMPLES / "CRS_eLSD_ECU_rev1.0.pdf", out)
+        assert st["pages"] == 49 and st["tables"] > 60 and st["figures"] == 12 and not st["skipped_images"]
+        d = Document(out)
+        heads = [p.text for p in d.paragraphs if p.style.name.startswith("Heading")]
+        assert any(h.startswith("3.1 ") for h in heads) and len(heads) == st["headings"]
+        body = "\n".join(p.text for p in d.paragraphs)
+        assert "[REQ-LOCK-001]" in body and len(d.tables) == st["tables"] and len(d.inline_shapes) == 12
+        assert any("REQ-YAW-003" in c.text for t in d.tables for c in t.columns[0].cells)
+        import pymupdf
+        blank = Path(td) / "scan.pdf"; doc = pymupdf.open(); doc.new_page(); doc.save(blank)
+        try:
+            pdf2docx.convert(blank, out); assert False
+        except ValueError as e:
+            assert "OCR" in str(e)
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -753,4 +775,5 @@ if __name__ == "__main__":
     test_figures_tables_charts_linked()
     test_projects_and_sys1_shows_everything()
     test_compliance_matrix()
+    test_pdf_to_word()
     print("OK")

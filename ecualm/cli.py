@@ -459,6 +459,15 @@ def cmd_project(args):
         print(f"{i['id']:<24} {i['name']:<28} 요구사항 {i['requirements']:>5}  문서 {i['docs']:>3}  {ws.path(i['id'])}")
 
 
+def cmd_pdf2docx(args):
+    from . import pdf2docx
+    src = Path(args.pdf)
+    out = Path(args.out) if args.out else src.with_suffix(".docx")
+    st = pdf2docx.convert(src, out)
+    print(out)
+    print(f"{st['pages']}쪽 → 제목 {st['headings']} · 문단 {st['paragraphs']} · 표 {st['tables']} · 그림 {st['figures']}")
+
+
 def cmd_backup(args):
     from . import sup
     repo, cfg = _ctx(args)
@@ -536,6 +545,8 @@ def main(argv=None):
     p.add_argument("action", choices=["list", "new"]); p.add_argument("name", nargs="?"); p.add_argument("--id")
     p.add_argument("--copy-settings", action="store_true", help="기본 프로젝트의 alm.json·AI 설정을 복사")
     p.set_defaults(fn=cmd_project)
+    p = sub.add_parser("pdf2docx", help="PDF 를 편집 가능한 Word(.docx)로 변환")
+    p.add_argument("pdf"); p.add_argument("--out"); p.set_defaults(fn=cmd_pdf2docx)
     p = sub.add_parser("backup", help="프로젝트 데이터(.alm DB·증빙·이미지·alm.json) zip 백업"); p.add_argument("out")
     p.set_defaults(fn=cmd_backup)
     p = sub.add_parser("restore", help="백업 zip 복원 (기존 .alm 은 .alm.bak 으로 이동)"); p.add_argument("zip")

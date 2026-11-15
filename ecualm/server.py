@@ -33,7 +33,7 @@ POST_ROLE = {"/api/chat": "viewer", "/api/auth/logout": "viewer", "/api/auth/pas
              "/api/plan/template": "viewer", "/api/plan/meta": "manager", "/api/baseline": "manager",
              "/api/ai/settings": "admin", "/api/users": "admin", "/api/users/update": "admin", "/api/users/reset": "admin",
              "/api/users/token": "admin", "/api/wpcol": "manager", "/api/wpcol/update": "manager",
-             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/presence": "viewer", "/api/projects/create": "manager",
+             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/presence": "viewer", "/api/convert/pdf2docx": "engineer", "/api/projects/create": "manager",
              "/api/projects/rename": "manager"}
 PROJ_COOKIE = "ecualm_proj"
 PUBLIC_POST = {"/api/auth/login", "/api/auth/setup"}
@@ -447,6 +447,24 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                 if path.startswith("/api/auth/") or path.startswith("/api/users"):
                     r = self._auth_post(path, self._json_body(), who)
                     return r if r is not None else self._send(404, {"error": "not found"})
+                if path == "/api/convert/pdf2docx":      # no project data involved: runs outside the lock
+                    n = int(self.headers.get("Content-Length") or 0)
+                    if n > 100 * 1024 * 1024:
+                        return self._send(413, {"error": "PDF 는 100MB 이하만 변환할 수 있습니다"})
+                    data = self.rfile.read(n)
+                    if not data.startswith(b"%PDF"):
+                        return self._send(400, {"error": "PDF 파일이 아닙니다"})
+                    from . import pdf2docx
+                    name = Path(urllib.parse.unquote(self.headers.get("X-Filename", "document.pdf"))).name or "document.pdf"
+                    with tempfile.TemporaryDirectory() as td:
+                        src = Path(td) / "in.pdf"; src.write_bytes(data)
+                        out = Path(td) / "out.docx"
+                        st = pdf2docx.convert(src, out)
+                        fn = urllib.parse.quote(Path(name).stem + ".docx")
+                        return self._send(200, out.read_bytes(),
+                                          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                          {"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
+                                           "X-Convert-Stats": json.dumps(st)})
                 if path == "/api/presence":      # who else has this view open, and which cell they are in
                     b = self._json_body()
                     now, me = time.time(), (user, str(b.get("tab", ""))[:24])

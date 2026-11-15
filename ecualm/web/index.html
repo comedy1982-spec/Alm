@@ -665,6 +665,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
     <h3 style="margin:0 0 4px">요구사항 가져오기</h3>
     <div class="muted" style="font-size:12.5px">DOCX · PDF · DOC · RTF · ODT · MD · ReqIF(.reqif/.reqifz — DOORS·Polarion 교환 파일, 객체 ID·속성 그대로). 가져온 문서는 선택한 단계의 라이브 문서가 되고, 표는 행 단위 아이템으로, 그림은 이미지로 변환됩니다. 같은 문서명으로 다시 가져오면 개정본으로 비교합니다.</div>
     <label for="impFile">파일</label><input type="file" id="impFile" accept=".docx,.pdf,.doc,.rtf,.odt,.md,.txt,.reqif,.reqifz">
+    <div id="impPdf" hidden style="margin-top:6px;font-size:12.5px" class="muted"><button class="btn sm" type="button" id="impToWord">PDF → Word 변환</button> 편집 가능한 .docx 로 내려받습니다 (제목·문단·표·그림 구조 유지, 가져오기와는 별개).</div>
     <div class="row" style="gap:12px">
       <div style="flex:1 1 200px"><label for="impDoc">문서명 (비우면 파일명)</label><input id="impDoc" list="docNames"><datalist id="docNames"></datalist></div>
       <div style="flex:0 1 140px"><label for="impRev">개정</label><input id="impRev" placeholder="예: B, v1.2"></div>
@@ -1677,6 +1678,21 @@ function formDlg({title,desc='',fields,ok='확인'}){
     d.showModal(); setTimeout(()=>d.querySelector('input,textarea')?.focus(),0);
   });
 }
+
+// ---------------- PDF -> Word ----------------
+async function pdfToWord(f, btn){
+  if(!f) return; const label=btn.textContent; btn.disabled=true; btn.textContent='변환 중…';
+  try{
+    const r=await fetch('/api/convert/pdf2docx',{method:'POST',body:await f.arrayBuffer(),headers:{'X-ECUALM':'1','X-Filename':encodeURIComponent(f.name)}});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||r.status); }
+    const st=JSON.parse(r.headers.get('X-Convert-Stats')||'{}'), a=document.createElement('a');
+    a.href=URL.createObjectURL(await r.blob()); a.download=f.name.replace(/\.pdf$/i,'')+'.docx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast(`Word 로 변환했습니다 — ${st.pages}쪽 · 제목 ${st.headings} · 문단 ${st.paragraphs} · 표 ${st.tables} · 그림 ${st.figures}`);
+  }catch(e){ toast('변환 실패: '+e.message); }
+  btn.disabled=false; btn.textContent=label;
+}
+$('#impFile').addEventListener('change',e=>{ const f=e.target.files[0]; $('#impPdf').hidden=!(f&&/\.pdf$/i.test(f.name)&&atLeast('engineer')); });
+$('#impToWord').onclick=()=>pdfToWord($('#impFile').files[0],$('#impToWord'));
 
 // ---------------- compliance matrix (SYS.1) ----------------
 const CM={data:null,q:'',status:'',doc:'',issues:false,sel:new Set(),keep:null};
