@@ -426,6 +426,20 @@ table.cmh th,table.cmh td{border-bottom:1px solid var(--line);padding:6px 8px;te
 table.cmh th{position:sticky;top:0;background:var(--soft);font-size:11.5px}
 table.cmh td.o{color:var(--muted);text-decoration:line-through}
 .cmbulk{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+.d2sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.d2tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:10px;position:sticky;top:0;background:var(--panel);z-index:2;padding-top:2px}
+.d2tabs button{font:inherit;font-size:13px;background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px;cursor:pointer;color:var(--muted)}
+.d2tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.d2c{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel)}
+.d2c.off{opacity:.55}
+.d2c .src{font-size:12.5px;color:var(--muted);margin:4px 0 8px;white-space:pre-wrap}
+.d2c .dev{font-size:12.5px;border-left:3px solid var(--warn);padding:2px 8px;margin-bottom:8px;background:var(--warn-soft);border-radius:0 6px 6px 0}
+.d2r{display:grid;grid-template-columns:1fr auto;gap:6px 8px;border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}
+.d2r textarea{min-height:44px;font-size:13px} .d2r .m{display:grid;grid-template-columns:2fr 1fr 110px;gap:6px;grid-column:1}
+.d2r .m input,.d2r .m select{font-size:12px;height:30px}
+@media(max-width:720px){.d2r .m{grid-template-columns:1fr}}
+.d2q{font-size:12.5px;margin:6px 0 0;padding-left:18px;color:var(--ink)} .d2q li{margin:2px 0}
+table.d2t{width:100%;border-collapse:collapse;font-size:12.5px} table.d2t th,table.d2t td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 .rqh{margin:16px 0 8px;font-size:13px;color:var(--muted);text-transform:none}
 .rqcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel)}
 .wpm{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
@@ -678,7 +692,7 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
       <option value="swe1">SWE.1 SW 요구사항 (타입 고정)</option>
       <option value="info">참고 문서 (요구사항 추출 안 함)</option>
     </select>
-    <label class="row" style="color:var(--ink);margin-top:12px"><input type="checkbox" id="impDerive" checked style="width:auto"> 가져온 뒤 바로 다음 단계로 전개 (CRS → SYS.2 SRS 초안 생성)</label>
+    <label class="row" style="color:var(--ink);margin-top:12px"><input type="checkbox" id="impDerive" style="width:auto"> 가져온 뒤 바로 다음 단계로 전개 (고객 문장 1:1 복사 초안 — 컴플라이언스를 확정한 뒤 SYS.1 의 "다음 단계로 전개 → AI 모드"를 권장)</label>
     <div class="row" style="justify-content:flex-end;margin-top:16px">
       <button class="btn" id="impClose1">닫기</button>
       <button class="btn primary" id="impPreview">변경 미리보기</button>
@@ -699,7 +713,24 @@ table.hm td.over{background:var(--err-soft)!important;color:var(--err);font-weig
   <div class="muted" style="font-size:12.5px" id="dvDesc"></div>
   <label for="dvTo">대상 단계</label><select id="dvTo"></select>
   <div class="muted" style="font-size:12.5px;margin-top:8px" id="dvRule"></div>
+  <div id="dvAiBox" hidden style="margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px">
+    <label class="row" style="color:var(--ink);gap:8px"><input type="checkbox" id="dvAi" checked style="width:auto"> <b>AI 모드로 전개</b> (SYS.2 규칙 적용, 검토 후 반영)</label>
+    <div class="muted" style="font-size:12.5px;margin:4px 0 0 24px">컴플라이언스가 확정된 요구사항만 전개하고, 편차·부분 수용은 합의된 편차 기준으로 씁니다. 문장을 원자 단위로 나누고 검증 기준·방법·유형을 붙이며, 모호하거나 값이 없는 곳은 질문으로 남기고, 고객이 쓰지 않은 주제(모드·안전 상태·진단·전원·EMC·보안 등)는 추가 요구사항으로 제안합니다. 끄면 고객 문장을 1:1 로 복사합니다.</div>
+  </div>
   <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="dvClose">닫기</button><button class="btn primary" id="dvGo">전개 실행</button></div>
+</dialog>
+
+<dialog id="dlgDv2" style="width:min(1180px,97vw);max-width:97vw">
+  <div class="pf">
+    <div class="row"><h3 style="margin:0">SYS.2 전개 — AI 모드</h3><span class="spacer"></span><button class="btn sm" type="button" id="d2Close">닫기</button></div>
+    <div id="d2Opts" class="row" style="gap:16px;flex-wrap:wrap;margin:10px 0">
+      <label class="row" style="gap:6px;color:var(--ink)"><input type="checkbox" id="d2Ai" checked style="width:auto"> AI 사용</label>
+      <label class="row" style="gap:6px;color:var(--ink)"><input type="checkbox" id="d2Open" style="width:auto"> 미회신(Open) 요구사항도 전개</label>
+      <button class="btn primary" type="button" id="d2Run">분석 시작</button><span class="muted" style="font-size:12.5px" id="d2Prog" aria-live="polite"></span>
+    </div>
+    <div id="d2Body" style="max-height:66vh;overflow:auto"></div>
+    <div class="row" style="margin-top:12px"><span class="muted" style="font-size:12.5px" id="d2Note">아직 아무것도 저장되지 않았습니다. 검토한 뒤 "SYS.2 만들기"를 눌러야 반영됩니다.</span><span class="spacer"></span><button class="btn primary" type="button" id="d2Go" disabled>SYS.2 만들기</button></div>
+  </div>
 </dialog>
 
 <dialog id="dlgIf">
@@ -1557,7 +1588,9 @@ function openDerive(from,tos){
   $('#dvDesc').textContent=`${f.aspice}의 ${S.stage_counts[from].total}건을 원천으로 초안(draft) 아이템과 추적 링크를 만듭니다. 이미 전개된 항목은 건너뜁니다.`;
   $('#dvTo').innerHTML=tos.map(t=>`<option value="${t}">${S.stageById[t].aspice} ${S.stageById[t].name}</option>`).join('');
   const rule=()=>{$('#dvRule').textContent=RULES[`${from}>${$('#dvTo').value}`]||'';}; $('#dvTo').onchange=rule; rule();
-  $('#dvGo').onclick=async()=>{$('#dvGo').disabled=true;try{const r=await api('/api/derive',{from,to:$('#dvTo').value});$('#dlgDerive').close();await load();goStage(r.to);toast(`${r.from} → ${r.to}: 신규 ${r.created.length}건, 링크 ${r.links}건, 건너뜀 ${r.skipped.length}건`);}catch(e){toast(e.message);}$('#dvGo').disabled=false;};
+  const aiBox=()=>{$('#dvAiBox').hidden=!(from==='SYS1'&&$('#dvTo').value==='SYS2');}; $('#dvTo').addEventListener('change',aiBox); aiBox();
+  $('#dvGo').onclick=async()=>{ if(!$('#dvAiBox').hidden&&$('#dvAi').checked){ $('#dlgDerive').close(); openDeriveAI(); return; }
+    $('#dvGo').disabled=true;try{const r=await api('/api/derive',{from,to:$('#dvTo').value});$('#dlgDerive').close();await load();goStage(r.to);toast(`${r.from} → ${r.to}: 신규 ${r.created.length}건, 링크 ${r.links}건, 건너뜀 ${r.skipped.length}건`);}catch(e){toast(e.message);}$('#dvGo').disabled=false;};
   $('#dlgDerive').showModal();
 }
 $('#dvClose').onclick=()=>$('#dlgDerive').close();
@@ -1677,6 +1710,74 @@ function formDlg({title,desc='',fields,ok='확인'}){
     $('#fmClose').onclick=()=>fin(null); d.onclose=()=>fin(null);
     d.showModal(); setTimeout(()=>d.querySelector('input,textarea')?.focus(),0);
   });
+}
+
+// ---------------- SYS.1 -> SYS.2, AI mode: analyse, review, apply ----------------
+const DV2={plan:null,tab:'derive',off:new Set(),gon:new Set()};
+const D2T={functional:'기능',interface:'인터페이스',performance:'성능',safety:'안전',diagnostic:'진단',environment:'환경',constraint:'제약'};
+function openDeriveAI(){
+  const d=$('#dlgDv2'); DV2.plan=null; DV2.asked=false; DV2.off.clear(); DV2.gon.clear(); DV2.tab='derive';
+  $('#d2Close').onclick=()=>d.close(); $('#d2Body').innerHTML='<div class="empty" style="padding:18px"><b>분석을 시작하세요</b>컴플라이언스 상태에 따라 전개 대상을 정하고, AI 가 요구사항마다 SYS.2 문장·검증 기준·질문과 누락 주제를 제안합니다. 요구사항 수에 따라 몇 분 걸릴 수 있습니다.</div>';
+  $('#d2Go').disabled=true; $('#d2Prog').textContent=''; $('#d2Run').disabled=false;
+  $('#d2Run').onclick=d2Run; $('#d2Go').onclick=d2Apply; d.showModal();
+}
+async function d2Run(){
+  $('#d2Run').disabled=true; $('#d2Go').disabled=true; $('#d2Prog').textContent='전개 대상 판정 중…';
+  try{
+    const {job}=await api('/api/derive/plan',{ai:$('#d2Ai').checked,include_open:$('#d2Open').checked?true:(DV2.asked?false:null)}); DV2.asked=true;
+    for(;;){ await new Promise(r=>setTimeout(r,1200)); const j=await api('/api/derive/job/'+job);
+      if(j.done){ DV2.plan=j.plan; break; }
+      const [a,b,w]=j.progress; $('#d2Prog').textContent=b?`AI 분석 중 — ${w} ${a}/${b}`:'AI 분석 준비 중…'; if(!$('#dlgDv2').open) return; }
+    DV2.off.clear(); DV2.gon.clear(); $('#d2Open').checked=!!DV2.plan.include_open; $('#d2Prog').textContent=''; d2Draw();
+  }catch(e){ $('#d2Prog').textContent='실패: '+e.message; }
+  $('#d2Run').disabled=false; $('#d2Run').textContent='다시 분석';
+}
+function d2Rows(){ return DV2.plan.rows.filter(r=>r.decision==='derive'||r.decision==='deviation'); }
+function d2Count(){ const R=d2Rows().filter(r=>!DV2.off.has(r.src)&&r.reqs.some(q=>q.text.trim())), n=R.reduce((a,r)=>a+r.reqs.filter(q=>q.text.trim()).length,0)+DV2.gon.size;
+  $('#d2Go').disabled=!n; $('#d2Go').textContent=n?`SYS.2 ${n}건 만들기`:'SYS.2 만들기'; return R; }
+function d2Draw(){
+  const P=DV2.plan, S_=P.summary, B=$('#d2Body'), stc=Object.fromEntries((CM.data?.statuses||[]).map(x=>[x.label,x.color]));
+  const held=P.rows.filter(r=>r.decision==='hold'||r.decision==='skip'||r.decision==='done');
+  const tabs=[['derive',`전개 대상 ${S_.derive+S_.deviation}`],['held',`보류 · 제외 ${S_.hold+S_.skip+S_.done}`],['gaps',`누락 주제 · 추가 제안 ${P.gaps.length}`]];
+  let h=`<div class="d2sum"><span class="chip ok">전개 ${S_.derive}건</span><span class="chip warn">편차 기준 ${S_.deviation}건</span><span class="chip">→ SYS.2 초안 ${S_.new_reqs}건 (분할 ${S_.split}건)</span><span class="chip ${S_.hold?'warn':''}">보류 ${S_.hold}</span><span class="chip">제외 ${S_.skip}</span><span class="chip">이미 전개 ${S_.done}</span><span class="chip ${S_.questions?'warn':''}">질문 ${S_.questions}</span><span class="chip">${P.mode==='ai'?'AI · '+esc(P.model||''):'규칙 기반'}</span></div>
+    ${P.ai_status?`<div class="dpres">${esc(P.ai_status)}</div>`:''}${P.include_open&&!P.answered?'<div class="dpres">컴플라이언스 매트릭스에 회신이 하나도 없어 모든 요구사항을 수용한 것으로 보고 전개안을 만들었습니다. 회신을 먼저 채우면 확정된 것만 전개합니다.</div>':''}
+    <div class="d2tabs" role="tablist">${tabs.map(([k,l])=>`<button type="button" role="tab" data-t="${k}" aria-selected="${DV2.tab===k}">${l}</button>`).join('')}</div>`;
+  if(DV2.tab==='derive'){
+    const R=d2Rows();
+    h+=R.length?R.map((r,i)=>`<div class="d2c ${DV2.off.has(r.src)?'off':''}" data-s="${esc(r.src)}"><div class="row" style="gap:8px;flex-wrap:wrap"><input type="checkbox" class="d2on" aria-label="${esc(r.src)} 전개" ${DV2.off.has(r.src)?'':'checked'} style="width:auto;height:auto"><span class="id">${esc(r.src)}</span>${r.native_id?`<span class="chip">${esc(r.native_id)}</span>`:''}<span class="chip ${r.decision==='deviation'?'warn':''}">${esc(r.status||'Open')}</span>${r.asil?`<span class="chip">ASIL ${esc(r.asil)}</span>`:''}<span class="chip">${r.mode==='ai'?'AI':'규칙'}</span>${r.reqs.length>1?`<span class="chip">${r.reqs.length}개로 분할</span>`:''}<span class="spacer"></span><button type="button" class="btn sm d2add">+ 문장</button></div>
+        <div class="src">${esc(r.text)}</div>${r.decision==='deviation'?`<div class="dev"><b>합의된 편차</b> ${esc(r.deviation||r.comment)}</div>`:''}
+        ${r.reqs.map((q,k)=>`<div class="d2r" data-k="${k}"><textarea aria-label="SYS.2 문장" data-f="text">${esc(q.text)}</textarea><button type="button" class="btn sm d2del" title="이 문장 빼기" aria-label="이 문장 빼기">×</button>
+          <div class="m"><input data-f="criteria" value="${esc(q.criteria)}" placeholder="검증 기준" aria-label="검증 기준"><input data-f="method" value="${esc(q.method)}" placeholder="검증 방법" aria-label="검증 방법"><select data-f="type" aria-label="유형">${Object.entries(D2T).map(([v,l])=>`<option value="${v}" ${q.type===v?'selected':''}>${l}</option>`).join('')}</select></div></div>`).join('')}
+        ${r.questions.length?`<ul class="d2q">${r.questions.map(q=>`<li>❓ ${esc(q)}</li>`).join('')}</ul>`:''}</div>`).join(''):'<div class="empty" style="padding:18px">전개할 요구사항이 없습니다. 보류·제외 탭에서 이유를 확인하세요.</div>';
+  }else if(DV2.tab==='held'){
+    const lab={hold:'보류',skip:'제외',done:'이미 전개'};
+    h+=held.length?`<table class="d2t"><thead><tr><th>요구사항</th><th>상태</th><th>판정</th><th>이유</th></tr></thead><tbody>${held.map(r=>`<tr><td><span class="id">${esc(r.src)}</span><div class="muted">${esc(r.text.slice(0,140))}${r.text.length>140?'…':''}</div></td><td>${esc(r.status||'Open')}</td><td><span class="chip ${r.decision==='hold'?'warn':''}">${lab[r.decision]}</span></td><td>${esc(r.reason)}</td></tr>`).join('')}</tbody></table><div class="muted" style="font-size:12.5px;margin-top:8px">보류 항목은 컴플라이언스 탭에서 상태를 확정한 뒤 다시 전개하면 그때 포함됩니다.</div>`:'<div class="empty" style="padding:18px">보류하거나 제외한 요구사항이 없습니다.</div>';
+  }else{
+    h+=`<table class="d2t" style="margin-bottom:12px"><thead><tr><th>SYS.2 에 있어야 하는 주제</th><th>고객 문서에서 언급된 횟수</th></tr></thead><tbody>${P.topics.map(t=>`<tr><td>${esc(t.label)}</td><td>${t.covered?t.covered:'<span class="chip warn">없음</span>'}</td></tr>`).join('')}</tbody></table>`;
+    h+=P.gaps.length?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">고객이 쓰지 않은 내용이라 기본은 선택 해제입니다. 필요한 것만 체크하면 "내부 도출" 요구사항으로 만듭니다 (고객 요구사항 링크 없음).</div>`+P.gaps.map((g,i)=>`<div class="d2c ${DV2.gon.has(i)?'':'off'}" data-g="${i}"><div class="row" style="gap:8px"><input type="checkbox" class="d2g" aria-label="추가 제안 ${i+1} 포함" ${DV2.gon.has(i)?'checked':''} style="width:auto;height:auto"><span class="chip">${esc((P.topics.find(t=>t.key===g.topic)||{}).label||'기타')}</span></div>
+        <div class="d2r" style="border:0;padding-top:4px"><textarea aria-label="추가 요구사항 문장" data-f="text">${esc(g.text)}</textarea><span></span><div class="m" style="grid-template-columns:1fr"><input data-f="criteria" value="${esc(g.criteria)}" placeholder="검증 기준" aria-label="검증 기준"></div></div>
+        ${g.rationale?`<div class="muted" style="font-size:12.5px;margin-top:6px">근거: ${esc(g.rationale)}</div>`:''}</div>`).join(''):`<div class="empty" style="padding:14px">${P.mode==='ai'?'AI 가 추가로 제안한 요구사항이 없습니다.':'추가 요구사항 제안은 AI 가 연결되어 있을 때만 만듭니다. 위 표에서 "없음"인 주제를 직접 검토하세요.'}</div>`;
+  }
+  B.innerHTML=h;
+  B.querySelectorAll('.d2tabs [data-t]').forEach(b=>b.onclick=()=>{DV2.tab=b.dataset.t;d2Draw();});
+  B.querySelectorAll('.d2c[data-s]').forEach(c=>{ const r=P.rows.find(x=>x.src===c.dataset.s);
+    c.querySelector('.d2on').onchange=e=>{ e.target.checked?DV2.off.delete(r.src):DV2.off.add(r.src); c.classList.toggle('off',!e.target.checked); d2Count(); };
+    c.querySelector('.d2add').onclick=()=>{ r.reqs.push({text:'',criteria:'',method:r.reqs[0]?.method||'',type:'functional'}); d2Draw(); };
+    c.querySelectorAll('.d2r').forEach(x=>{ const q=r.reqs[+x.dataset.k];
+      x.querySelectorAll('[data-f]').forEach(el=>el.oninput=()=>{ q[el.dataset.f]=el.value; if(el.dataset.f==='text') d2Count(); });
+      x.querySelector('.d2del').onclick=()=>{ r.reqs.splice(+x.dataset.k,1); d2Draw(); }; }); });
+  B.querySelectorAll('.d2c[data-g]').forEach(c=>{ const i=+c.dataset.g, g=P.gaps[i];
+    c.querySelector('.d2g').onchange=e=>{ e.target.checked?DV2.gon.add(i):DV2.gon.delete(i); c.classList.toggle('off',!e.target.checked); d2Count(); };
+    c.querySelectorAll('[data-f]').forEach(el=>el.oninput=()=>{ g[el.dataset.f]=el.value; }); });
+  d2Count();
+}
+async function d2Apply(){
+  const R=d2Count(), P=DV2.plan; $('#d2Go').disabled=true;
+  try{
+    const r=await api('/api/derive/apply',{mode:P.mode,rows:R.map(x=>({src:x.src,mode:x.mode,questions:x.questions,reqs:x.reqs.filter(q=>q.text.trim())})),gaps:[...DV2.gon].map(i=>P.gaps[i])});
+    $('#dlgDv2').close(); await load(); goStage('SYS2');
+    toast(`SYS.2 초안 ${r.created.length}건을 만들었습니다 (링크 ${r.links}건${r.skipped.length?`, 이미 전개된 ${r.skipped.length}건 건너뜀`:''})`);
+  }catch(e){ toast(e.message); $('#d2Go').disabled=false; }
 }
 
 // ---------------- PDF -> Word ----------------

@@ -13,7 +13,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, changes, compliance, ops, reqif, schedule, sources, sup, testruns, workproducts
+from . import arch, assistant, changes, compliance, derive_ai, ops, reqif, schedule, sources, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -33,7 +33,7 @@ POST_ROLE = {"/api/chat": "viewer", "/api/auth/logout": "viewer", "/api/auth/pas
              "/api/plan/template": "viewer", "/api/plan/meta": "manager", "/api/baseline": "manager",
              "/api/ai/settings": "admin", "/api/users": "admin", "/api/users/update": "admin", "/api/users/reset": "admin",
              "/api/users/token": "admin", "/api/wpcol": "manager", "/api/wpcol/update": "manager",
-             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/presence": "viewer", "/api/convert/pdf2docx": "engineer", "/api/projects/create": "manager",
+             "/api/wpcol/delete": "manager", "/api/projects/switch": "viewer", "/api/presence": "viewer", "/api/derive/plan": "engineer", "/api/derive/apply": "engineer", "/api/convert/pdf2docx": "engineer", "/api/projects/create": "manager",
              "/api/projects/rename": "manager"}
 PROJ_COOKIE = "ecualm_proj"
 PUBLIC_POST = {"/api/auth/login", "/api/auth/setup"}
@@ -250,6 +250,8 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                             return self._send(200, f.read_bytes(), "application/octet-stream",
                                               {"Content-Disposition": f"attachment; filename*=UTF-8''{urllib.parse.quote(f.name)}"})
                     return self._send(404, {"error": "not found"})
+                if path.startswith("/api/derive/job/"):
+                    return self._send(200, derive_ai.job(path.rsplit("/", 1)[-1]))
                 if path == "/api/compliance/history":
                     qs = urllib.parse.parse_qs(p.query)
                     with LOCK:
@@ -465,6 +467,12 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                           {"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
                                            "X-Convert-Stats": json.dumps(st)})
+                if path == "/api/derive/plan":      # decisions under the lock, the AI step in a background job
+                    b = self._json_body()
+                    with LOCK:
+                        plan = derive_ai.plan_local(repo, cfg, b.get("ids"), b.get("include_open"))
+                    plan["ai_ready"] = assistant.status(cfg)["mode"] == "llm"
+                    return self._send(200, {"job": derive_ai.start(cfg, plan, bool(b.get("ai", True)))})
                 if path == "/api/presence":      # who else has this view open, and which cell they are in
                     b = self._json_body()
                     now, me = time.time(), (user, str(b.get("tab", ""))[:24])
@@ -592,6 +600,9 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                     if path == "/api/suggest":
                         return self._send(200, suggest_links(repo, cfg, b["src_type"], b["dst_type"],
                                                              float(b.get("min", 0.2)), int(b.get("top", 2))))
+                    if path == "/api/derive/apply":
+                        return self._send(200, derive_ai.apply(repo, cfg, b.get("rows") or [], b.get("gaps") or [], user,
+                                                              b.get("mode", "ai")))
                     if path == "/api/derive":
                         return self._send(200, derive(repo, cfg, b["from"], b["to"], b.get("ids"), user))
                     if path.startswith("/api/sup/"):

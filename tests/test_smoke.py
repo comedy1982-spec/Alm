@@ -758,6 +758,81 @@ def test_pdf_to_word():
             assert "OCR" in str(e)
 
 
+def test_sys2_derivation_ai_mode():
+    """SYS.1 -> SYS.2 with the SYS.2 rules: compliance decides, AI splits / rewrites / proposes gaps, review before apply."""
+    import json, time
+    from ecualm import compliance as CM, derive_ai as D
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root)
+        import_document(repo, cfg, SAMPLES / "CRS_eLSD_ECU_rev1.0.reqifz", doc="CRS", rev="1.0", mode="crs")
+        ids = [r["id"] for r in CM.matrix(repo, cfg)["rows"]]
+        p0 = D.plan_local(repo, cfg)                       # nobody answered yet: everything is derived, and flagged
+        assert p0["include_open"] and p0["summary"]["derive"] == 186 and p0["summary"]["hold"] == 0
+        CM.set_rows(repo, cfg, ids[:6], {"status": "Accept"}, "kim")
+        CM.set_rows(repo, cfg, [ids[6]], {"status": "Accept with Deviation", "deviation": "응답 150ms 로 합의"}, "kim")
+        CM.set_rows(repo, cfg, [ids[7]], {"status": "Partially Accept"}, "kim")                 # no basis written
+        CM.set_rows(repo, cfg, [ids[8]], {"status": "Not Accept", "comment": "불가"}, "kim")
+        CM.set_rows(repo, cfg, [ids[9]], {"status": "Clarification Needed", "comment": "질의"}, "kim")
+        plan = D.plan_local(repo, cfg)
+        by = {r["src"]: r for r in plan["rows"]}
+        sm = plan["summary"]
+        assert (sm["derive"], sm["deviation"], sm["skip"], sm["hold"]) == (6, 1, 1, 178) and not plan["include_open"]
+        assert by[ids[7]]["decision"] == "hold" and "편차" in by[ids[7]]["reason"] and by[ids[8]]["decision"] == "skip"
+        assert by[ids[6]]["questions"][0].endswith("응답 150ms 로 합의") and by[ids[0]]["reqs"][0]["criteria"]
+        assert len(plan["topics"]) == 12 and any(t["covered"] for t in plan["topics"])
+
+        # AI step (stubbed): split into two, rewrite from the deviation, questions, gap proposals; one batch fails
+        cfg["llm"].update(provider="openai_compatible", base_url="http://stub", model="stub")
+        calls = []
+
+        def fake(cfg_, system, messages, max_tokens=0, timeout=0):
+            body = json.loads(messages[0]["content"]); calls.append(body)
+            if "requirements" in body:
+                out = {}
+                for q in body["requirements"]:
+                    if q["id"] == ids[6]:
+                        assert q["basis"] == "deviation" and q["deviation"] == "응답 150ms 로 합의"
+                        out[q["id"]] = {"reqs": [{"text": "시스템은 150ms 이내에 응답해야 한다.", "criteria": "150ms 경계 측정", "method": "HIL", "type": "performance"}]}
+                    elif q["id"] == ids[0]:
+                        out[q["id"]] = {"reqs": [{"text": "시스템은 A 를 해야 한다.", "criteria": "c1", "method": "", "type": "functional"},
+                                                 {"text": "시스템은 [TBD: 시간] 이내에 B 를 해야 한다.", "criteria": "c2", "method": "분석", "type": "weird"}],
+                                        "questions": ["B 의 허용 시간은?"]}
+                return json.dumps({"items": out})
+            return "설명 " + json.dumps({"gaps": [{"topic": "diag", "text": "시스템은 고장 검출 시 DTC 를 저장해야 한다.", "criteria": "UDS 0x19 로 확인", "rationale": "진단 요구 없음"},
+                                                 {"topic": "nope", "text": "시스템은 [TBD] 모드를 지원해야 한다."}]})
+        orig = D.chat_call; D.chat_call = fake
+        try:
+            jid = D.start(cfg, plan, True)
+            for _ in range(200):
+                j = D.job(jid)
+                if j["done"]:
+                    break
+                time.sleep(0.05)
+            plan = j["plan"]
+        finally:
+            D.chat_call = orig
+        by = {r["src"]: r for r in plan["rows"]}
+        assert plan["mode"] == "ai" and len(by[ids[0]]["reqs"]) == 2 and by[ids[0]]["reqs"][1]["type"] == "functional"
+        assert by[ids[0]]["questions"] == ["B 의 허용 시간은?"] and by[ids[6]]["reqs"][0]["text"].startswith("시스템은 150ms")
+        assert by[ids[1]]["mode"] == "rule" and by[ids[1]]["reqs"]            # the AI gave nothing for it: rule draft kept
+        assert [g["topic"] for g in plan["gaps"]] == ["diag", ""] and plan["summary"]["split"] == 1
+
+        # apply only what was reviewed: 3 sources + 1 gap
+        rows = [by[ids[0]], by[ids[6]], by[ids[1]]]
+        res = D.apply(repo, cfg, rows, plan["gaps"][:1], "kim")
+        assert len(res["created"]) == 5 and res["links"] == 4
+        new = [repo.get(i) for i in res["created"]]
+        assert new[0]["attrs"]["split"] == "1/2" and new[1]["attrs"]["open_questions"] == ["B 의 허용 시간은?"]
+        assert new[2]["attrs"]["derive_basis"] == "deviation" and new[2]["attrs"]["deviation"] == "응답 150ms 로 합의"
+        assert new[2]["attrs"]["verification_method"] == "HIL" and new[2]["attrs"]["req_type"] == "performance"
+        assert new[0]["attrs"]["derive_mode"] == "ai" and new[3]["attrs"]["derive_mode"] == "rule"
+        assert new[4]["attrs"]["origin"] == "internal" and new[4]["domain"] == "DIAG" and not repo.links(new[4]["id"])
+        assert {l["dst"] for i in new[:2] for l in repo.links(i["id"]) if l["role"] == "derives"} == {ids[0]}
+        again = D.plan_local(repo, cfg)
+        assert again["summary"]["done"] == 3 and D.apply(repo, cfg, rows, [], "kim")["skipped"] == [ids[0], ids[6], ids[1]]
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -776,4 +851,5 @@ if __name__ == "__main__":
     test_projects_and_sys1_shows_everything()
     test_compliance_matrix()
     test_pdf_to_word()
+    test_sys2_derivation_ai_mode()
     print("OK")
