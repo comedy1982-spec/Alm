@@ -13,7 +13,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import arch, assistant, changes, compliance, derive_ai, ops, reqif, schedule, sources, sup, testruns, workproducts
+from . import arch, assistant, changes, compliance, derive_ai, ops, rtm, reqif, schedule, sources, sup, testruns, workproducts
 from .auth import COOKIE, ROLE_LABEL, ROLES, Auth, AuthError, is_loopback, rank
 from .audit import run_audit, suggest_links
 from .config import load_config
@@ -252,6 +252,22 @@ def _project_handler(root: Path, ws: Workspace, pid: str, auth: Auth, auth_on: b
                     return self._send(404, {"error": "not found"})
                 if path.startswith("/api/derive/job/"):
                     return self._send(200, derive_ai.job(path.rsplit("/", 1)[-1]))
+                if path.startswith("/api/rtm"):
+                    qs = urllib.parse.parse_qs(p.query)
+                    g = lambda k, d="": qs.get(k, [d])[0]
+                    if path == "/api/rtm/xlsx":
+                        with LOCK, tempfile.TemporaryDirectory() as td:
+                            out = rtm.export_xlsx(repo, self.cfg, Path(td) / "rtm.xlsx", g("root", "SYS1"), g("a"), g("b"), g("doc"))
+                            fn = urllib.parse.quote(f"Traceability_Matrix_{self.cfg.get('project', 'ALM')}.xlsx")
+                            return self._send(200, out.read_bytes(),
+                                              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                              {"Content-Disposition": f"attachment; filename*=UTF-8''{fn}"})
+                    with LOCK:
+                        if path == "/api/rtm/cross":
+                            return self._send(200, rtm.cross(repo, self.cfg, g("a", "SYS1"), g("b", "SYS2"), g("domain")))
+                        if path == "/api/rtm":
+                            return self._send(200, rtm.chain(repo, self.cfg, g("root", "SYS1"), g("doc"), g("domain")))
+                    return self._send(404, {"error": "not found"})
                 if path == "/api/compliance/history":
                     qs = urllib.parse.parse_qs(p.query)
                     with LOCK:

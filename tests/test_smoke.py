@@ -40,6 +40,10 @@ def test_revision_flow():
 
 def test_pdf_tables_and_figures():
     from ecualm.parse_pdf import parse_pdf
+    if not (SAMPLES / "SRS_BLDC_revA.pdf").exists():        # generated file: needs LibreOffice once
+        import subprocess, shutil
+        subprocess.run([shutil.which("soffice") or "soffice", "--headless", "--convert-to", "pdf", "--outdir", str(SAMPLES),
+                        str(SAMPLES / "SRS_BLDC_revA.docx")], check=True, capture_output=True, timeout=240)
     blocks = parse_pdf(SAMPLES / "SRS_BLDC_revA.pdf")
     tables = [b for b in blocks if b.kind == "table"]
     figs = [b for b in blocks if b.kind == "figure"]
@@ -47,7 +51,22 @@ def test_pdf_tables_and_figures():
     pin = tables[1]
     assert len(pin.grid) == 6                               # table split across pages stitched
     assert pin.grid[1][3]["rs"] == 3                        # vertical merge preserved
-    vec = [b for b in parse_pdf(SAMPLES / "vector_figure_example.pdf") if b.kind == "figure"]
+    vp = SAMPLES / "vector_figure_example.pdf"
+    if not vp.exists():                                      # PDFs are not kept in the repository: draw one
+        import pymupdf
+        d = pymupdf.open(); pg = d.new_page()
+        pg.insert_text((72, 90), "1 System overview", fontsize=14)
+        pg.insert_text((72, 120), "The controller consists of the following blocks and shall be built as shown.", fontsize=10)
+        for k, name in enumerate(("MCU", "Driver", "Motor")):
+            x = 90 + k * 150
+            pg.draw_rect(pymupdf.Rect(x, 170, x + 100, 230), color=(0, 0, 0), width=1.2)
+            pg.insert_text((x + 30, 205), name, fontsize=10)
+            if k:
+                pg.draw_line((x - 50, 200), (x, 200), color=(0, 0, 0), width=1.2)
+        pg.insert_text((200, 262), "Figure 1 Block diagram", fontsize=10)
+        pg.insert_text((72, 300), "The supplier shall keep this structure for all variants of the product line.", fontsize=10)
+        d.save(vp)
+    vec = [b for b in parse_pdf(vp) if b.kind == "figure"]
     assert vec and vec[0].style == "vector" and vec[0].image
 
 
@@ -833,6 +852,50 @@ def test_sys2_derivation_ai_mode():
         assert again["summary"]["done"] == 3 and D.apply(repo, cfg, rows, [], "kim")["skipped"] == [ids[0], ids[6], ids[1]]
 
 
+def test_traceability_matrix():
+    """RTM: stage-by-stage chain with transitive reach, verdicts, required-stage gaps, cross grid and Excel."""
+    from ecualm import derive_ai as D, rtm
+    from ecualm.stages import derive
+    from openpyxl import load_workbook
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td); write_default_config(root)
+        cfg, repo = load_config(root), Repo(root)
+        import_document(repo, cfg, SAMPLES / "CRS_media_demo_rev1.docx", doc="M", rev="1", mode="crs")
+        crs = repo.items(doc="M", type_="CRS")
+        m = rtm.chain(repo, cfg)
+        assert m["kpi"]["total"] == 6 and m["kpi"]["derived"] == 0 and all(r["verdict"] == "open" and r["missing"] == ["SYS2"] for r in m["rows"])
+        plan = D.plan_local(repo, cfg)
+        rows = [r for r in plan["rows"] if r["src"] != crs[5]["id"]]                 # one requirement is not derived
+        made = D.apply(repo, cfg, rows, [{"topic": "diag", "text": "시스템은 고장 시 DTC 를 저장해야 한다."}], "t", "rule")["created"]
+        s2 = [repo.get(i) for i in made]
+        tc = lambda n, typ, dst, res=None: (repo.insert({"id": n, "type": typ, "domain": "GEN", "title": n, "text": n, "attrs": {"result": {"status": res}} if res else {},
+                                                         "lint": [], "doc": "", "doc_rev": "", "section": "", "source_loc": "", "ord": 1, "fingerprint": n}, by="t"),
+                                            repo.add_link(n, "verifies", dst))
+        tc("SYS5_TC-0001", "SYS5_TC", s2[0]["id"], "PASS")
+        tc("SYS5_TC-0002", "SYS5_TC", s2[1]["id"], "FAIL")
+        tc("SYS5_TC-0003", "SYS5_TC", s2[2]["id"])
+        repo.con.execute("UPDATE links SET suspect=1 WHERE src=?", (s2[3]["id"],)); repo.commit()
+        m = rtm.chain(repo, cfg)
+        by = {r["id"]: r for r in m["rows"]}
+        assert [c["id"] for c in m["columns"]] == ["SYS1", "SYS2", "SYS5"] and m["columns"][1]["pct"] == round(500 / 6, 1)
+        assert [by[c["id"]]["verdict"] for c in crs] == ["pass", "fail", "tested", "no_test", "no_test", "open"]
+        r0 = by[crs[0]["id"]]
+        assert r0["cells"]["SYS2"][0]["direct"] and not r0["cells"]["SYS5"][0]["direct"] and r0["cells"]["SYS5"][0]["result"] == "PASS"
+        assert by[crs[3]["id"]]["suspect"] and by[crs[3]["id"]]["cells"]["SYS2"][0]["suspect"] and by[crs[5]["id"]]["missing"] == ["SYS2"]
+        k = m["kpi"]
+        assert (k["derived"], k["tested"], k["passed"], k["failed"], k["suspect"]) == (5, 3, 1, 1, 1) and not m["orphans"]   # internal gap item is not an orphan
+        up = rtm.chain(repo, cfg, root="SYS2")                                    # the same table read from SYS.2: upstream column too
+        u0 = next(r for r in up["rows"] if r["id"] == s2[0]["id"])
+        assert u0["cells"]["SYS1"][0]["id"] == crs[0]["id"] and u0["cells"]["SYS1"][0]["up"] and u0["verdict"] == "pass"
+        x = rtm.cross(repo, cfg, "SYS1", "SYS5")
+        assert x["cells"][crs[0]["id"]] == {"SYS5_TC-0001": "t"} and x["rows_linked"] == 3 and x["cols_linked"] == 3
+        assert rtm.cross(repo, cfg, "SYS1", "SYS2")["cells"][crs[3]["id"]] == {s2[3]["id"]: "s"}
+        wb = load_workbook(rtm.export_xlsx(repo, cfg, root / "rtm.xlsx"))
+        assert wb.sheetnames == ["RTM", "Coverage", "Matrix"] and wb["RTM"].max_row == 5 + 6
+        assert "SYS5_TC-0001 [PASS]" in wb["RTM"].cell(6, 7).value and wb["RTM"].cell(6, 8).value == "검증 완료 (PASS)"
+        assert wb["Matrix"].cell(3, 3).value == "●"
+
+
 if __name__ == "__main__":
     test_assistant_local_and_llm()
     test_revision_flow()
@@ -852,4 +915,5 @@ if __name__ == "__main__":
     test_compliance_matrix()
     test_pdf_to_word()
     test_sys2_derivation_ai_mode()
+    test_traceability_matrix()
     print("OK")
