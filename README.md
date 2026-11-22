@@ -319,6 +319,10 @@ ecualm export docx SRS.docx --stage SYS2 ; ecualm export docx SWRS.docx --stage 
 
 문서 안의 `ASIL B · 검증: HIL · 근거: REQ-PWR-009` 같은 줄은 앞 요구사항의 속성(ASIL, 검증 방법, 근거)과 추적 링크로 들어갑니다.
 
+### 웹 데스크톱 (선택)
+
+`webdesktop/start_web_desktop.bat`을 실행하면 ECU ALM과 계산기·메모장·엑셀·브라우저·터미널을 브라우저 안에서 창으로 띄워 함께 쓸 수 있습니다. ECU ALM은 웹 데스크톱 창 안에 열립니다. 자세한 내용은 [webdesktop/README.md](webdesktop/README.md)를 보세요.
+
 ## 5분 사용법
 
 ```bash

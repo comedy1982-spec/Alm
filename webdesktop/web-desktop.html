@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Desktop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+    background: radial-gradient(circle at 20% 20%, #1e3a8a, #0f172a 60%);
+    color: #e2e8f0; user-select: none; -webkit-user-select: none;
+  }
+
+  /* ---------- 바탕화면 아이콘 ---------- */
+  #desktop { position: absolute; inset: 0 0 48px 0; }
+  #icons { position: absolute; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .icon {
+    width: 84px; padding: 8px 4px; border-radius: 10px; text-align: center; cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .icon:hover, .icon:focus { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.15); outline: none; }
+  .icon .glyph {
+    width: 52px; height: 52px; margin: 0 auto 6px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  }
+  .icon span { font-size: 12.5px; text-shadow: 0 1px 2px #000; }
+
+  /* ---------- 창 ---------- */
+  .win {
+    position: absolute; display: flex; flex-direction: column;
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.5); min-width: 260px; min-height: 180px;
+  }
+  .win.active { border-color: #60a5fa; }
+  .win.max { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; }
+  .win.hidden { display: none; }
+  .titlebar {
+    display: flex; align-items: center; gap: 8px; padding: 0 6px 0 12px; height: 36px;
+    background: #0f172a; cursor: grab; touch-action: none; flex-shrink: 0;
+  }
+  .titlebar .t { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .titlebar button {
+    width: 30px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #cbd5e1;
+    font-size: 14px; cursor: pointer;
+  }
+  .titlebar button:hover { background: #334155; }
+  .titlebar button.close:hover { background: #dc2626; color: #fff; }
+  .body { flex: 1; overflow: auto; position: relative; }
+  .resize { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; touch-action: none; }
+
+  /* ---------- 작업 표시줄 ---------- */
+  #taskbar {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 48px;
+    background: rgba(15,23,42,.92); border-top: 1px solid #334155;
+    display: flex; align-items: center; gap: 6px; padding: 0 8px;
+  }
+  #start {
+    height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: #2563eb; color: #fff;
+    font-weight: 700; cursor: pointer;
+  }
+  #tasks { flex: 1; display: flex; gap: 6px; overflow-x: auto; }
+  .task {
+    height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: #1e293b; color: #e2e8f0;
+    font-size: 13px; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent;
+  }
+  .task.active { background: #334155; border-bottom-color: #60a5fa; }
+  #clock { font-size: 12.5px; color: #94a3b8; padding: 0 6px; white-space: nowrap; }
+
+  /* 시작 메뉴 */
+  #menu {
+    position: absolute; left: 8px; bottom: 56px; width: 220px; padding: 8px;
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px; display: none;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5); z-index: 99999;
+  }
+  #menu.open { display: block; }
+  #menu button {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 0; border-radius: 8px;
+    background: transparent; color: #e2e8f0; font-size: 14px; cursor: pointer; text-align: left;
+  }
+  #menu button:hover { background: #334155; }
+  #menu .mini { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 14px; }
+
+  /* ---------- 계산기 ---------- */
+  .calc { padding: 12px; height: 100%; display: flex; flex-direction: column; gap: 10px; background: #0f172a; }
+  .calc .disp { background: #1e293b; border-radius: 10px; padding: 12px 14px; text-align: right; }
+  .calc .expr { font-size: 13px; color: #94a3b8; min-height: 18px; }
+  .calc .out { font-size: 30px; word-break: break-all; }
+  .calc .keys { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .calc .keys button {
+    border: 0; border-radius: 10px; background: #334155; color: #fff; font-size: 18px; cursor: pointer; min-height: 40px;
+  }
+  .calc .keys button:active { filter: brightness(1.3); }
+  .calc .op { background: #2563eb !important; }
+  .calc .fn { background: #475569 !important; }
+  .calc .zero { grid-column: span 2; }
+
+  /* ---------- 메모장 ---------- */
+  .memo { display: flex; height: 100%; }
+  .memo .list { width: 170px; border-right: 1px solid #334155; display: flex; flex-direction: column; background: #0f172a; }
+  .memo .list .new {
+    margin: 8px; padding: 8px; border: 0; border-radius: 8px; background: #16a34a; color: #fff; font-weight: 600; cursor: pointer;
+  }
+  .memo .items { flex: 1; overflow: auto; }
+  .memo .item { padding: 9px 12px; font-size: 13px; cursor: pointer; border-left: 3px solid transparent; }
+  .memo .item small { display: block; color: #64748b; font-size: 11px; margin-top: 2px; }
+  .memo .item:hover { background: #1e293b; }
+  .memo .item.sel { background: #1e293b; border-left-color: #22c55e; }
+  .memo .edit { flex: 1; display: flex; flex-direction: column; }
+  .memo .bar { display: flex; gap: 6px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #334155; }
+  .memo .bar input {
+    flex: 1; background: transparent; border: 0; color: #e2e8f0; font-size: 15px; font-weight: 600; outline: none; min-width: 0;
+  }
+  .memo .bar button { border: 0; background: #334155; color: #e2e8f0; border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 12px; }
+  .memo .bar button.del:hover { background: #dc2626; }
+  .memo textarea {
+    flex: 1; resize: none; border: 0; outline: none; padding: 12px; background: #1e293b; color: #e2e8f0;
+    font: 14px/1.6 inherit; font-family: inherit; user-select: text;
+  }
+  .memo .status { font-size: 11px; color: #64748b; padding: 4px 10px; border-top: 1px solid #334155; }
+
+  /* ---------- 터미널 ---------- */
+  .term {
+    height: 100%; background: #020617; color: #a7f3d0; font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    padding: 10px; overflow: auto; user-select: text; cursor: text;
+  }
+  .term .line { white-space: pre-wrap; word-break: break-all; }
+  .term .err { color: #fca5a5; }
+  .term .dim { color: #64748b; }
+  .term .row { display: flex; }
+  .term .ps { color: #60a5fa; white-space: pre; }
+  .term input { flex: 1; background: transparent; border: 0; outline: none; color: #e2e8f0; font: inherit; }
+
+  /* ---------- ECU ALM 런처 ---------- */
+  .alm { padding: 22px; display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
+  .alm .head { display: flex; align-items: center; gap: 12px; }
+  .alm .logo { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .alm .head b { display: block; font-size: 18px; }
+  .alm .head small { color: #94a3b8; font-size: 12.5px; }
+  .alm .stages { display: flex; flex-wrap: wrap; gap: 5px; }
+  .alm .stages span { font-size: 11.5px; padding: 3px 7px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; color: #93c5fd; }
+  .alm .go { align-self: flex-start; padding: 10px 18px; border-radius: 8px; background: #1F5FBF; color: #fff; text-decoration: none; font-weight: 600; }
+  .alm .hint { font-size: 12.5px; color: #94a3b8; }
+  .alm .addr { background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 9px 10px; color: #e2e8f0; font-size: 14px; outline: none; user-select: text; }
+  .alm .addr:focus { border-color: #60a5fa; }
+  .alm .cmd { display: flex; gap: 8px; align-items: center; background: #020617; border-radius: 8px; padding: 8px 10px; }
+  .alm .cmd code { flex: 1; color: #a7f3d0; font-size: 13px; user-select: text; }
+  .alm .cmd button { border: 0; border-radius: 6px; background: #334155; color: #e2e8f0; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+
+  /* ---------- 엑셀 (스프레드시트) ---------- */
+  .sheet { display: flex; flex-direction: column; height: 100%; background: #fff; color: #0f172a; }
+  .sheet .tb { display: flex; gap: 6px; padding: 6px 8px; background: #0f172a; flex-wrap: wrap; align-items: center; }
+  .sheet .tb button, .sheet .tb select {
+    border: 0; border-radius: 6px; background: #334155; color: #e2e8f0; padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+  }
+  .sheet .tb button:hover { background: #475569; }
+  .sheet .tb .msg { font-size: 12px; color: #94a3b8; margin-left: 4px; }
+  .sheet .fx { display: flex; align-items: center; border-bottom: 1px solid #cbd5e1; background: #f8fafc; }
+  .sheet .nm { width: 64px; text-align: center; font-size: 12px; border-right: 1px solid #cbd5e1; padding: 7px 0; color: #334155; flex-shrink: 0; }
+  .sheet .fxl { padding: 0 8px; color: #64748b; font-style: italic; font-size: 13px; }
+  .sheet .fxin { flex: 1; min-width: 0; border: 0; outline: none; padding: 7px 6px; font-size: 13px; background: transparent; color: #0f172a; user-select: text; }
+  .sheet .grid { flex: 1; overflow: auto; position: relative; outline: none; }
+  .sheet table { border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .sheet th { position: sticky; top: 0; background: #f1f5f9; color: #475569; font-weight: 500; border: 1px solid #cbd5e1; height: 22px; z-index: 2; font-size: 12px; }
+  .sheet tbody th { left: 0; z-index: 1; }
+  .sheet thead th:first-child { left: 0; z-index: 3; }
+  .sheet th.hl { background: #dbeafe; color: #1d4ed8; }
+  .sheet td { border: 1px solid #e2e8f0; height: 24px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: cell; }
+  .sheet td.n { text-align: right; }
+  .sheet td.e { color: #dc2626; }
+  .sheet td.sel { outline: 2px solid #2563eb; outline-offset: -2px; background: #eff6ff; }
+  .sheet .ced { position: absolute; z-index: 5; border: 2px solid #2563eb; padding: 0 3px; font: 13px system-ui, sans-serif; outline: none; background: #fff; color: #0f172a; user-select: text; }
+
+  /* ---------- 브라우저 ---------- */
+  .brw { display: flex; flex-direction: column; height: 100%; background: #fff; }
+  .brw .bar { display: flex; gap: 6px; padding: 6px 8px; background: #0f172a; align-items: center; }
+  .brw .bar button { border: 0; border-radius: 6px; background: #334155; color: #e2e8f0; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  .brw .bar button:hover { background: #475569; }
+  .brw .bar input { flex: 1; min-width: 0; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #e2e8f0; padding: 6px 10px; font-size: 13px; outline: none; user-select: text; }
+  .brw .bar input:focus { border-color: #60a5fa; }
+  .brw .bm { display: flex; gap: 6px; padding: 5px 8px; background: #1e293b; flex-wrap: wrap; }
+  .brw .bm button { border: 0; border-radius: 12px; background: #334155; color: #cbd5e1; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+  .brw .note { font-size: 11.5px; color: #94a3b8; padding: 4px 10px; background: #0f172a; }
+  .brw iframe { flex: 1; border: 0; width: 100%; background: #fff; }
+  .brw .home { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #f8fafc; color: #475569; font-size: 14px; padding: 20px; text-align: center; }
+
+  @media (max-width: 640px) {
+    .memo .list { width: 120px; }
+    #clock { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="desktop">
+  <div id="icons"></div>
+</div>
+
+<div id="menu"></div>
+
+<div id="taskbar">
+  <button id="start">⊞ 시작</button>
+  <div id="tasks"></div>
+  <div id="clock"></div>
+</div>
+
+<script>
+/* =========================================================
+   1. 저장소 (localStorage는 막힐 수 있으니 try/catch)
+   ========================================================= */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }
+};
+
+/* =========================================================
+   2. 앱 레지스트리 — 앱을 추가하려면 여기에 항목만 넣으면 됨
+   ========================================================= */
+const APPS = {
+  calc:     { name: "계산기", glyph: "=",  color: "#2563eb", w: 300, h: 430, mount: mountCalc },
+  memo:     { name: "메모장", glyph: "M",  color: "#16a34a", w: 560, h: 400, mount: mountMemo },
+  sheet:    { name: "엑셀", color: "#0f766e", w: 780, h: 500, mount: mountSheet,
+              glyph: `<svg width="60%" height="60%" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="1.5" y="2" width="13" height="12" rx="1.5"/><path d="M1.5 6h13M1.5 10h13M6 2v12M10.5 2v12"/></svg>` },
+  browser:  { name: "브라우저", color: "#7c3aed", w: 900, h: 600, mount: mountBrowser,
+              glyph: `<svg width="62%" height="62%" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.4"><circle cx="8" cy="8" r="6.3"/><path d="M1.7 8h12.6M8 1.7c-2.2 2.4-2.2 10.2 0 12.6M8 1.7c2.2 2.4 2.2 10.2 0 12.6"/></svg>` },
+  terminal: { name: "터미널", glyph: ">_", color: "#475569", w: 560, h: 340, mount: mountTerminal },
+  // ECU-ALM 저장소의 로고(파란 사각형 + 가로줄 3개)를 그대로 사용
+  alm: { name: "ECU ALM", color: "#1F5FBF", w: 900, h: 600, mount: mountAlm,
+         glyph: `<svg width="60%" height="60%" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M2 3h12M2 8h8M2 13h12"/></svg>` },
+};
+const ALM_URL = "http://localhost:8765";
+// 내 PC에서 띄웠는지 (웹데스크톱_실행.bat 으로 열면 http://localhost:8000)
+const IS_LOCAL = location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(location.hostname);
+
+/* =========================================================
+   3. 윈도우 매니저 (창 열기/닫기/포커스/드래그/크기조절)
+   ========================================================= */
+const WM = {
+  wins: new Map(),   // pid -> { pid, app, el, task, cleanup }
+  nextPid: 1,
+  z: 10,
+
+  open(appId, opts = {}) {
+    const app = APPS[appId];
+    if (!app) return null;
+    const pid = this.nextPid++;
+    const mobile = innerWidth < 640;
+    const count = this.wins.size;
+
+    const el = document.createElement("div");
+    el.className = "win";
+    const w = Math.min(app.w, innerWidth - 20), h = Math.min(app.h, innerHeight - 70);
+    el.style.width = w + "px";
+    el.style.height = h + "px";
+    el.style.left = Math.max(0, Math.min(120 + count * 28, innerWidth - w - 10)) + "px";
+    el.style.top = Math.max(0, Math.min(40 + count * 28, innerHeight - h - 60)) + "px";
+    if (mobile) el.classList.add("max");
+
+    el.innerHTML = `
+      <div class="titlebar">
+        <span class="t">${app.name}</span>
+        <button class="min" title="최소화">—</button>
+        <button class="maxb" title="최대화">▢</button>
+        <button class="close" title="닫기">✕</button>
+      </div>
+      <div class="body"></div>
+      <div class="resize"></div>`;
+    document.getElementById("desktop").appendChild(el);
+
+    const task = document.createElement("button");
+    task.className = "task";
+    task.textContent = app.name;
+    document.getElementById("tasks").appendChild(task);
+
+    const win = { pid, app: appId, el, task, cleanup: null };
+    this.wins.set(pid, win);
+
+    el.addEventListener("pointerdown", () => this.focus(pid));
+    el.querySelector(".close").onclick = e => { e.stopPropagation(); this.close(pid); };
+    el.querySelector(".min").onclick = e => { e.stopPropagation(); this.minimize(pid); };
+    el.querySelector(".maxb").onclick = e => { e.stopPropagation(); el.classList.toggle("max"); };
+    el.querySelector(".titlebar").addEventListener("dblclick", () => el.classList.toggle("max"));
+    task.onclick = () => {
+      const active = el.classList.contains("active") && !el.classList.contains("hidden");
+      active ? this.minimize(pid) : this.focus(pid);
+    };
+
+    makeDraggable(el, el.querySelector(".titlebar"));
+    makeResizable(el, el.querySelector(".resize"));
+
+    win.cleanup = app.mount(el.querySelector(".body"), { pid, ...opts }) || null;
+    this.focus(pid);
+    return pid;
+  },
+
+  focus(pid) {
+    const win = this.wins.get(pid);
+    if (!win) return;
+    this.wins.forEach(x => { x.el.classList.remove("active"); x.task.classList.remove("active"); });
+    win.el.classList.remove("hidden");
+    win.el.classList.add("active");
+    win.task.classList.add("active");
+    win.el.style.zIndex = ++this.z;
+  },
+
+  minimize(pid) {
+    const win = this.wins.get(pid);
+    if (!win) return;
+    win.el.classList.add("hidden");
+    win.el.classList.remove("active");
+    win.task.classList.remove("active");
+  },
+
+  close(pid) {
+    const win = this.wins.get(pid);
+    if (!win) return false;
+    if (typeof win.cleanup === "function") win.cleanup();
+    win.el.remove();
+    win.task.remove();
+    this.wins.delete(pid);
+    return true;
+  },
+};
+
+function makeDraggable(el, handle) {
+  handle.addEventListener("pointerdown", e => {
+    if (e.target.tagName === "BUTTON" || el.classList.contains("max")) return;
+    const sx = e.clientX, sy = e.clientY, ox = el.offsetLeft, oy = el.offsetTop;
+    handle.setPointerCapture(e.pointerId);
+    const move = ev => {
+      el.style.left = Math.max(-el.offsetWidth + 80, Math.min(innerWidth - 80, ox + ev.clientX - sx)) + "px";
+      el.style.top = Math.max(0, Math.min(innerHeight - 90, oy + ev.clientY - sy)) + "px";
+    };
+    const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+  });
+}
+
+function makeResizable(el, grip) {
+  grip.addEventListener("pointerdown", e => {
+    e.stopPropagation();
+    const sx = e.clientX, sy = e.clientY, ow = el.offsetWidth, oh = el.offsetHeight;
+    grip.setPointerCapture(e.pointerId);
+    const move = ev => {
+      el.style.width = Math.max(260, ow + ev.clientX - sx) + "px";
+      el.style.height = Math.max(180, oh + ev.clientY - sy) + "px";
+    };
+    const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+  });
+}
+
+/* =========================================================
+   4. 앱: 계산기
+   ========================================================= */
+function mountCalc(root) {
+  root.innerHTML = `
+    <div class="calc" tabindex="0">
+      <div class="disp"><div class="expr"></div><div class="out">0</div></div>
+      <div class="keys">
+        <button class="fn" data-k="C">C</button><button class="fn" data-k="back">⌫</button>
+        <button class="fn" data-k="%">%</button><button class="op" data-k="/">÷</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button class="op" data-k="*">×</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button class="op" data-k="-">−</button>
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button class="op" data-k="+">+</button>
+        <button class="zero" data-k="0">0</button><button data-k=".">.</button>
+        <button class="op" data-k="=">=</button>
+      </div>
+    </div>`;
+  const box = root.querySelector(".calc");
+  const out = root.querySelector(".out"), exprEl = root.querySelector(".expr");
+  let input = "";
+
+  const show = () => out.textContent = input || "0";
+  function press(k) {
+    if (k === "C") { input = ""; exprEl.textContent = ""; }
+    else if (k === "back") input = input.slice(0, -1);
+    else if (k === "=") {
+      if (!input) return;
+      const r = evaluate(input);
+      exprEl.textContent = input + " =";
+      if (!isFinite(r)) { input = ""; out.textContent = "오류"; return; }
+      input = String(r);
+    } else {
+      if ("+-*/".includes(k) && "+-*/".includes(input.slice(-1))) input = input.slice(0, -1);
+      input += k;
+    }
+    show();
+  }
+  root.querySelectorAll("button").forEach(b => b.onclick = () => { press(b.dataset.k); box.focus(); });
+  box.addEventListener("keydown", e => {
+    if (/^[0-9.+\-*/%]$/.test(e.key)) press(e.key);
+    else if (e.key === "Enter" || e.key === "=") press("=");
+    else if (e.key === "Backspace") press("back");
+    else if (e.key === "Escape") press("C");
+    else return;
+    e.preventDefault();
+  });
+  setTimeout(() => box.focus(), 0);
+}
+
+// eval을 쓰지 않는 사칙연산 파서 (터미널 calc 명령도 사용)
+function evaluate(s) {
+  const tokens = String(s).replace(/\s+/g, "").match(/\d*\.?\d+|[+\-*/%()]/g);
+  if (!tokens) return NaN;
+  let pos = 0;
+  const peek = () => tokens[pos], next = () => tokens[pos++];
+  function factor() {
+    let t = next(), v;
+    if (t === "-") return -factor();
+    if (t === "+") return factor();
+    if (t === "(") { v = expr(); if (next() !== ")") return NaN; }
+    else v = parseFloat(t);
+    if (peek() === "%") { next(); v /= 100; }
+    return v;
+  }
+  function term() {
+    let v = factor();
+    while (peek() === "*" || peek() === "/") { const op = next(), r = factor(); v = op === "*" ? v * r : v / r; }
+    return v;
+  }
+  function expr() {
+    let v = term();
+    while (peek() === "+" || peek() === "-") { const op = next(), r = term(); v = op === "+" ? v + r : v - r; }
+    return v;
+  }
+  const v = expr();
+  if (pos !== tokens.length) return NaN;
+  return Math.round(v * 1e10) / 1e10;
+}
+
+/* =========================================================
+   5. 앱: 메모장 (여러 창에서 같은 메모 목록 공유)
+   ========================================================= */
+const Notes = {
+  KEY: "webdesktop.notes",
+  list: store.get("webdesktop.notes", null) || [
+    { id: 1, title: "환영합니다", body: "Web Desktop 메모장입니다.\n왼쪽 '+ 새 메모'로 메모를 추가하세요.\n터미널에서 `memo 할 일` 처럼 바로 만들 수도 있어요.", t: Date.now() }
+  ],
+  listeners: new Set(),
+  save() { const ok = store.set(this.KEY, this.list); this.listeners.forEach(f => f()); return ok; },
+  add(title = "새 메모", body = "") {
+    const n = { id: Date.now() + Math.random(), title, body, t: Date.now() };
+    this.list.unshift(n); this.save(); return n;
+  },
+  remove(id) { this.list = this.list.filter(n => n.id !== id); this.save(); },
+};
+
+function mountMemo(root, opts) {
+  root.innerHTML = `
+    <div class="memo">
+      <div class="list"><button class="new">+ 새 메모</button><div class="items"></div></div>
+      <div class="edit">
+        <div class="bar"><input placeholder="제목"><button class="del">삭제</button></div>
+        <textarea placeholder="내용을 입력하세요"></textarea>
+        <div class="status"></div>
+      </div>
+    </div>`;
+  const items = root.querySelector(".items"), title = root.querySelector("input"),
+        body = root.querySelector("textarea"), status = root.querySelector(".status");
+  let cur = opts.noteId ?? Notes.list[0]?.id;
+  let timer;
+
+  const fmt = t => new Date(t).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  function renderList() {
+    items.innerHTML = "";
+    Notes.list.forEach(n => {
+      const d = document.createElement("div");
+      d.className = "item" + (n.id === cur ? " sel" : "");
+      d.innerHTML = `<div></div><small>${fmt(n.t)}</small>`;
+      d.firstChild.textContent = n.title || "(제목 없음)";
+      d.onclick = () => { cur = n.id; load(); renderList(); };
+      items.appendChild(d);
+    });
+  }
+  function load() {
+    const n = Notes.list.find(x => x.id === cur);
+    title.disabled = body.disabled = !n;
+    title.value = n ? n.title : "";
+    if (document.activeElement !== body) body.value = n ? n.body : "";
+    status.textContent = n ? `${n.body.length}자` : "메모가 없습니다";
+  }
+  function edit() {
+    const n = Notes.list.find(x => x.id === cur);
+    if (!n) return;
+    n.title = title.value; n.body = body.value; n.t = Date.now();
+    status.textContent = "저장 중…";
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const ok = Notes.save();
+      status.textContent = ok ? `${n.body.length}자 · 저장됨` : `${n.body.length}자 · 이 브라우저에선 저장 불가 (창을 닫으면 사라짐)`;
+    }, 400);
+  }
+  title.oninput = edit;
+  body.oninput = edit;
+  root.querySelector(".new").onclick = () => { cur = Notes.add().id; load(); renderList(); title.focus(); title.select(); };
+  root.querySelector(".del").onclick = () => {
+    if (cur == null) return;
+    const idx = Notes.list.findIndex(x => x.id === cur);
+    Notes.remove(cur);
+    cur = Notes.list[Math.min(idx, Notes.list.length - 1)]?.id;
+    load(); renderList();
+  };
+
+  const sync = () => { if (!Notes.list.some(n => n.id === cur)) cur = Notes.list[0]?.id; renderList(); load(); };
+  Notes.listeners.add(sync);
+  renderList(); load();
+  return () => Notes.listeners.delete(sync);   // 창 닫을 때 정리
+}
+
+/* =========================================================
+   6. 앱: 터미널 (CLI로 앱 실행/관리)
+   ========================================================= */
+function mountTerminal(root) {
+  root.innerHTML = `<div class="term"><div class="lines"></div><div class="row"><span class="ps">user@webdesktop:~$ </span><input spellcheck="false" autocomplete="off"></div></div>`;
+  const term = root.querySelector(".term"), lines = root.querySelector(".lines"), input = root.querySelector("input");
+  const history = []; let hi = 0;
+
+  const print = (text, cls = "") => {
+    const d = document.createElement("div");
+    d.className = "line " + cls; d.textContent = text; lines.appendChild(d);
+    term.scrollTop = term.scrollHeight;
+  };
+  const resolve = name => Object.keys(APPS).find(id => id === name || APPS[id].name === name);
+
+  const commands = {
+    help() {
+      print([
+        "사용 가능한 명령:",
+        "  ls                 설치된 앱 목록",
+        "  open <앱>          앱 실행   (예: open calc, open 메모장, open sheet, open alm)",
+        "  web <주소>         브라우저 창으로 열기 (예: web localhost:8765)",
+        "  calc <수식>        바로 계산 (예: calc (3+4)*2)",
+        "  memo <내용>        새 메모 만들고 메모장 열기",
+        "  notes              메모 목록 보기",
+        "  ps                 실행 중인 창 목록",
+        "  kill <pid>         창 닫기",
+        "  focus <pid>        창 앞으로 가져오기",
+        "  date / echo / clear / help",
+      ].join("\n"));
+    },
+    ls() { Object.entries(APPS).forEach(([id, a]) => print(`  ${id.padEnd(10)} ${a.name}`)); },
+    open(args) {
+      const id = resolve(args[0]);
+      if (!id) return print(`앱을 찾을 수 없음: ${args[0] ?? ""}  (ls로 확인)`, "err");
+      const pid = WM.open(id);
+      print(`${APPS[id].name} 실행됨 (pid ${pid})`, "dim");
+    },
+    calc(args) {
+      if (!args.length) return commands.open(["calc"]);
+      const r = evaluate(args.join(""));
+      isFinite(r) ? print(String(r)) : print("수식 오류", "err");
+    },
+    memo(args) {
+      const text = args.join(" ");
+      const n = text ? Notes.add(text.slice(0, 30), text) : Notes.add();
+      const pid = WM.open("memo", { noteId: n.id });
+      print(`메모 생성 → 메모장 실행 (pid ${pid})`, "dim");
+    },
+    notes() {
+      if (!Notes.list.length) return print("(메모 없음)", "dim");
+      Notes.list.forEach((n, i) => print(`  ${String(i + 1).padStart(2)}. ${n.title || "(제목 없음)"}`));
+    },
+    ps() {
+      print("  PID  APP");
+      WM.wins.forEach(w => print(`  ${String(w.pid).padEnd(4)} ${APPS[w.app].name}`));
+    },
+    kill(args) {
+      const pid = Number(args[0]);
+      WM.close(pid) ? print(`pid ${pid} 종료`, "dim") : print(`pid 없음: ${args[0] ?? ""}`, "err");
+    },
+    focus(args) {
+      const pid = Number(args[0]);
+      WM.wins.has(pid) ? WM.focus(pid) : print(`pid 없음: ${args[0] ?? ""}`, "err");
+    },
+    web(args) {
+      const pid = WM.open("browser", { url: args[0] || "" });
+      print(`브라우저 실행 (pid ${pid})`, "dim");
+    },
+    date() { print(new Date().toLocaleString("ko-KR")); },
+    echo(args) { print(args.join(" ")); },
+    clear() { lines.innerHTML = ""; },
+  };
+
+  function run(line) {
+    print("user@webdesktop:~$ " + line, "dim");
+    const [cmd, ...args] = line.trim().split(/\s+/);
+    if (!cmd) return;
+    if (commands[cmd]) commands[cmd](args);
+    else if (resolve(cmd)) commands.open([cmd]);   // 'calc' 대신 '계산기'만 쳐도 실행
+    else print(`명령을 찾을 수 없음: ${cmd}  (help 입력)`, "err");
+  }
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      const v = input.value; input.value = "";
+      if (v.trim()) { history.push(v); hi = history.length; }
+      run(v);
+    } else if (e.key === "ArrowUp" && hi > 0) { input.value = history[--hi]; e.preventDefault(); }
+    else if (e.key === "ArrowDown") { hi = Math.min(history.length, hi + 1); input.value = history[hi] ?? ""; e.preventDefault(); }
+  });
+  term.addEventListener("click", () => { if (!getSelection().toString()) input.focus(); });
+
+  print("Web Desktop 터미널. 'help'로 명령 목록을 볼 수 있어요.", "dim");
+  setTimeout(() => input.focus(), 0);
+}
+
+/* =========================================================
+   7. 앱: ECU ALM (로컬 서버 ecualm serve 를 띄우는 런처)
+   - 이 페이지를 로컬에서 열면 창 안에 ALM 을 바로 띄움(iframe)
+   - claude.ai 같은 외부 주소에서는 iframe 이 막혀 있으니 새 탭으로 열기
+   ========================================================= */
+function mountAlm(root) {
+  if (IS_LOCAL) {
+    // 로컬(http://localhost)에서 열었으면 창 안에 ECU ALM 을 바로 띄움
+    root.innerHTML = `<iframe src="${store.get("webdesktop.almUrl", "") || ALM_URL}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
+    return;
+  }
+  const stages = ["SYS.1", "SYS.2", "SYS.3", "SWE.1", "SWE.2", "SWE.3", "SWE.4", "SWE.5", "SWE.6", "SYS.4", "SYS.5"];
+  root.innerHTML = `
+    <div class="alm">
+      <div class="head">
+        <div class="logo" style="background:#1F5FBF">${APPS.alm.glyph}</div>
+        <div><b>ECU ALM</b><small>ASPICE PAM 4.0 요구사항 관리</small></div>
+      </div>
+      <div class="stages">${stages.map(s => `<span>${s}</span>`).join("")}</div>
+      <label class="hint">서버 주소 (폰에서는 PC의 IP 주소로 바꾸세요. 예: http://192.168.0.10:8765)</label>
+      <input class="addr" spellcheck="false" autocomplete="off">
+      <a class="go" target="_blank" rel="noopener">ECU ALM 열기 ↗</a>
+      <p class="hint">PC 한 대에서만 쓸 때:</p>
+      <div class="cmd"><code>ecualm serve --port 8765</code><button data-c="ecualm serve --port 8765">복사</button></div>
+      <p class="hint">폰 등 다른 기기에서 열 때 (같은 Wi-Fi, PC에서 실행):</p>
+      <div class="cmd"><code>ecualm serve --host 0.0.0.0 --port 8765</code><button data-c="ecualm serve --host 0.0.0.0 --port 8765">복사</button></div>
+    </div>`;
+  const addr = root.querySelector(".addr"), go = root.querySelector(".go");
+  addr.value = store.get("webdesktop.almUrl", ALM_URL);
+  const sync = () => {
+    let v = addr.value.trim();
+    if (v && !/^https?:\/\//.test(v)) v = "http://" + v;
+    go.href = v || ALM_URL;
+    store.set("webdesktop.almUrl", addr.value.trim());
+  };
+  addr.oninput = sync; sync();
+  root.querySelectorAll("button[data-c]").forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.c); b.textContent = "복사됨"; }
+    catch { b.textContent = "직접 선택"; }
+    setTimeout(() => b.textContent = "복사", 1500);
+  });
+}
+
+/* =========================================================
+   8. 앱: 엑셀 (스프레드시트)
+   - 수식: + - * / ^ % &, 비교(= <> < > <= >=), 셀 참조(A1), 범위(A1:B5)
+   - 함수: SUM AVERAGE MIN MAX COUNT COUNTA PRODUCT IF AND OR NOT ROUND ABS SQRT CONCAT LEN UPPER LOWER
+   - .xlsx/.csv 열기·저장은 SheetJS(cdnjs)를 필요할 때만 불러와서 처리
+   ========================================================= */
+const colName = i => { let s = ""; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+const colNum = s => { let n = 0; for (const ch of s) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
+const cellKey = (r, c) => colName(c) + (r + 1);
+const parseRef = ref => { const m = /^\$?([A-Z]+)\$?(\d+)$/.exec(ref); return m ? { c: colNum(m[1]), r: +m[2] - 1 } : null; };
+
+class FErr { constructor(code) { this.code = code; } }
+
+function makeEngine(cells) {
+  const cache = new Map(), visiting = new Set();
+
+  function value(k) {
+    if (cache.has(k)) return cache.get(k);
+    const raw = cells[k];
+    let v;
+    if (raw == null || raw === "") v = null;
+    else if (raw[0] === "=") {
+      if (visiting.has(k)) throw new FErr("#CIRC!");          // 순환 참조
+      visiting.add(k);
+      try { v = run(raw.slice(1)); if (Array.isArray(v)) v = v[0] ?? null; }
+      catch (e) { v = e instanceof FErr ? e : new FErr("#ERROR!"); }
+      visiting.delete(k);
+    } else {
+      const t = raw.trim();
+      v = t !== "" && isFinite(t) ? Number(t) : raw;
+    }
+    cache.set(k, v);
+    return v;
+  }
+
+  function tokenize(s) {
+    const re = /\s*(?:(\d+(?:\.\d+)?(?:[eE][-+]?\d+)?|\.\d+)|("(?:[^"]|"")*")|(\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?)(?![A-Za-z0-9_(])|([A-Za-z_][A-Za-z0-9_.]*)|(<=|>=|<>|[-+*/^&=<>(),%]))/y;
+    const out = []; let i = 0;
+    while (i < s.length) {
+      if (!s.slice(i).trim()) break;
+      re.lastIndex = i;
+      const m = re.exec(s);
+      if (!m) throw new FErr("#ERROR!");
+      i = re.lastIndex;
+      if (m[1]) out.push({ t: "num", v: parseFloat(m[1]) });
+      else if (m[2]) out.push({ t: "str", v: m[2].slice(1, -1).replace(/""/g, '"') });
+      else if (m[3]) out.push({ t: "ref", v: m[3].toUpperCase() });
+      else if (m[4]) out.push({ t: "name", v: m[4].toUpperCase() });
+      else out.push({ t: "op", v: m[5] });
+    }
+    return out;
+  }
+
+  const toNum = v => {
+    if (v instanceof FErr) throw v;
+    if (v == null || v === "") return 0;
+    if (typeof v === "boolean") return v ? 1 : 0;
+    if (typeof v === "number") return v;
+    if (isFinite(v)) return Number(v);
+    throw new FErr("#VALUE!");
+  };
+  const toStr = v => v == null ? "" : typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : typeof v === "number" ? fmtNum(v) : String(v);
+  const truthy = v => typeof v === "string" ? (v.toUpperCase() === "TRUE" ? true : v.toUpperCase() === "FALSE" ? false : !!toNum(v)) : !!toNum(v);
+  const flat = a => a.flat(Infinity);
+  const nums = a => flat(a).filter(v => typeof v === "number");
+  const need = (a, n) => { if (a.length < n) throw new FErr("#N/A"); };
+
+  const FN = {
+    SUM: a => nums(a).reduce((x, y) => x + y, 0),
+    AVERAGE: a => { const n = nums(a); if (!n.length) throw new FErr("#DIV/0!"); return n.reduce((x, y) => x + y, 0) / n.length; },
+    MIN: a => { const n = nums(a); return n.length ? Math.min(...n) : 0; },
+    MAX: a => { const n = nums(a); return n.length ? Math.max(...n) : 0; },
+    COUNT: a => nums(a).length,
+    COUNTA: a => flat(a).filter(v => v != null && v !== "").length,
+    PRODUCT: a => nums(a).reduce((x, y) => x * y, 1),
+    IF: a => { need(a, 1); return truthy(a[0]) ? (a[1] ?? true) : (a[2] ?? false); },
+    AND: a => flat(a).every(truthy),
+    OR: a => flat(a).some(truthy),
+    NOT: a => { need(a, 1); return !truthy(a[0]); },
+    ROUND: a => { need(a, 1); const p = 10 ** toNum(a[1] ?? 0); return Math.round(toNum(a[0]) * p) / p; },
+    ABS: a => { need(a, 1); return Math.abs(toNum(a[0])); },
+    SQRT: a => { need(a, 1); const x = toNum(a[0]); if (x < 0) throw new FErr("#NUM!"); return Math.sqrt(x); },
+    CONCAT: a => flat(a).map(toStr).join(""),
+    LEN: a => { need(a, 1); return toStr(a[0]).length; },
+    UPPER: a => { need(a, 1); return toStr(a[0]).toUpperCase(); },
+    LOWER: a => { need(a, 1); return toStr(a[0]).toLowerCase(); },
+  };
+  FN.CONCATENATE = FN.CONCAT;
+
+  function run(src) {
+    const tk = tokenize(src); let p = 0;
+    const peek = () => tk[p], isOp = v => tk[p] && tk[p].t === "op" && tk[p].v === v;
+
+    function cmp() {
+      let l = cat();
+      while (tk[p] && tk[p].t === "op" && ["=", "<>", "<", ">", "<=", ">="].includes(tk[p].v)) {
+        const op = tk[p++].v, r = cat();
+        const both = typeof l === "number" || typeof r === "number";
+        const a = both ? toNum(l) : toStr(l).toLowerCase(), b = both ? toNum(r) : toStr(r).toLowerCase();
+        l = op === "=" ? a === b : op === "<>" ? a !== b : op === "<" ? a < b : op === ">" ? a > b : op === "<=" ? a <= b : a >= b;
+      }
+      return l;
+    }
+    function cat() { let l = add(); while (isOp("&")) { p++; l = toStr(l) + toStr(add()); } return l; }
+    function add() {
+      let l = mul();
+      while (isOp("+") || isOp("-")) { const op = tk[p++].v, r = mul(); l = op === "+" ? toNum(l) + toNum(r) : toNum(l) - toNum(r); }
+      return l;
+    }
+    function mul() {
+      let l = pow();
+      while (isOp("*") || isOp("/")) {
+        const op = tk[p++].v, r = pow();
+        if (op === "/" && toNum(r) === 0) throw new FErr("#DIV/0!");
+        l = op === "*" ? toNum(l) * toNum(r) : toNum(l) / toNum(r);
+      }
+      return l;
+    }
+    function pow() { let l = unary(); while (isOp("^")) { p++; l = toNum(l) ** toNum(unary()); } return l; }
+    function unary() {
+      if (isOp("-")) { p++; return -toNum(unary()); }
+      if (isOp("+")) { p++; return toNum(unary()); }
+      let v = primary();
+      while (isOp("%")) { p++; v = toNum(v) / 100; }
+      return v;
+    }
+    function primary() {
+      const t = tk[p++];
+      if (!t) throw new FErr("#ERROR!");
+      if (t.t === "num" || t.t === "str") return t.v;
+      if (t.t === "ref") {
+        if (t.v.includes(":")) {                                  // 범위 → 배열
+          const [a, b] = t.v.split(":").map(parseRef);
+          const out = [];
+          for (let r = Math.min(a.r, b.r); r <= Math.max(a.r, b.r); r++)
+            for (let c = Math.min(a.c, b.c); c <= Math.max(a.c, b.c); c++) {
+              const v = value(cellKey(r, c));
+              if (v instanceof FErr) throw v;
+              out.push(v);
+            }
+          return out;
+        }
+        const ref = parseRef(t.v), v = value(cellKey(ref.r, ref.c));
+        if (v instanceof FErr) throw v;
+        return v;
+      }
+      if (t.t === "name") {
+        if (t.v === "TRUE" && !isOp("(")) return true;
+        if (t.v === "FALSE" && !isOp("(")) return false;
+        if (!isOp("(")) throw new FErr("#NAME?");
+        p++;
+        const args = [];
+        if (!isOp(")")) { do { args.push(cmp()); } while (isOp(",") && ++p); }
+        if (!isOp(")")) throw new FErr("#ERROR!");
+        p++;
+        const f = FN[t.v];
+        if (!f) throw new FErr("#NAME?");
+        return f(args);
+      }
+      if (t.v === "(") { const v = cmp(); if (!isOp(")")) throw new FErr("#ERROR!"); p++; return v; }
+      throw new FErr("#ERROR!");
+    }
+
+    const v = cmp();
+    if (p !== tk.length) throw new FErr("#ERROR!");
+    if (Array.isArray(v)) throw new FErr("#VALUE!");
+    return v;
+  }
+
+  return {
+    value(k) { try { return value(k); } catch (e) { return e instanceof FErr ? e : new FErr("#ERROR!"); } },
+  };
+}
+
+const fmtNum = n => Number.isInteger(n) ? String(n) : String(+n.toPrecision(12));
+const fmtVal = v => v == null ? "" : v instanceof FErr ? v.code : typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : typeof v === "number" ? fmtNum(v) : String(v);
+
+let xlsxLib;
+function loadXLSX() {
+  return xlsxLib ??= new Promise((res, rej) => {
+    if (window.XLSX) return res(window.XLSX);
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => { xlsxLib = null; rej(new Error("SheetJS 로드 실패")); };
+    document.head.appendChild(s);
+  });
+}
+
+function mountSheet(root) {
+  const saved = store.get("webdesktop.sheet", null);
+  let cells = saved?.cells || {
+    A1: "품목", B1: "수량", C1: "단가", D1: "금액",
+    A2: "사과", B2: "3", C2: "1200", D2: "=B2*C2",
+    A3: "배", B3: "2", C3: "2500", D3: "=B3*C3",
+    A4: "귤", B4: "10", C4: "300", D4: "=B4*C4",
+    A6: "합계", B6: "=SUM(B2:B4)", D6: "=SUM(D2:D4)",
+    A7: "평균 단가", C7: "=ROUND(AVERAGE(C2:C4),0)",
+  };
+  let fileName = saved?.name || "sheet.xlsx";
+  let ROWS = 0, COLS = 0, sel = { r: 0, c: 0 }, editing = false, engine, wb = null;
+  const touch = matchMedia("(pointer: coarse)").matches;
+
+  root.innerHTML = `
+    <div class="sheet">
+      <div class="tb">
+        <button data-a="open">열기</button>
+        <input type="file" accept=".xlsx,.xls,.csv,.ods" hidden>
+        <select class="tabs" hidden></select>
+        <button data-a="save">xlsx 저장</button>
+        <button data-a="copy">표 복사</button>
+        <button data-a="new">새 시트</button>
+        <span class="msg"></span>
+      </div>
+      <div class="fx"><span class="nm">A1</span><span class="fxl">fx</span><input class="fxin" spellcheck="false" autocomplete="off"></div>
+      <div class="grid" tabindex="0"><table></table><input class="ced" spellcheck="false" autocomplete="off" hidden></div>
+    </div>`;
+  const $ = s => root.querySelector(s);
+  const grid = $(".grid"), table = $("table"), ced = $(".ced"), fxin = $(".fxin"), nm = $(".nm"),
+        msg = $(".msg"), fileIn = $("input[type=file]"), tabs = $(".tabs");
+  const say = t => { msg.textContent = t; };
+
+  const used = () => {
+    let mr = -1, mc = -1;
+    for (const k in cells) { const p = parseRef(k); if (p && cells[k] !== "") { mr = Math.max(mr, p.r); mc = Math.max(mc, p.c); } }
+    return { mr, mc };
+  };
+  const persist = () => { if (!store.set("webdesktop.sheet", { cells, name: fileName })) say("이 브라우저에선 자동 저장 불가"); };
+
+  function build() {
+    const { mr, mc } = used();
+    const R = Math.max(60, mr + 21), C = Math.max(20, mc + 4);
+    if (R === ROWS && C === COLS) return;
+    ROWS = R; COLS = C;
+    let h = `<colgroup><col style="width:44px">${`<col style="width:92px">`.repeat(COLS)}</colgroup><thead><tr><th></th>`;
+    for (let c = 0; c < COLS; c++) h += `<th data-c="${c}">${colName(c)}</th>`;
+    h += "</tr></thead><tbody>";
+    for (let r = 0; r < ROWS; r++) {
+      h += `<tr><th data-r="${r}">${r + 1}</th>`;
+      for (let c = 0; c < COLS; c++) h += `<td data-r="${r}" data-c="${c}"></td>`;
+      h += "</tr>";
+    }
+    table.innerHTML = h + "</tbody>";
+    table.style.width = (44 + 92 * COLS) + "px";
+  }
+  const td = (r, c) => table.rows[r + 1]?.cells[c + 1];
+
+  function recompute() {
+    build();
+    engine = makeEngine(cells);
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const el = td(r, c), v = engine.value(cellKey(r, c));
+      el.textContent = fmtVal(v);
+      el.className = (typeof v === "number" ? "n" : "") + (v instanceof FErr ? " e" : "") + (r === sel.r && c === sel.c ? " sel" : "");
+    }
+    highlight();
+  }
+  function highlight() {
+    table.querySelectorAll("th.hl").forEach(x => x.classList.remove("hl"));
+    table.querySelector(`thead th[data-c="${sel.c}"]`)?.classList.add("hl");
+    table.querySelector(`tbody th[data-r="${sel.r}"]`)?.classList.add("hl");
+  }
+
+  function select(r, c) {
+    r = Math.max(0, Math.min(ROWS - 1, r)); c = Math.max(0, Math.min(COLS - 1, c));
+    td(sel.r, sel.c)?.classList.remove("sel");
+    sel = { r, c };
+    const el = td(r, c);
+    el.classList.add("sel");
+    const k = cellKey(r, c);
+    nm.textContent = k;
+    fxin.value = cells[k] ?? "";
+    highlight();
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  function setCell(k, v) { if (v === "" || v == null) delete cells[k]; else cells[k] = v; }
+
+  function startEdit(initial) {
+    const el = td(sel.r, sel.c), a = el.getBoundingClientRect(), g = grid.getBoundingClientRect();
+    Object.assign(ced.style, {
+      left: (a.left - g.left + grid.scrollLeft) + "px", top: (a.top - g.top + grid.scrollTop) + "px",
+      width: Math.max(a.width, 140) + "px", height: a.height + "px",
+    });
+    ced.value = initial ?? (cells[cellKey(sel.r, sel.c)] ?? "");
+    ced.hidden = false; editing = true;
+    ced.focus();
+    const n = ced.value.length; ced.setSelectionRange(n, n);
+  }
+  function commit(dr = 0, dc = 0) {
+    if (!editing) return;
+    editing = false; ced.hidden = true;
+    setCell(cellKey(sel.r, sel.c), ced.value);
+    recompute(); persist();
+    select(sel.r + dr, sel.c + dc);
+    grid.focus({ preventScroll: true });
+  }
+  function cancel() { editing = false; ced.hidden = true; grid.focus({ preventScroll: true }); }
+
+  // 마우스/터치
+  table.addEventListener("pointerdown", e => {
+    const el = e.target.closest("td");
+    if (!el) return;
+    const r = +el.dataset.r, c = +el.dataset.c;
+    if (editing) commit();
+    const same = r === sel.r && c === sel.c;
+    select(r, c);
+    if (touch && same) { e.preventDefault(); startEdit(); }
+  });
+  table.addEventListener("dblclick", e => { if (e.target.closest("td")) startEdit(); });
+
+  // 키보드 (셀 선택 상태)
+  grid.addEventListener("keydown", e => {
+    if (editing || e.target !== grid) return;
+    const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    if (mv) { select(sel.r + mv[0], sel.c + mv[1]); }
+    else if (e.key === "Enter" || e.key === "F2") startEdit();
+    else if (e.key === "Tab") select(sel.r, sel.c + (e.shiftKey ? -1 : 1));
+    else if (e.key === "Delete" || e.key === "Backspace") { setCell(cellKey(sel.r, sel.c), ""); recompute(); persist(); select(sel.r, sel.c); }
+    else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) startEdit(e.key);
+    else return;
+    e.preventDefault();
+  });
+  // 키보드 (편집 중)
+  ced.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); commit(e.shiftKey ? -1 : 1, 0); }
+    else if (e.key === "Tab") { e.preventDefault(); commit(0, e.shiftKey ? -1 : 1); }
+    else if (e.key === "Escape") { e.preventDefault(); cancel(); }
+  });
+  ced.addEventListener("blur", () => { if (editing) commit(); });
+
+  // 수식 입력줄
+  fxin.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); setCell(cellKey(sel.r, sel.c), fxin.value); recompute(); persist(); select(sel.r + 1, sel.c); grid.focus({ preventScroll: true }); }
+    else if (e.key === "Escape") { fxin.value = cells[cellKey(sel.r, sel.c)] ?? ""; grid.focus({ preventScroll: true }); }
+  });
+  fxin.addEventListener("change", () => { setCell(cellKey(sel.r, sel.c), fxin.value); recompute(); persist(); select(sel.r, sel.c); });
+
+  // 복사 / 붙여넣기 (엑셀과 탭 구분 텍스트로 주고받음)
+  grid.addEventListener("copy", e => {
+    if (editing) return;
+    e.clipboardData.setData("text/plain", fmtVal(engine.value(cellKey(sel.r, sel.c))));
+    e.preventDefault();
+  });
+  grid.addEventListener("paste", e => {
+    if (editing) return;
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+    e.preventDefault();
+    const rows = text.replace(/\r/g, "").replace(/\n$/, "").split("\n");
+    rows.forEach((line, i) => line.split("\t").forEach((v, j) => setCell(cellKey(sel.r + i, sel.c + j), v)));
+    recompute(); persist(); select(sel.r, sel.c);
+    say(`${rows.length}행 붙여넣음`);
+  });
+
+  // 툴바
+  root.querySelector(".tb").addEventListener("click", async e => {
+    const a = e.target.dataset?.a;
+    if (!a) return;
+    if (a === "open") fileIn.click();
+    if (a === "copy") {
+      const { mr, mc } = used();
+      if (mr < 0) return say("빈 시트");
+      const lines = [];
+      for (let r = 0; r <= mr; r++) {
+        const row = [];
+        for (let c = 0; c <= mc; c++) row.push(fmtVal(engine.value(cellKey(r, c))));
+        lines.push(row.join("\t"));
+      }
+      try { await navigator.clipboard.writeText(lines.join("\n")); say("복사됨 — 엑셀에 붙여넣기 하세요"); }
+      catch { say("클립보드 사용 불가"); }
+    }
+    if (a === "new") {
+      if (e.target.dataset.confirm !== "1") {
+        e.target.dataset.confirm = "1"; e.target.textContent = "정말 지울까요?";
+        setTimeout(() => { e.target.dataset.confirm = ""; e.target.textContent = "새 시트"; }, 3000);
+        return;
+      }
+      e.target.dataset.confirm = ""; e.target.textContent = "새 시트";
+      cells = {}; fileName = "sheet.xlsx"; wb = null; tabs.hidden = true;
+      recompute(); persist(); select(0, 0); say("새 시트");
+    }
+    if (a === "save") {
+      try {
+        say("저장 준비 중…");
+        const X = await loadXLSX();
+        const { mr, mc } = used();
+        const ws = {};
+        for (const k in cells) {
+          const raw = cells[k], v = engine.value(k);
+          if (raw[0] === "=") ws[k] = { t: typeof v === "number" ? "n" : typeof v === "boolean" ? "b" : "s", f: raw.slice(1), v: v instanceof FErr ? v.code : (v ?? "") };
+          else if (typeof v === "number") ws[k] = { t: "n", v };
+          else ws[k] = { t: "s", v: raw };
+        }
+        ws["!ref"] = `A1:${cellKey(Math.max(mr, 0), Math.max(mc, 0))}`;
+        const book = X.utils.book_new();
+        X.utils.book_append_sheet(book, ws, (tabs.hidden ? "Sheet1" : tabs.value).slice(0, 31));
+        X.writeFile(book, fileName.replace(/\.(xls|csv|ods)$/i, ".xlsx"));
+        say("다운로드 요청됨 (안 받아지면 '표 복사' 사용)");
+      } catch { say("저장 실패 — 인터넷 연결 확인 또는 '표 복사' 사용"); }
+    }
+  });
+
+  function loadSheet(name) {
+    const ws = wb.Sheets[name];
+    cells = {};
+    for (const addr in ws) {
+      if (addr[0] === "!") continue;
+      const c = ws[addr];
+      if (c.f) cells[addr] = "=" + c.f;
+      else if (c.t === "n") cells[addr] = String(c.v);
+      else if (c.t === "b") cells[addr] = c.v ? "TRUE" : "FALSE";
+      else if (c.v != null && c.v !== "") cells[addr] = String(c.w ?? c.v);
+    }
+    ROWS = COLS = 0;
+    recompute(); persist(); select(0, 0);
+  }
+  tabs.addEventListener("change", () => loadSheet(tabs.value));
+
+  fileIn.addEventListener("change", async () => {
+    const f = fileIn.files[0];
+    fileIn.value = "";
+    if (!f) return;
+    try {
+      say("여는 중…");
+      const X = await loadXLSX();
+      wb = X.read(await f.arrayBuffer());
+      fileName = f.name;
+      tabs.innerHTML = wb.SheetNames.map(n => `<option>${n.replace(/</g, "&lt;")}</option>`).join("");
+      tabs.hidden = wb.SheetNames.length < 2;
+      loadSheet(wb.SheetNames[0]);
+      say(`${f.name} 열림`);
+    } catch { say("열기 실패 — 파일 형식이나 인터넷 연결을 확인하세요"); }
+  });
+
+  recompute();
+  select(0, 0);
+  setTimeout(() => grid.focus({ preventScroll: true }), 0);
+}
+
+/* =========================================================
+   9. 앱: 브라우저 (iframe 으로 웹페이지를 창 안에 띄움)
+   - 내 PC의 서버(ECU ALM 등)는 창 안에 잘 열림
+   - 구글·네이버·유튜브 같은 큰 사이트는 다른 페이지 안에 뜨는 걸 막아 둬서
+     창 안에선 안 보임 → '↗ 새 탭' 버튼으로 실제 크롬에서 열기
+   ========================================================= */
+function mountBrowser(root, opts) {
+  const bookmarks = [
+    { name: "ECU ALM", url: () => store.get("webdesktop.almUrl", "") || ALM_URL },
+    { name: "위키백과", url: () => "https://ko.m.wikipedia.org" },
+    { name: "Google", url: () => "https://www.google.com" },
+    { name: "네이버", url: () => "https://www.naver.com" },
+  ];
+  root.innerHTML = `
+    <div class="brw">
+      <div class="bar">
+        <button data-a="back" title="뒤로">←</button>
+        <button data-a="reload" title="새로고침">⟳</button>
+        <input placeholder="주소 입력 (예: localhost:8765)" spellcheck="false" autocomplete="off">
+        <button data-a="go">이동</button>
+        <button data-a="tab" title="실제 크롬 새 탭에서 열기">↗ 새 탭</button>
+      </div>
+      <div class="bm">${bookmarks.map((b, i) => `<button data-b="${i}">${b.name}</button>`).join("")}</div>
+      <div class="note">${IS_LOCAL
+        ? "구글·네이버처럼 다른 페이지 안에 뜨는 걸 막은 사이트는 빈 화면이 나와요. 그땐 ↗ 새 탭을 누르세요."
+        : "지금은 claude.ai 안이라 창 안에 사이트를 띄울 수 없어요. 이동하면 새 탭으로 열려요. (웹데스크톱_실행.bat 으로 열면 창 안에 열려요)"}</div>
+      <div class="home">🌐<div>주소를 입력하거나 위 즐겨찾기를 누르세요.</div></div>
+    </div>`;
+  const brw = root.querySelector(".brw"), input = root.querySelector("input");
+  let frame = null, history = [], cur = "";
+
+  const norm = u => {
+    u = u.trim();
+    if (!u) return "";
+    if (/^https?:\/\//i.test(u)) return u;
+    if (/^(localhost|127\.|192\.168\.|10\.)/.test(u)) return "http://" + u;
+    if (!u.includes(".") || u.includes(" ")) return "https://www.google.com/search?q=" + encodeURIComponent(u);
+    return "https://" + u;
+  };
+  const newTab = u => { const a = document.createElement("a"); a.href = u; a.target = "_blank"; a.rel = "noopener"; a.click(); };
+
+  function go(u, push = true) {
+    u = norm(u);
+    if (!u) return;
+    input.value = u;
+    if (!IS_LOCAL) return newTab(u);
+    if (!frame) {
+      root.querySelector(".home")?.remove();
+      frame = document.createElement("iframe");
+      frame.setAttribute("referrerpolicy", "no-referrer");
+      brw.appendChild(frame);
+    }
+    if (push && cur) history.push(cur);
+    cur = u;
+    frame.src = u;
+  }
+
+  input.addEventListener("keydown", e => { if (e.key === "Enter") go(input.value); });
+  root.querySelector(".bar").addEventListener("click", e => {
+    const a = e.target.dataset.a;
+    if (a === "go") go(input.value);
+    if (a === "tab") { const u = norm(input.value) || cur; if (u) newTab(u); }
+    if (a === "reload" && frame) frame.src = cur;
+    if (a === "back" && history.length) go(history.pop(), false);
+  });
+  root.querySelector(".bm").addEventListener("click", e => {
+    const i = e.target.dataset.b;
+    if (i != null) go(bookmarks[i].url());
+  });
+
+  if (opts.url) go(opts.url);
+  else setTimeout(() => input.focus(), 0);
+}
+
+/* =========================================================
+   10. 바탕화면 · 시작 메뉴 · 시계
+   ========================================================= */
+const iconsEl = document.getElementById("icons"), menu = document.getElementById("menu");
+Object.entries(APPS).forEach(([id, a]) => {
+  const ic = document.createElement("div");
+  ic.className = "icon"; ic.tabIndex = 0;
+  ic.innerHTML = `<div class="glyph" style="background:${a.color}">${a.glyph}</div><span>${a.name}</span>`;
+  // 데스크톱은 더블클릭, 터치 화면은 한 번 탭으로 실행
+  const touch = matchMedia("(pointer: coarse)").matches;
+  ic.addEventListener(touch ? "click" : "dblclick", () => WM.open(id));
+  ic.addEventListener("keydown", e => { if (e.key === "Enter") WM.open(id); });
+  iconsEl.appendChild(ic);
+
+  const mb = document.createElement("button");
+  mb.innerHTML = `<span class="mini" style="background:${a.color}">${a.glyph}</span>${a.name}`;
+  mb.onclick = () => { menu.classList.remove("open"); WM.open(id); };
+  menu.appendChild(mb);
+});
+
+document.getElementById("start").onclick = e => { e.stopPropagation(); menu.classList.toggle("open"); };
+document.addEventListener("pointerdown", e => { if (!menu.contains(e.target) && e.target.id !== "start") menu.classList.remove("open"); });
+
+const clock = document.getElementById("clock");
+const tick = () => clock.textContent = new Date().toLocaleString("ko-KR", { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
+tick(); setInterval(tick, 10000);
+
+// 처음 열면 터미널을 띄워서 CLI로 앱을 실행해 볼 수 있게
+WM.open("terminal");
+</script>
+</body>
+</html>
